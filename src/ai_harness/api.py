@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from .models import TaskRequest, TaskResult, TaskState
 from .orchestrator import HarnessOrchestrator
@@ -9,6 +10,12 @@ from .orchestrator import HarnessOrchestrator
 def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
     app = FastAPI(title="AI Harness", version="0.1.0")
     app.state.orchestrator = orchestrator
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -29,6 +36,13 @@ def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
     def resume_task(task_id: str) -> TaskResult:
         try:
             return orchestrator.resume(task_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="task not found") from exc
+
+    @app.get("/v1/tasks/{task_id}/diff")
+    def task_diff(task_id: str) -> dict[str, str]:
+        try:
+            return {"task_id": task_id, "diff": orchestrator.diff(task_id)}
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
 

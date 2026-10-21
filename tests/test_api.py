@@ -39,9 +39,12 @@ def test_api_runs_and_reads_task(tmp_path: Path, sample_repository: Path):
         assert response.status_code == 200
         task_id = response.json()["task_id"]
         fetched = client.get(f"/v1/tasks/{task_id}")
+        task_diff = client.get(f"/v1/tasks/{task_id}/diff")
 
     assert fetched.status_code == 200
     assert fetched.json()["status"] == "succeeded"
+    assert task_diff.status_code == 200
+    assert "+    return left + right" in task_diff.json()["diff"]
 
 
 def test_api_returns_404_for_unknown_task(tmp_path: Path):

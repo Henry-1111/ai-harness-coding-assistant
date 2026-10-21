@@ -1,0 +1,44 @@
+:root {
+  color: #edf2ff;
+  background: #090d18;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(75, 107, 255, 0.22), transparent 32%),
+    radial-gradient(circle at 88% 10%, rgba(57, 211, 146, 0.12), transparent 27%),
+    linear-gradient(180deg, #0b1020 0%, #080b13 100%);
+}
+
+.app-shell { position: relative; max-width: 1500px; margin: 0 auto; padding: 44px 28px 64px; }
+.hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.hero h1 { margin: 8px 0 4px !important; font-size: clamp(40px, 6vw, 72px) !important; letter-spacing: -0.05em; }
+.hero-copy { max-width: 720px; color: #9da9c7 !important; font-size: 17px; margin: 0 !important; }
+.eyebrow { color: #7c9cff; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; }
+.security-pill { padding: 10px 14px; border: 1px solid rgba(124, 156, 255, 0.3); border-radius: 999px; background: rgba(15, 23, 45, 0.72); color: #b9c8f8; white-space: nowrap; }
+.panel { height: 100%; border: 1px solid rgba(133, 155, 210, 0.16) !important; background: rgba(14, 20, 36, 0.88) !important; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28); backdrop-filter: blur(20px); }
+.execution-panel .ant-card-body { min-height: 690px; }
+.empty-state { min-height: 510px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #60709a; }
+.empty-state > .anticon { font-size: 48px; color: #657bba; }
+.empty-state h4 { margin: 18px 0 6px !important; }
+.pulse > .anticon { animation: pulse 1.6s ease-in-out infinite; }
+.result-alert { margin-top: 24px; }
+.file-tags { margin: 22px 0 4px; }
+.diff-header { display: flex; justify-content: space-between; align-items: center; margin: 24px 0 12px; }
+.editor-frame { overflow: hidden; border: 1px solid rgba(133, 155, 210, 0.18); border-radius: 10px; }
+
+@keyframes pulse { 50% { opacity: 0.45; transform: scale(0.92); } }
+@media (max-width: 900px) {
+  .app-shell { padding: 28px 16px 44px; }
+  .hero { align-items: flex-start; flex-direction: column; }
+  .security-pill { white-space: normal; }
+  .execution-panel .ant-card-body { min-height: 560px; }
+}

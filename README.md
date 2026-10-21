@@ -22,7 +22,11 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 当前版本包括：
 
 - FastAPI 与 CLI 两种入口；
+- React + TypeScript + Ant Design 控制台，使用 Monaco 展示待发布 diff；
 - Python AST Repo Map，提取 class、function、async function 和 import；
+- Git 分支、提交历史、工作区状态与 diff 的只读上下文；
+- JSON-RPC LSP Client，可按需补充定义跳转等语义上下文；
+- 带服务器 allowlist 和租户/项目身份头的 MCP HTTP Client；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
 - LangGraph 驱动的 Scout、Coder、Verify、Reviewer 工作流；
@@ -32,6 +36,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 本地持久化工作区，以及网络隔离、内存/CPU/PID 限制的 Docker Sandbox；
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
 - SQLite append-only Checkpoint，可查询和恢复任务；
+- Policy、Project、User、Session、Scratchpad 五层 SQLite Memory；
 - 只有测试通过且 Reviewer 批准后才能 Promote 到源仓库。
 
 ## 安全模型
@@ -106,8 +111,20 @@ Content-Type: application/json
 
 - `GET /health`
 - `GET /v1/tasks/{task_id}`
+- `GET /v1/tasks/{task_id}/diff`
 - `POST /v1/tasks/{task_id}/resume`
 - `POST /v1/tasks/{task_id}/promote`
+
+## Web 控制台
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+浏览器访问 `http://127.0.0.1:5173`。控制台支持创建任务、查看 Plan DAG 执行状态、验证结果、Reviewer
+结论和完整 diff，并且只有任务通过审核后才允许点击 Promote。
 
 ## Docker
 
@@ -117,11 +134,12 @@ export AI_HARNESS_REPOSITORY=/absolute/path/to/repository
 docker compose up --build
 ```
 
-Compose 中源仓库以只读方式挂载，任务副本与 Checkpoint 写入独立数据卷。
+浏览器访问 `http://127.0.0.1:5173`。Compose 中源仓库以只读方式挂载，任务副本与 Checkpoint
+写入独立数据卷；控制台通过容器内反向代理访问 API。
 
 ## 项目边界
 
-- 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP Adapter 是下一阶段。
+- 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP Client 已具备协议能力，具体语言服务器由部署方配置。
 - 当前 Checkpoint 使用 SQLite，单机部署足够；多实例部署应切换 PostgreSQL 并增加任务租约。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。

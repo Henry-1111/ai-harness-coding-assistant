@@ -35,6 +35,9 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
     assert result.changed_files == ["calculator.py"]
     assert result.verification[0].exit_code == 0
     assert "left - right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")
+    task_diff = orchestrator.diff(result.task_id)
+    assert "-    return left - right" in task_diff
+    assert "+    return left + right" in task_diff
 
     assert orchestrator.promote(result.task_id) == ["calculator.py"]
     assert "left + right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")

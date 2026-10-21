@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from difflib import unified_diff
 from pathlib import Path
 from typing import Callable, Literal, Optional, TypedDict
 
@@ -90,6 +91,29 @@ class HarnessOrchestrator:
             shutil.copy2(source_path, destination)
             promoted.append(relative_path)
         return promoted
+
+    def diff(self, task_id: str) -> str:
+        state = self.checkpoints.load(task_id)
+        if state is None:
+            raise KeyError(f"task not found: {task_id}")
+        source = Repository(Path(state.request.repository))
+        workspace = Repository(Path(str(state.scratchpad["workspace"])))
+        chunks = []
+        for relative_path in state.changed_files:
+            try:
+                before = source.read_text(relative_path).splitlines(keepends=True)
+            except FileNotFoundError:
+                before = []
+            after = workspace.read_text(relative_path).splitlines(keepends=True)
+            chunks.extend(
+                unified_diff(
+                    before,
+                    after,
+                    fromfile=f"a/{relative_path}",
+                    tofile=f"b/{relative_path}",
+                )
+            )
+        return "".join(chunks)
 
     def _invoke(self, state: TaskState) -> TaskResult:
         graph = self._build_graph()

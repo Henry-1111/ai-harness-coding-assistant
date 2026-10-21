@@ -1,0 +1,34 @@
+export type TaskStatus = "pending" | "running" | "needs_input" | "succeeded" | "failed";
+
+export interface CommandResult {
+  command: string;
+  exit_code: number;
+  stdout: string;
+  stderr: string;
+  duration_ms: number;
+  timed_out: boolean;
+}
+
+export interface ReviewDecision {
+  approved: boolean;
+  summary: string;
+  issues: string[];
+}
+
+export interface TaskResult {
+  task_id: string;
+  status: TaskStatus;
+  changed_files: string[];
+  verification: CommandResult[];
+  review?: ReviewDecision;
+  error?: string;
+}
+
+export interface CreateTaskInput {
+  repository: string;
+  goal: string;
+  file_scope: string[];
+  acceptance_criteria: Array<{ description: string }>;
+  verification_commands: string[];
+  max_replans: number;
+}
