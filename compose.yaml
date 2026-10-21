@@ -1,0 +1,24 @@
+services:
+  ai-harness:
+    build: .
+    environment:
+      AI_HARNESS_DATA_DIR: /data
+      AI_HARNESS_MODEL_BASE_URL: ${AI_HARNESS_MODEL_BASE_URL:-https://api.openai.com/v1}
+      AI_HARNESS_MODEL_API_KEY: ${AI_HARNESS_MODEL_API_KEY:?set AI_HARNESS_MODEL_API_KEY}
+      AI_HARNESS_MODEL: ${AI_HARNESS_MODEL:-gpt-4.1-mini}
+      AI_HARNESS_SANDBOX_MODE: local
+    ports:
+      - "8080:8080"
+    volumes:
+      - harness-data:/data
+      - ${AI_HARNESS_REPOSITORY:-.}:/repository:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  harness-data:
