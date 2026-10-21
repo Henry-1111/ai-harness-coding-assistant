@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 import httpx
 
@@ -63,6 +63,7 @@ Use only files in scope. Prefer the smallest complete change. Never emit command
         request: TaskRequest,
         context: List[SearchHit],
         previous_failure: str = "",
+        memory_context: Optional[List[Dict[str, Any]]] = None,
     ) -> CodingDecision:
         payload = {
             "goal": request.goal,
@@ -70,6 +71,7 @@ Use only files in scope. Prefer the smallest complete change. Never emit command
             "file_scope": request.file_scope,
             "context": [item.model_dump() for item in context],
             "previous_failure": previous_failure,
+            "memory_context": memory_context or [],
         }
         return CodingDecision.model_validate(
             self.model.complete_json(system=self.SYSTEM, payload=payload)

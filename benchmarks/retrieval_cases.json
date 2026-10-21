@@ -1,0 +1,42 @@
+[
+  {
+    "id": "repository-boundary",
+    "query": "prevent a file path from escaping the repository root with path traversal",
+    "relevant_paths": ["src/ai_harness/repository.py"]
+  },
+  {
+    "id": "checkpoint-resume",
+    "query": "load the latest task checkpoint and resume an interrupted workflow",
+    "relevant_paths": ["src/ai_harness/checkpoints.py", "src/ai_harness/orchestrator.py"]
+  },
+  {
+    "id": "docker-isolation",
+    "query": "run verification with docker network disabled memory cpu and pid limits",
+    "relevant_paths": ["src/ai_harness/sandbox.py"]
+  },
+  {
+    "id": "mcp-identity",
+    "query": "MCP tenant project identity and allowed server permission",
+    "relevant_paths": ["src/ai_harness/mcp.py"]
+  },
+  {
+    "id": "lsp-definition",
+    "query": "language server text document definition location JSON RPC",
+    "relevant_paths": ["src/ai_harness/lsp.py"]
+  },
+  {
+    "id": "bounded-edit",
+    "query": "apply an exact unique text edit only inside the allowed file scope",
+    "relevant_paths": ["src/ai_harness/tools.py"]
+  },
+  {
+    "id": "provider-json",
+    "query": "call an OpenAI compatible chat completions provider and parse JSON output",
+    "relevant_paths": ["src/ai_harness/agents.py"]
+  },
+  {
+    "id": "plan-cycle",
+    "query": "validate plan DAG dependencies and reject a dependency cycle",
+    "relevant_paths": ["src/ai_harness/models.py"]
+  }
+]

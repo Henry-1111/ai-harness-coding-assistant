@@ -113,6 +113,33 @@ class SearchHit(BaseModel):
     source: str = "text"
 
 
+class RetrievalStageTrace(BaseModel):
+    stage: Literal["rewrite", "forge", "focus", "deepen", "select"]
+    candidate_count: int = 0
+    selected_paths: List[str] = Field(default_factory=list)
+    duration_ms: int = 0
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RetrievalTrace(BaseModel):
+    queries: List[str] = Field(default_factory=list)
+    stages: List[RetrievalStageTrace] = Field(default_factory=list)
+    cache_hit: bool = False
+    query_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    context_chars: int = 0
+    repository_chars: int = 0
+    context_reduction_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
+    stop_reason: str = "candidates_exhausted"
+
+
+class AgentTraceEvent(BaseModel):
+    node: str
+    outcome: Literal["succeeded", "failed", "replan"]
+    duration_ms: int = 0
+    details: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class FileEdit(BaseModel):
     path: str
     old_text: str
@@ -153,6 +180,8 @@ class TaskState(BaseModel):
     plan: Optional[PlanDAG] = None
     repo_map: List[RepoFile] = Field(default_factory=list)
     context: List[SearchHit] = Field(default_factory=list)
+    retrieval_trace: Optional[RetrievalTrace] = None
+    trace: List[AgentTraceEvent] = Field(default_factory=list)
     changed_files: List[str] = Field(default_factory=list)
     verification: List[CommandResult] = Field(default_factory=list)
     review: Optional[ReviewDecision] = None
@@ -170,4 +199,6 @@ class TaskResult(BaseModel):
     changed_files: List[str]
     verification: List[CommandResult]
     review: Optional[ReviewDecision] = None
+    retrieval_trace: Optional[RetrievalTrace] = None
+    trace: List[AgentTraceEvent] = Field(default_factory=list)
     error: Optional[str] = None

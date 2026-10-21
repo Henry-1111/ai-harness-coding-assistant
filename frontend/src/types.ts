@@ -15,12 +15,32 @@ export interface ReviewDecision {
   issues: string[];
 }
 
+export interface RetrievalTrace {
+  queries: string[];
+  cache_hit: boolean;
+  query_coverage: number;
+  context_chars: number;
+  repository_chars: number;
+  context_reduction_ratio: number;
+  stop_reason: string;
+}
+
+export interface AgentTraceEvent {
+  node: string;
+  outcome: "succeeded" | "failed" | "replan";
+  duration_ms: number;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface TaskResult {
   task_id: string;
   status: TaskStatus;
   changed_files: string[];
   verification: CommandResult[];
   review?: ReviewDecision;
+  retrieval_trace?: RetrievalTrace;
+  trace: AgentTraceEvent[];
   error?: string;
 }
 

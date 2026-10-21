@@ -9,7 +9,9 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 ```text
 需求输入
   -> TaskRouter / Plan DAG
-  -> Repo Map + Forge/Focus/Deepen 渐进式检索
+  -> Query Rewrite + Repo Map + Forge/Focus/Deepen 渐进式检索
+  -> Lexical / AST / Git 多路召回 + RRF 融合
+  -> 上下文预算、停止条件与指纹缓存
   -> Scout 收集最小上下文
   -> Coder 生成结构化 FileEdit
   -> 隔离工作区应用精确替换
@@ -26,6 +28,9 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - Python AST Repo Map，提取 class、function、async function 和 import；
 - Git 分支、提交历史、工作区状态与 diff 的只读上下文；
 - JSON-RPC LSP Client，可按需补充定义跳转等语义上下文；
+- 确定性 Query Rewrite、多路候选召回和 Reciprocal Rank Fusion；
+- 基于字符预算的上下文选择、证据覆盖停止条件和仓库指纹缓存；
+- 文件级 Recall@K、Precision@K、MRR、Hit Rate 和上下文压缩率评测；
 - 带服务器 allowlist 和租户/项目身份头的 MCP HTTP Client；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
@@ -36,7 +41,10 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 本地持久化工作区，以及网络隔离、内存/CPU/PID 限制的 Docker Sandbox；
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
 - SQLite append-only Checkpoint，可查询和恢复任务；
-- Policy、Project、User、Session、Scratchpad 五层 SQLite Memory；
+- 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
+- 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
+- Policy、Project、User、Session、Scratchpad 五层 SQLite Memory，Policy 注入 Coder Prompt，
+  Project 保存最近检索，Session/Scratchpad 跟踪执行进度；
 - 只有测试通过且 Reviewer 批准后才能 Promote 到源仓库。
 
 ## 安全模型
@@ -66,6 +74,17 @@ export AI_HARNESS_MODEL_BASE_URL=https://api.openai.com/v1
 export AI_HARNESS_MODEL_API_KEY=your-key
 export AI_HARNESS_MODEL=gpt-4.1-mini
 ```
+
+通过本项目的 LLM Gateway 调用模型时，使用 Gateway 签发的租户 Key，而不是上游 Provider Key：
+
+```bash
+export AI_HARNESS_MODEL_BASE_URL=http://127.0.0.1:8000/v1
+export AI_HARNESS_MODEL_API_KEY='<llmgw-api-key>'
+export AI_HARNESS_MODEL=gpt-4.1-mini
+```
+
+Harness 会调用 `http://127.0.0.1:8000/v1/chat/completions`；限流、Token 配额、Provider
+路由、故障转移和调用日志由 Gateway 统一处理。
 
 在隔离工作区执行任务：
 
@@ -112,6 +131,7 @@ Content-Type: application/json
 - `GET /health`
 - `GET /v1/tasks/{task_id}`
 - `GET /v1/tasks/{task_id}/diff`
+- `GET /v1/tasks/{task_id}/trace`
 - `POST /v1/tasks/{task_id}/resume`
 - `POST /v1/tasks/{task_id}/promote`
 
@@ -125,6 +145,25 @@ npm run dev
 
 浏览器访问 `http://127.0.0.1:5173`。控制台支持创建任务、查看 Plan DAG 执行状态、验证结果、Reviewer
 结论和完整 diff，并且只有任务通过审核后才允许点击 Promote。
+
+## 检索评测
+
+项目提供带人工相关文件标注的固定任务集：
+
+```bash
+ai-harness eval-retrieval . benchmarks/retrieval_cases.json --k 5
+```
+
+输出包含：
+
+- `recall_at_k`：标注相关文件被召回的比例；
+- `precision_at_k`：前 K 个结果中相关文件的比例；
+- `mrr`：第一个相关文件排名的倒数均值；
+- `hit_rate`：至少召回一个相关文件的任务比例；
+- `mean_context_reduction_ratio`：相对整个仓库，最终进入模型的上下文减少比例。
+
+`tests/test_retrieval_benchmark.py` 设置了回归下限。当前数据集只有 8 个仓库内任务，只用于验证检索实现和防止
+回归，不能作为外部通用准确率；对外写入简历前，应扩展为独立、冻结且不参与调参的任务集。
 
 ## Docker
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 from pathlib import Path
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from .models import TaskState, utc_now
 
@@ -72,6 +72,36 @@ class CheckpointStore:
                 (task_id,),
             ).fetchone()
         return TaskState.model_validate_json(row["state_json"]) if row else None
+
+    def load_revision(self, task_id: str, revision: int) -> Optional[TaskState]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT state_json FROM task_checkpoints WHERE task_id = ? AND revision = ?",
+                (task_id, revision),
+            ).fetchone()
+        return TaskState.model_validate_json(row["state_json"]) if row else None
+
+    def bisect_first(
+        self,
+        task_id: str,
+        predicate: Callable[[TaskState], bool],
+    ) -> Optional[int]:
+        """Find the first revision matching a monotonic predicate in O(log revisions)."""
+        revisions = self.revisions(task_id)
+        low, high = 0, len(revisions) - 1
+        answer: Optional[int] = None
+        while low <= high:
+            middle = (low + high) // 2
+            revision = revisions[middle]
+            state = self.load_revision(task_id, revision)
+            if state is None:
+                return None
+            if predicate(state):
+                answer = revision
+                high = middle - 1
+            else:
+                low = middle + 1
+        return answer
 
     def revisions(self, task_id: str) -> List[int]:
         with self._connect() as connection:

@@ -2,6 +2,7 @@ from pathlib import Path
 
 from conftest import ScriptedModel
 
+from ai_harness.memory import MemoryLayer
 from ai_harness.models import TaskRequest, TaskStatus
 from ai_harness.orchestrator import HarnessOrchestrator
 from ai_harness.sandbox import LocalCommandSandbox
@@ -34,6 +35,13 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
     assert result.status == TaskStatus.SUCCEEDED
     assert result.changed_files == ["calculator.py"]
     assert result.verification[0].exit_code == 0
+    assert result.retrieval_trace is not None
+    assert result.retrieval_trace.stages[-1].stage == "select"
+    assert [event.node for event in result.trace] == ["scout", "code", "verify", "review"]
+    assert model.calls[0]["payload"]["memory_context"][0]["layer"] == "policy"
+    assert orchestrator.memory.get(MemoryLayer.SESSION, result.task_id, "progress")["node"] == (
+        "review"
+    )
     assert "left - right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")
     task_diff = orchestrator.diff(result.task_id)
     assert "-    return left - right" in task_diff

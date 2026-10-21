@@ -46,6 +46,20 @@ def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
 
+    @app.get("/v1/tasks/{task_id}/trace")
+    def task_trace(task_id: str) -> dict[str, object]:
+        task = orchestrator.get(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        return {
+            "task_id": task_id,
+            "events": [event.model_dump(mode="json") for event in task.trace],
+            "retrieval": (
+                task.retrieval_trace.model_dump(mode="json") if task.retrieval_trace else None
+            ),
+            "checkpoint_revisions": orchestrator.checkpoints.revisions(task_id),
+        }
+
     @app.post("/v1/tasks/{task_id}/promote")
     def promote_task(task_id: str) -> dict[str, object]:
         try:

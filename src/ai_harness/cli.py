@@ -8,8 +8,10 @@ from typing import Optional, Sequence
 from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
+from .evaluation import RetrievalEvaluator, load_cases
 from .models import AcceptanceCriterion, TaskRequest
 from .orchestrator import HarnessOrchestrator
+from .repository import Repository
 from .sandbox import DockerSandbox, LocalCommandSandbox
 
 
@@ -57,11 +59,25 @@ def build_parser() -> argparse.ArgumentParser:
     serve = subparsers.add_parser("serve", help="Run the FastAPI service")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8080)
+
+    evaluate = subparsers.add_parser(
+        "eval-retrieval", help="Measure repository retrieval against a labelled dataset"
+    )
+    evaluate.add_argument("repository")
+    evaluate.add_argument("dataset")
+    evaluate.add_argument("--k", type=int, default=5)
     return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.command == "eval-retrieval":
+        evaluation = RetrievalEvaluator(Repository(Path(args.repository))).evaluate(
+            load_cases(Path(args.dataset)),
+            k=args.k,
+        )
+        print(evaluation.model_dump_json(indent=2))
+        return
     orchestrator = build_orchestrator()
     if args.command == "run":
         request = TaskRequest(

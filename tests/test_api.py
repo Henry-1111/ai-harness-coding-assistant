@@ -40,11 +40,20 @@ def test_api_runs_and_reads_task(tmp_path: Path, sample_repository: Path):
         task_id = response.json()["task_id"]
         fetched = client.get(f"/v1/tasks/{task_id}")
         task_diff = client.get(f"/v1/tasks/{task_id}/diff")
+        task_trace = client.get(f"/v1/tasks/{task_id}/trace")
 
     assert fetched.status_code == 200
     assert fetched.json()["status"] == "succeeded"
     assert task_diff.status_code == 200
     assert "+    return left + right" in task_diff.json()["diff"]
+    assert task_trace.status_code == 200
+    assert [event["node"] for event in task_trace.json()["events"]] == [
+        "scout",
+        "code",
+        "verify",
+        "review",
+    ]
+    assert len(task_trace.json()["checkpoint_revisions"]) >= 5
 
 
 def test_api_returns_404_for_unknown_task(tmp_path: Path):

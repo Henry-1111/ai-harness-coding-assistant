@@ -195,17 +195,24 @@ export default function App() {
               <>
                 <Divider />
                 <Row gutter={16}>
-                  <Col span={8}>
+                  <Col span={6}>
                     <Statistic title="状态" value={result.status.toUpperCase()} />
                   </Col>
-                  <Col span={8}>
+                  <Col span={6}>
                     <Statistic title="修改文件" value={result.changed_files.length} />
                   </Col>
-                  <Col span={8}>
+                  <Col span={6}>
                     <Statistic
                       title="验证通过"
                       value={result.verification.filter((item) => item.exit_code === 0).length}
                       suffix={`/ ${result.verification.length}`}
+                    />
+                  </Col>
+                  <Col span={6}>
+                    <Statistic
+                      title="上下文压缩"
+                      value={Math.round((result.retrieval_trace?.context_reduction_ratio ?? 0) * 100)}
+                      suffix="%"
                     />
                   </Col>
                 </Row>
