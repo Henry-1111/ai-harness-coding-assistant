@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Dict, List, Optional, Sequence
+from urllib.parse import unquote, urlparse
+
+from .models import SearchHit
 
 
 class LSPError(RuntimeError):
@@ -100,12 +104,33 @@ class LSPClient:
         locations = result if isinstance(result, list) else [result] if result else []
         return [self._location(item) for item in locations]
 
+    def open_document(self, relative_path: str, language_id: str, text: str) -> None:
+        path = (self.repository / relative_path).resolve()
+        try:
+            path.relative_to(self.repository)
+        except ValueError as exc:
+            raise LSPError("document path escapes repository") from exc
+        self.notify(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": path.as_uri(),
+                    "languageId": language_id,
+                    "version": 1,
+                    "text": text,
+                }
+            },
+        )
+
     def request(self, method: str, params: Any) -> Any:
         request_id = self._next_id
         self._next_id += 1
         self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
         while True:
             message = self._receive()
+            if "method" in message and "id" in message:
+                self._send({"jsonrpc": "2.0", "id": message["id"], "result": None})
+                continue
             if message.get("id") != request_id:
                 continue
             if "error" in message:
@@ -136,3 +161,68 @@ class LSPClient:
             end_line=range_value["end"]["line"],
             end_character=range_value["end"]["character"],
         )
+
+
+class LSPDefinitionEnricher:
+    """Resolve definitions for query symbols found in the highest-ranked source hits."""
+
+    WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}")
+
+    def __init__(self, command: Sequence[str], repository: Path, max_files: int = 3) -> None:
+        self.command = list(command)
+        self.repository = repository.resolve()
+        self.max_files = max_files
+
+    def related_paths(self, query: str, hits: Sequence[SearchHit]) -> List[str]:
+        terms = {item.lower() for item in self.WORD.findall(query)}
+        if not terms:
+            return []
+        related: List[str] = []
+        with LSPClient(self.command, self.repository) as client:
+            for hit in hits[: self.max_files]:
+                path = (self.repository / hit.path).resolve()
+                if not path.is_file():
+                    continue
+                text = path.read_text(encoding="utf-8", errors="replace")
+                client.open_document(hit.path, self._language_id(path), text)
+                lines = text.splitlines()
+                for line_index, line in enumerate(lines):
+                    match = next(
+                        (
+                            match
+                            for match in self.WORD.finditer(line)
+                            if match.group(0).lower() in terms
+                        ),
+                        None,
+                    )
+                    if match is None:
+                        continue
+                    for location in client.definition(hit.path, line_index, match.start()):
+                        relative = self._relative_path(location.uri)
+                        if relative and relative not in related:
+                            related.append(relative)
+                    break
+        return related
+
+    def _relative_path(self, uri: str) -> Optional[str]:
+        parsed = urlparse(uri)
+        if parsed.scheme != "file":
+            return None
+        path = Path(unquote(parsed.path)).resolve()
+        try:
+            return path.relative_to(self.repository).as_posix()
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _language_id(path: Path) -> str:
+        return {
+            ".py": "python",
+            ".ts": "typescript",
+            ".tsx": "typescriptreact",
+            ".js": "javascript",
+            ".jsx": "javascriptreact",
+            ".go": "go",
+            ".rs": "rust",
+            ".java": "java",
+        }.get(path.suffix.lower(), "plaintext")

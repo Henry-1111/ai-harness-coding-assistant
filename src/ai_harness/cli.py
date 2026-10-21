@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 from pathlib import Path
 from typing import Optional, Sequence
 
 from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
+from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
+from .lsp import LSPDefinitionEnricher
 from .models import AcceptanceCriterion, TaskRequest
 from .orchestrator import HarnessOrchestrator
 from .repository import Repository
@@ -33,7 +36,29 @@ def build_orchestrator() -> HarnessOrchestrator:
         runner_factory = LocalCommandSandbox
     else:
         raise SystemExit("AI_HARNESS_SANDBOX_MODE must be 'docker' or 'local'")
-    return HarnessOrchestrator(model, settings.data_directory, runner_factory=runner_factory)
+    embedding_provider = (
+        OpenAICompatibleEmbeddingProvider(
+            settings.model_base_url,
+            settings.model_api_key,
+            settings.embedding_model,
+            settings.model_timeout_seconds,
+        )
+        if settings.embedding_model
+        else None
+    )
+    definition_provider_factory = None
+    if settings.lsp_command:
+        lsp_command = shlex.split(settings.lsp_command)
+
+        def definition_provider_factory(repository):
+            return LSPDefinitionEnricher(lsp_command, repository)
+    return HarnessOrchestrator(
+        model,
+        settings.data_directory,
+        runner_factory=runner_factory,
+        embedding_provider=embedding_provider,
+        definition_provider_factory=definition_provider_factory,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("repository")
     evaluate.add_argument("dataset")
     evaluate.add_argument("--k", type=int, default=5)
+    evaluate.add_argument("--split", choices=["train", "validation", "test"])
+    evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
 
 
@@ -75,8 +102,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         evaluation = RetrievalEvaluator(Repository(Path(args.repository))).evaluate(
             load_cases(Path(args.dataset)),
             k=args.k,
+            split=args.split,
         )
-        print(evaluation.model_dump_json(indent=2))
+        report = evaluation.model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
         return
     orchestrator = build_orchestrator()
     if args.command == "run":

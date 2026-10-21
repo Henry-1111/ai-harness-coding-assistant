@@ -10,8 +10,9 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 需求输入
   -> TaskRouter / Plan DAG
   -> Query Rewrite + Repo Map + Forge/Focus/Deepen 渐进式检索
-  -> Lexical / AST / Git 多路召回 + RRF 融合
-  -> 上下文预算、停止条件与指纹缓存
+  -> BM25 / Embedding / AST / Git / LSP 多路召回 + RRF 融合
+  -> Evidence Judge -> Query Refine -> 最多 3 轮检索
+  -> 全局上下文预算、停止条件与指纹缓存
   -> Scout 收集最小上下文
   -> Coder 生成结构化 FileEdit
   -> 隔离工作区应用精确替换
@@ -27,10 +28,12 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - React + TypeScript + Ant Design 控制台，使用 Monaco 展示待发布 diff；
 - Python AST Repo Map，提取 class、function、async function 和 import；
 - Git 分支、提交历史、工作区状态与 diff 的只读上下文；
-- JSON-RPC LSP Client，可按需补充定义跳转等语义上下文；
-- 确定性 Query Rewrite、多路候选召回和 Reciprocal Rank Fusion；
-- 基于字符预算的上下文选择、证据覆盖停止条件和仓库指纹缓存；
-- 文件级 Recall@K、Precision@K、MRR、Hit Rate 和上下文压缩率评测；
+- JSON-RPC LSP Client，并可将定义跳转结果接入 Scout 召回；
+- 确定性 Query Rewrite、标准 BM25、可选 OpenAI-compatible Embedding、多路候选召回和
+  Reciprocal Rank Fusion；
+- 基于字符预算的上下文选择、证据覆盖判断、查询细化、最多三轮检索和仓库指纹缓存；
+- 文件级 Recall@K、Precision@K、MRR、NDCG@K、Hit Rate、上下文压缩率、分组指标和
+  单轮基线对比；
 - 带服务器 allowlist 和租户/项目身份头的 MCP HTTP Client；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
@@ -73,6 +76,14 @@ pytest
 export AI_HARNESS_MODEL_BASE_URL=https://api.openai.com/v1
 export AI_HARNESS_MODEL_API_KEY=your-key
 export AI_HARNESS_MODEL=gpt-4.1-mini
+```
+
+可选开启向量召回和语言服务器定义跳转；未配置或外部服务失败时，系统会保留 BM25/AST/Git
+检索并记录降级原因：
+
+```bash
+export AI_HARNESS_EMBEDDING_MODEL=text-embedding-3-small
+export AI_HARNESS_LSP_COMMAND="pyright-langserver --stdio"
 ```
 
 通过本项目的 LLM Gateway 调用模型时，使用 Gateway 签发的租户 Key，而不是上游 Provider Key：
@@ -151,7 +162,10 @@ npm run dev
 项目提供带人工相关文件标注的固定任务集：
 
 ```bash
-ai-harness eval-retrieval . benchmarks/retrieval_cases.json --k 5
+ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
+  --k 5 \
+  --split test \
+  --output benchmarks/latest-report.json
 ```
 
 输出包含：
@@ -159,8 +173,12 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json --k 5
 - `recall_at_k`：标注相关文件被召回的比例；
 - `precision_at_k`：前 K 个结果中相关文件的比例；
 - `mrr`：第一个相关文件排名的倒数均值；
+- `ndcg_at_k`：同时考虑多个相关文件及其排序位置；
 - `hit_rate`：至少召回一个相关文件的任务比例；
 - `mean_context_reduction_ratio`：相对整个仓库，最终进入模型的上下文减少比例。
+- `baseline_recall_at_k` / `recall_delta`：与单轮检索结果对比；
+- `by_language` / `by_task_type`：按语言和任务类型定位薄弱项；
+- 每个 Case 的 `rounds` 与 `stop_reason`：验证迭代检索是否按证据或预算停止。
 
 `tests/test_retrieval_benchmark.py` 设置了回归下限。当前数据集只有 8 个仓库内任务，只用于验证检索实现和防止
 回归，不能作为外部通用准确率；对外写入简历前，应扩展为独立、冻结且不参与调参的任务集。
@@ -178,7 +196,11 @@ docker compose up --build
 
 ## 项目边界
 
-- 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP Client 已具备协议能力，具体语言服务器由部署方配置。
+- 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP 定义召回已接入
+  Scout，但具体语言服务器仍需部署方通过 `AI_HARNESS_LSP_COMMAND` 配置。
+- Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭，配置
+  `AI_HARNESS_EMBEDDING_MODEL` 后可使用支持该接口的 Provider。当前 LLM Gateway 仅代理
+  `/chat/completions`，需在 Gateway 增加 `/embeddings` 路由后才能统一接入。
 - 当前 Checkpoint 使用 SQLite，单机部署足够；多实例部署应切换 PostgreSQL 并增加任务租约。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。

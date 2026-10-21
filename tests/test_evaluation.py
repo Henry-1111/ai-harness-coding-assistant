@@ -16,6 +16,8 @@ def test_retrieval_evaluator_reports_recall_precision_mrr_and_reduction(tmp_path
             id="quota",
             query="reserve token quota reservation",
             relevant_paths=["quota.py"],
+            language="python",
+            task_type="quota",
         )
     ]
 
@@ -24,8 +26,12 @@ def test_retrieval_evaluator_reports_recall_precision_mrr_and_reduction(tmp_path
     assert result.recall_at_k == 1.0
     assert result.precision_at_k == 0.5
     assert result.mrr == 1.0
+    assert result.ndcg_at_k == 1.0
     assert result.hit_rate == 1.0
     assert result.mean_context_reduction_ratio > 0
+    assert result.by_language["python"].recall_at_k == 1.0
+    assert result.by_task_type["quota"].hit_rate == 1.0
+    assert result.baseline_recall_at_k == 1.0
 
 
 def test_load_cases_rejects_non_array_dataset(tmp_path: Path):

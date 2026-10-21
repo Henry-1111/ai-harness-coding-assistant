@@ -36,7 +36,7 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
     assert result.changed_files == ["calculator.py"]
     assert result.verification[0].exit_code == 0
     assert result.retrieval_trace is not None
-    assert result.retrieval_trace.stages[-1].stage == "select"
+    assert result.retrieval_trace.stages[-1].stage == "judge"
     assert [event.node for event in result.trace] == ["scout", "code", "verify", "review"]
     assert model.calls[0]["payload"]["memory_context"][0]["layer"] == "policy"
     assert orchestrator.memory.get(MemoryLayer.SESSION, result.task_id, "progress")["node"] == (

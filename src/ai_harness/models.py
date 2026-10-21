@@ -114,7 +114,18 @@ class SearchHit(BaseModel):
 
 
 class RetrievalStageTrace(BaseModel):
-    stage: Literal["rewrite", "forge", "focus", "deepen", "select"]
+    stage: Literal[
+        "rewrite",
+        "forge",
+        "focus",
+        "semantic",
+        "deepen",
+        "lsp",
+        "judge",
+        "refine",
+        "select",
+    ]
+    round: int = Field(default=1, ge=1)
     candidate_count: int = 0
     selected_paths: List[str] = Field(default_factory=list)
     duration_ms: int = 0
@@ -130,6 +141,7 @@ class RetrievalTrace(BaseModel):
     repository_chars: int = 0
     context_reduction_ratio: float = Field(default=0.0, ge=0.0, le=1.0)
     stop_reason: str = "candidates_exhausted"
+    rounds: int = Field(default=1, ge=1)
 
 
 class AgentTraceEvent(BaseModel):

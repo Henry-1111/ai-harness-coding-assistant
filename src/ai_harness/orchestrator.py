@@ -12,11 +12,18 @@ from langgraph.graph import END, START, StateGraph
 
 from .agents import AgentModel, CoderAgent, ReviewerAgent
 from .checkpoints import CheckpointStore
+from .embeddings import EmbeddingProvider
 from .git_tools import GitCommandError, GitRepository
 from .memory import LayeredMemoryStore, MemoryLayer
 from .models import AgentTraceEvent, TaskRequest, TaskResult, TaskState, TaskStatus
 from .planner import TaskRouter
-from .repository import ContextIndex, RepoMapBuilder, Repository, RetrievalCache
+from .repository import (
+    DefinitionProvider,
+    ProgressiveRetriever,
+    RepoMapBuilder,
+    Repository,
+    RetrievalCache,
+)
 from .sandbox import CommandRunner, DockerSandbox
 from .tools import ToolContext, default_registry
 
@@ -35,6 +42,8 @@ class HarnessOrchestrator:
         *,
         checkpoint_store: Optional[CheckpointStore] = None,
         runner_factory: Optional[Callable[[Path], CommandRunner]] = None,
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None,
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -45,6 +54,8 @@ class HarnessOrchestrator:
         self.router = TaskRouter()
         self.repo_map_builder = RepoMapBuilder()
         self.retrieval_cache = RetrievalCache()
+        self.embedding_provider = embedding_provider
+        self.definition_provider_factory = definition_provider_factory
         self.memory = LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -205,11 +216,18 @@ class HarnessOrchestrator:
             ]
         except (GitCommandError, FileNotFoundError):
             pass
-        index = ContextIndex(
+        definition_provider = (
+            self.definition_provider_factory(repository.root)
+            if self.definition_provider_factory
+            else None
+        )
+        index = ProgressiveRetriever(
             repository,
             task.repo_map,
             changed_paths=changed_paths,
             cache=self.retrieval_cache,
+            embedding_provider=self.embedding_provider,
+            definition_provider=definition_provider,
         )
         task.context = index.search(task.request.goal, limit=30)
         task.retrieval_trace = index.last_trace

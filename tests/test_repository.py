@@ -4,12 +4,27 @@ import pytest
 
 from ai_harness.repository import (
     ContextIndex,
+    EvidenceJudge,
+    ProgressiveRetriever,
     QueryRewriter,
     RepoMapBuilder,
     Repository,
     RepositoryBoundaryError,
     RetrievalCache,
 )
+
+
+class FakeEmbeddings:
+    def embed(self, texts):
+        return [
+            [1.0, 0.0] if "authorization" in text else [0.0, 1.0]
+            for text in texts
+        ]
+
+
+class FakeDefinitions:
+    def related_paths(self, query, hits):
+        return ["src/policy.py"]
 
 
 def test_repo_map_extracts_python_symbols_and_imports(tmp_path: Path):
@@ -130,3 +145,50 @@ def test_context_budget_caps_selected_text(tmp_path: Path):
 
     assert sum(len(hit.text) for hit in hits) <= 80
     assert index.last_trace.stop_reason == "budget_exhausted"
+
+
+def test_hybrid_retrieval_fuses_embeddings_and_lsp_definitions(tmp_path: Path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "handler.py").write_text(
+        "def authorization_handler():\n    return True\n", encoding="utf-8"
+    )
+    (tmp_path / "src" / "policy.py").write_text(
+        "def allow_request():\n    return True\n", encoding="utf-8"
+    )
+    repository = Repository(tmp_path)
+    index = ContextIndex(
+        repository,
+        RepoMapBuilder().build(repository),
+        embedding_provider=FakeEmbeddings(),
+        definition_provider=FakeDefinitions(),
+    )
+
+    hits = index.search("authorization", limit=2)
+
+    assert {hit.path for hit in hits} == {"src/handler.py", "src/policy.py"}
+    assert any(
+        stage.stage == "semantic" and stage.candidate_count
+        for stage in index.last_trace.stages
+    )
+    assert any(stage.stage == "lsp" and stage.selected_paths for stage in index.last_trace.stages)
+
+
+def test_progressive_retrieval_refines_until_evidence_is_sufficient(tmp_path: Path):
+    (tmp_path / "quota.py").write_text(
+        "class QuotaManager:\n    def reserve_tokens(self):\n        return True\n",
+        encoding="utf-8",
+    )
+    repository = Repository(tmp_path)
+    retriever = ProgressiveRetriever(
+        repository,
+        RepoMapBuilder().build(repository),
+        judge=EvidenceJudge(minimum_coverage=1.0),
+        max_rounds=2,
+    )
+
+    hits = retriever.search("quota reserve missingconcept", limit=3)
+
+    assert hits[0].path == "quota.py"
+    assert retriever.last_trace.rounds == 2
+    assert any(stage.stage == "refine" for stage in retriever.last_trace.stages)
+    assert retriever.last_trace.stop_reason == "max_rounds"

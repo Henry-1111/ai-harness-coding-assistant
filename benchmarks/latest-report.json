@@ -1,0 +1,237 @@
+{
+  "cases": 8,
+  "k": 5,
+  "recall_at_k": 1.0,
+  "precision_at_k": 0.225,
+  "mrr": 0.916667,
+  "ndcg_at_k": 0.922152,
+  "hit_rate": 1.0,
+  "mean_context_reduction_ratio": 0.99186,
+  "baseline_recall_at_k": 1.0,
+  "recall_delta": 0.0,
+  "by_language": {
+    "python": {
+      "cases": 8,
+      "recall_at_k": 1.0,
+      "mrr": 0.916667,
+      "hit_rate": 1.0
+    }
+  },
+  "by_task_type": {
+    "editing": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "integration": {
+      "cases": 2,
+      "recall_at_k": 1.0,
+      "mrr": 0.666667,
+      "hit_rate": 1.0
+    },
+    "planning": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "retrieval": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "security": {
+      "cases": 2,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "workflow": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    }
+  },
+  "details": [
+    {
+      "id": "repository-boundary",
+      "retrieved_paths": [
+        "src/ai_harness/repository.py",
+        "src/ai_harness/tools.py",
+        "src/ai_harness/git_tools.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/models.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/repository.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.99141,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "checkpoint-resume",
+      "retrieved_paths": [
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/cli.py",
+        "tests/test_checkpoints.py",
+        "src/ai_harness/checkpoints.py",
+        "src/ai_harness/api.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/checkpoints.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.4,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 0.877215,
+      "hit": true,
+      "context_reduction_ratio": 0.990954,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "docker-isolation",
+      "retrieved_paths": [
+        "src/ai_harness/sandbox.py",
+        "tests/test_tools_and_sandbox.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/memory.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/sandbox.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.992128,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "mcp-identity",
+      "retrieved_paths": [
+        "src/ai_harness/mcp.py",
+        "tests/test_mcp.py",
+        "src/ai_harness/sandbox.py",
+        "src/ai_harness/tools.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/mcp.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.993604,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "lsp-definition",
+      "retrieved_paths": [
+        "src/ai_harness/lsp.py",
+        "src/ai_harness/repository.py",
+        "tests/test_lsp.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/evaluation.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/lsp.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.990578,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "bounded-edit",
+      "retrieved_paths": [
+        "src/ai_harness/tools.py",
+        "tests/test_tools_and_sandbox.py",
+        "src/ai_harness/models.py",
+        "src/ai_harness/repository.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/tools.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.991344,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "provider-json",
+      "retrieved_paths": [
+        "src/ai_harness/embeddings.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/agents.py",
+        "tests/test_embeddings.py",
+        "tests/test_agents.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/agents.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.333333,
+      "ndcg_at_k": 0.5,
+      "hit": true,
+      "context_reduction_ratio": 0.992956,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    },
+    {
+      "id": "plan-cycle",
+      "retrieved_paths": [
+        "src/ai_harness/models.py",
+        "tests/test_models_and_planner.py",
+        "src/ai_harness/planner.py",
+        "src/ai_harness/sandbox.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/models.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.991903,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0
+    }
+  ]
+}

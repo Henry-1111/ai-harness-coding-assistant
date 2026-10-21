@@ -9,8 +9,9 @@ import re
 import time
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
+from .embeddings import EmbeddingProvider
 from .models import RepoFile, RepoSymbol, RetrievalStageTrace, RetrievalTrace, SearchHit
 
 DEFAULT_EXCLUDES = {
@@ -234,6 +235,11 @@ class RetrievalCache:
             self._values.popitem(last=False)
 
 
+class DefinitionProvider(Protocol):
+    def related_paths(self, query: str, hits: Sequence[SearchHit]) -> List[str]:
+        ...
+
+
 class ContextIndex:
     """Rewrite -> Forge -> Focus -> Deepen -> RRF selection with a context budget."""
 
@@ -246,11 +252,15 @@ class ContextIndex:
         *,
         changed_paths: Optional[Sequence[str]] = None,
         cache: Optional[RetrievalCache] = None,
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        definition_provider: Optional[DefinitionProvider] = None,
     ) -> None:
         self.repository = repository
         self.repo_map = repo_map
         self.changed_paths = list(dict.fromkeys(changed_paths or []))
         self.cache = cache or RetrievalCache()
+        self.embedding_provider = embedding_provider
+        self.definition_provider = definition_provider
         self.rewriter = QueryRewriter()
         self.last_trace = RetrievalTrace()
 
@@ -272,6 +282,10 @@ class ContextIndex:
         cache_key = hashlib.sha256(
             repr(
                 (fingerprint, queries, limit, max_context_chars, sorted(self.changed_paths))
+                + (
+                    type(self.embedding_provider).__name__ if self.embedding_provider else "",
+                    type(self.definition_provider).__name__ if self.definition_provider else "",
+                )
             ).encode()
         ).hexdigest()
         cached = self.cache.get(cache_key)
@@ -310,41 +324,54 @@ class ContextIndex:
         forge_ms = round((time.monotonic() - stage_started) * 1000)
 
         stage_started = time.monotonic()
-        document_frequency = {
-            term: sum(term in text.lower() for text in texts.values()) for term in terms
-        }
-        lexical_scores: Dict[str, float] = {}
-        representatives: Dict[str, SearchHit] = {}
+        windows: List[Tuple[str, int, List[str], str]] = []
         for path, text in texts.items():
             lines = text.splitlines()
             for start in range(0, max(len(lines), 1), 8):
                 window_lines = lines[start : start + 12]
-                window_text = "\n".join(window_lines)
-                lowered = window_text.lower()
-                score = 0.0
-                for term in terms:
-                    frequency = lowered.count(term)
-                    if not frequency:
-                        continue
-                    inverse_frequency = math.log(
-                        (len(texts) + 1) / (document_frequency[term] + 1)
-                    ) + 1.0
-                    score += (1.0 + math.log(frequency)) * inverse_frequency
-                if score <= 0:
+                windows.append((path, start, lines, "\n".join(window_lines)))
+        document_frequency = {
+            term: sum(term in window.lower() for _, _, _, window in windows) for term in terms
+        }
+        average_length = sum(len(window.split()) for _, _, _, window in windows) / max(
+            len(windows), 1
+        )
+        lexical_scores: Dict[str, float] = {}
+        representatives: Dict[str, SearchHit] = {}
+        k1 = 1.5
+        b = 0.75
+        for path, start, lines, window_text in windows:
+            lowered = window_text.lower()
+            document_length = max(len(window_text.split()), 1)
+            score = 0.0
+            for term in terms:
+                frequency = lowered.count(term)
+                if not frequency:
                     continue
-                if score > lexical_scores.get(path, 0.0):
-                    lexical_scores[path] = score
-                    numbered = "\n".join(
-                        f"{line_number + 1}: {lines[line_number]}"
-                        for line_number in range(start, min(start + 12, len(lines)))
-                    )
-                    representatives[path] = SearchHit(
-                        path=path,
-                        line=start + 1,
-                        text=numbered[:3000],
-                        score=score,
-                        source="lexical_window",
-                    )
+                inverse_frequency = math.log(
+                    1.0
+                    + (len(windows) - document_frequency[term] + 0.5)
+                    / (document_frequency[term] + 0.5)
+                )
+                denominator = frequency + k1 * (
+                    1.0 - b + b * document_length / max(average_length, 1.0)
+                )
+                score += inverse_frequency * frequency * (k1 + 1.0) / denominator
+            if score <= 0:
+                continue
+            if score > lexical_scores.get(path, 0.0):
+                lexical_scores[path] = score
+                numbered = "\n".join(
+                    f"{line_number + 1}: {lines[line_number]}"
+                    for line_number in range(start, min(start + 12, len(lines)))
+                )
+                representatives[path] = SearchHit(
+                    path=path,
+                    line=start + 1,
+                    text=numbered[:3000],
+                    score=score,
+                    source="bm25_window",
+                )
         lexical_rank = [
             path
             for path, _ in sorted(
@@ -352,6 +379,57 @@ class ContextIndex:
             )
         ]
         focus_ms = round((time.monotonic() - stage_started) * 1000)
+
+        stage_started = time.monotonic()
+        semantic_scores: Dict[str, float] = {}
+        semantic_error = ""
+        semantic_candidates = list(
+            dict.fromkeys(lexical_rank[:30] + structure_rank[:30] + forge_candidates[:30])
+        )[:50]
+        if self.embedding_provider and semantic_candidates:
+            try:
+                embedding_inputs = [
+                    query,
+                    *[
+                        f"{path}\n{texts.get(path, '')[:2500]}"
+                        for path in semantic_candidates
+                    ],
+                ]
+                vectors = self.embedding_provider.embed(embedding_inputs)
+                if len(vectors) != len(embedding_inputs):
+                    raise ValueError("embedding result count mismatch")
+                semantic_scores = {
+                    path: self._cosine_similarity(vectors[0], vector)
+                    for path, vector in zip(semantic_candidates, vectors[1:])
+                }
+            except Exception as exc:
+                semantic_error = f"{type(exc).__name__}: {exc}"
+        semantic_rank = [
+            path
+            for path, score in sorted(
+                semantic_scores.items(), key=lambda pair: (-pair[1], pair[0])
+            )
+            if score > 0
+        ]
+        semantic_ms = round((time.monotonic() - stage_started) * 1000)
+
+        stage_started = time.monotonic()
+        lsp_rank: List[str] = []
+        lsp_error = ""
+        if self.definition_provider:
+            preliminary = [
+                representatives.get(path) or self._representative(path, texts.get(path, ""))
+                for path in (lexical_rank or structure_rank)[:5]
+            ]
+            try:
+                lsp_rank = [
+                    path
+                    for path in self.definition_provider.related_paths(query, preliminary)
+                    if path in texts
+                ]
+            except Exception as exc:
+                lsp_error = f"{type(exc).__name__}: {exc}"
+        lsp_ms = round((time.monotonic() - stage_started) * 1000)
 
         stage_started = time.monotonic()
         seed_paths = set((lexical_rank or structure_rank)[:10])
@@ -370,7 +448,9 @@ class ContextIndex:
         rankings = {
             "lexical": (lexical_rank, 1.0),
             "structure": (structure_rank, 1.2),
+            "semantic": (semantic_rank, 1.1),
             "deepen": (deepen_rank, 0.35),
+            "lsp": (lsp_rank, 1.25),
         }
         fused: Dict[str, float] = {}
         sources: Dict[str, List[str]] = {}
@@ -442,12 +522,33 @@ class ContextIndex:
                     candidate_count=len(lexical_rank),
                     selected_paths=lexical_rank[:20],
                     duration_ms=focus_ms,
+                    details={"algorithm": "BM25", "k1": k1, "b": b},
+                ),
+                RetrievalStageTrace(
+                    stage="semantic",
+                    candidate_count=len(semantic_rank),
+                    selected_paths=semantic_rank[:20],
+                    duration_ms=semantic_ms,
+                    details={
+                        "enabled": self.embedding_provider is not None,
+                        "error": semantic_error,
+                    },
                 ),
                 RetrievalStageTrace(
                     stage="deepen",
                     candidate_count=len(deepen_rank),
                     selected_paths=deepen_rank[:20],
                     duration_ms=deepen_ms,
+                ),
+                RetrievalStageTrace(
+                    stage="lsp",
+                    candidate_count=len(lsp_rank),
+                    selected_paths=lsp_rank[:20],
+                    duration_ms=lsp_ms,
+                    details={
+                        "enabled": self.definition_provider is not None,
+                        "error": lsp_error,
+                    },
                 ),
                 RetrievalStageTrace(
                     stage="select",
@@ -493,3 +594,197 @@ class ContextIndex:
             3.0 if term in path else 2.0 if term in symbols else 0.5 if term in imports else 0.0
             for term in terms
         )
+
+    @staticmethod
+    def _cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
+        if len(left) != len(right) or not left:
+            return 0.0
+        numerator = sum(a * b for a, b in zip(left, right))
+        left_norm = math.sqrt(sum(value * value for value in left))
+        right_norm = math.sqrt(sum(value * value for value in right))
+        if not left_norm or not right_norm:
+            return 0.0
+        return numerator / (left_norm * right_norm)
+
+
+class EvidenceJudge:
+    """Deterministic sufficiency gate for bounded multi-round retrieval."""
+
+    def __init__(self, minimum_coverage: float = 0.65) -> None:
+        self.minimum_coverage = minimum_coverage
+
+    def assess(self, query: str, hits: Sequence[SearchHit]) -> Tuple[bool, float, List[str]]:
+        terms = ContextIndex._query_terms(query)
+        searchable = " ".join(f"{hit.path} {hit.text}".lower() for hit in hits)
+        missing = sorted(term for term in terms if term not in searchable)
+        coverage = 1.0 - len(missing) / max(len(terms), 1)
+        return bool(hits) and coverage >= self.minimum_coverage, coverage, missing
+
+
+class ProgressiveRetriever:
+    """Retrieve, judge evidence, refine the query and retrieve again within a hard budget."""
+
+    def __init__(
+        self,
+        repository: Repository,
+        repo_map: List[RepoFile],
+        *,
+        changed_paths: Optional[Sequence[str]] = None,
+        cache: Optional[RetrievalCache] = None,
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        definition_provider: Optional[DefinitionProvider] = None,
+        judge: Optional[EvidenceJudge] = None,
+        max_rounds: int = 3,
+    ) -> None:
+        self.repository = repository
+        self.repo_map = repo_map
+        self.changed_paths = list(changed_paths or [])
+        self.cache = cache or RetrievalCache()
+        self.embedding_provider = embedding_provider
+        self.definition_provider = definition_provider
+        self.judge = judge or EvidenceJudge()
+        self.max_rounds = max(1, max_rounds)
+        self.last_trace = RetrievalTrace()
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        *,
+        max_context_chars: int = 12_000,
+    ) -> List[SearchHit]:
+        selected: Dict[str, SearchHit] = {}
+        stages: List[RetrievalStageTrace] = []
+        queries: List[str] = []
+        current_query = query
+        stop_reason = "max_rounds"
+        repository_chars = 0
+        coverage = 0.0
+        cache_hit = False
+
+        for round_number in range(1, self.max_rounds + 1):
+            queries.append(current_query)
+            index = ContextIndex(
+                self.repository,
+                self.repo_map,
+                changed_paths=self.changed_paths,
+                cache=self.cache,
+                embedding_provider=self.embedding_provider,
+                definition_provider=self.definition_provider,
+            )
+            round_hits = index.search(
+                current_query,
+                limit=max(limit, 10),
+                max_context_chars=max_context_chars,
+            )
+            cache_hit = cache_hit or index.last_trace.cache_hit
+            repository_chars = max(repository_chars, index.last_trace.repository_chars)
+            for stage in index.last_trace.stages:
+                stage.round = round_number
+                stages.append(stage)
+
+            novel = 0
+            for hit in round_hits:
+                existing = selected.get(hit.path)
+                if existing is None:
+                    selected[hit.path] = hit
+                    novel += 1
+                elif hit.score > existing.score:
+                    selected[hit.path] = hit
+
+            ranked = sorted(selected.values(), key=lambda item: (-item.score, item.path))
+            budgeted = self._apply_budget(ranked, limit, max_context_chars)
+            sufficient, coverage, missing = self.judge.assess(query, budgeted)
+            stages.append(
+                RetrievalStageTrace(
+                    stage="judge",
+                    round=round_number,
+                    candidate_count=len(budgeted),
+                    selected_paths=[hit.path for hit in budgeted],
+                    details={
+                        "coverage": round(coverage, 6),
+                        "missing_terms": missing,
+                        "novel_paths": novel,
+                        "sufficient": sufficient,
+                    },
+                )
+            )
+            if sufficient:
+                stop_reason = "evidence_sufficient"
+                break
+            if sum(len(hit.text) for hit in budgeted) >= max_context_chars:
+                stop_reason = "budget_exhausted"
+                break
+            if round_number >= self.max_rounds:
+                stop_reason = "max_rounds"
+                break
+            if novel == 0:
+                stop_reason = "no_new_evidence"
+                break
+
+            refined = self._refine_query(current_query, budgeted)
+            if refined == current_query:
+                stop_reason = "no_new_evidence"
+                break
+            stages.append(
+                RetrievalStageTrace(
+                    stage="refine",
+                    round=round_number,
+                    details={"previous_query": current_query, "refined_query": refined},
+                )
+            )
+            current_query = refined
+
+        final_hits = self._apply_budget(
+            sorted(selected.values(), key=lambda item: (-item.score, item.path)),
+            limit,
+            max_context_chars,
+        )
+        context_chars = sum(len(hit.text) for hit in final_hits)
+        self.last_trace = RetrievalTrace(
+            queries=queries,
+            stages=stages,
+            cache_hit=cache_hit,
+            query_coverage=round(coverage, 6),
+            context_chars=context_chars,
+            repository_chars=repository_chars,
+            context_reduction_ratio=round(
+                1.0 - min(context_chars / max(repository_chars, 1), 1.0), 6
+            ),
+            stop_reason=stop_reason,
+            rounds=len(queries),
+        )
+        return final_hits
+
+    def _refine_query(self, current_query: str, hits: Sequence[SearchHit]) -> str:
+        hit_paths = {hit.path for hit in hits[:5]}
+        related: List[str] = []
+        for item in self.repo_map:
+            if item.path not in hit_paths:
+                continue
+            related.extend(symbol.name for symbol in item.symbols[:5])
+            related.extend(Path(name).name for name in item.imports[:5])
+        current_terms = ContextIndex._query_terms(current_query)
+        additions = [
+            item
+            for item in dict.fromkeys(related)
+            if item.lower() not in current_terms
+        ][:12]
+        if not additions:
+            return current_query
+        return f"{current_query} {' '.join(additions)}"
+
+    @staticmethod
+    def _apply_budget(
+        hits: Sequence[SearchHit], limit: int, max_context_chars: int
+    ) -> List[SearchHit]:
+        selected: List[SearchHit] = []
+        used = 0
+        for original in hits:
+            if len(selected) >= limit or used >= max_context_chars:
+                break
+            hit = original.model_copy(deep=True)
+            hit.text = hit.text[: max_context_chars - used]
+            selected.append(hit)
+            used += len(hit.text)
+        return selected
