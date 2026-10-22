@@ -12,6 +12,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
   -> Query Rewrite + Repo Map + Forge/Focus/Deepen 渐进式检索
   -> BM25 / Embedding / AST / Git / LSP 多路召回 + RRF 融合
   -> Evidence Judge -> Query Refine -> 最多 3 轮检索
+  -> 证据仍不足时进入受限 ReAct 只读工具子图（可选）
   -> 全局上下文预算、停止条件与指纹缓存
   -> Scout 收集最小上下文
   -> Coder 生成结构化 FileEdit
@@ -35,6 +36,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 文件级 Recall@K、Precision@K、MRR、NDCG@K、Hit Rate、上下文压缩率、分组指标和
   单轮基线对比；
 - 带服务器 allowlist 和租户/项目身份头的 MCP HTTP Client；
+- 受限 ReAct 知识子图：最多 3 次工具调用、Pydantic 参数校验、工具/路径权限过滤、只读 MCP 适配；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
 - LangGraph 驱动的 Scout、Coder、Verify、Reviewer 工作流；
@@ -118,6 +120,18 @@ export AI_HARNESS_MODEL=gpt-4.1-mini
 
 Harness 会调用 `http://127.0.0.1:8000/v1/chat/completions`；限流、Token 配额、Provider
 路由、故障转移和调用日志由 Gateway 统一处理。
+
+常规渐进检索仍无法形成充分证据时，可启用受限 ReAct。它只开放仓库搜索和限定行读取，
+默认关闭；已获得充分证据的任务不会进入该子图，也不会产生额外模型调用：
+
+```bash
+export AI_HARNESS_RESTRICTED_REACT_ENABLED=true
+export AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS=3
+```
+
+受限 ReAct 拒绝写工具、Shell、SQL 和 Redis，工具参数必须通过 Schema 校验，返回的文件来源
+还要通过任务 `file_scope` 过滤。MCP 工具只能通过 `MCPReadOnlyTool` 注册，并同时满足工具 allowlist、
+MCP Server allowlist 以及租户/项目身份透传。
 
 在隔离工作区执行任务：
 

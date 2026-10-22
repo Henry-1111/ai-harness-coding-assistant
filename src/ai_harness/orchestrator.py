@@ -14,6 +14,12 @@ from .agents import AgentModel, CoderAgent, ReviewerAgent
 from .checkpoints import CheckpointStore
 from .embeddings import EmbeddingProvider
 from .git_tools import GitCommandError, GitRepository
+from .knowledge import (
+    KnowledgeIdentity,
+    RestrictedKnowledgeAgent,
+    repository_knowledge_registry,
+    sources_to_hits,
+)
 from .memory import LayeredMemoryStore, MemoryLayer
 from .models import (
     AgentTraceEvent,
@@ -51,6 +57,8 @@ class HarnessOrchestrator:
         runner_factory: Optional[Callable[[Path], CommandRunner]] = None,
         embedding_provider: Optional[EmbeddingProvider] = None,
         definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None,
+        restricted_react_enabled: bool = False,
+        restricted_react_max_tool_calls: int = 3,
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -63,6 +71,10 @@ class HarnessOrchestrator:
         self.retrieval_cache = RetrievalCache()
         self.embedding_provider = embedding_provider
         self.definition_provider_factory = definition_provider_factory
+        if not 1 <= restricted_react_max_tool_calls <= 3:
+            raise ValueError("restricted ReAct max tool calls must be within 1..3")
+        self.restricted_react_enabled = restricted_react_enabled
+        self.restricted_react_max_tool_calls = restricted_react_max_tool_calls
         self.memory = LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -285,6 +297,27 @@ class HarnessOrchestrator:
         )
         task.context = index.search(task.request.goal, limit=30)
         task.retrieval_trace = index.last_trace
+        knowledge_result = None
+        if self.restricted_react_enabled and index.last_trace.stop_reason != "evidence_sufficient":
+            registry = repository_knowledge_registry(repository, task.repo_map)
+            identity = KnowledgeIdentity(
+                tenant_id="local",
+                project_id=self._project_id(task.request.repository),
+                allowed_tools=frozenset({"search_project_knowledge", "get_source_detail"}),
+                allowed_paths=task.request.file_scope,
+            )
+            knowledge_result = RestrictedKnowledgeAgent(
+                self.model,
+                registry,
+                max_tool_calls=self.restricted_react_max_tool_calls,
+            ).run(task.request.goal, identity)
+            known = {(hit.path, hit.line, hit.text) for hit in task.context}
+            for hit in sources_to_hits(knowledge_result.sources):
+                key = (hit.path, hit.line, hit.text)
+                if key not in known:
+                    task.context.append(hit)
+                    known.add(key)
+            task.scratchpad["restricted_react"] = knowledge_result.model_dump(mode="json")
         task.scratchpad["git_changed_paths"] = changed_paths
         project_id = self._project_id(task.request.repository)
         self.memory.put(
@@ -308,6 +341,14 @@ class HarnessOrchestrator:
                     "repo_files": len(task.repo_map),
                     "context_hits": len(task.context),
                     "stop_reason": index.last_trace.stop_reason,
+                    "restricted_react": (
+                        {
+                            "tool_calls": knowledge_result.tool_calls,
+                            "stop_reason": knowledge_result.stop_reason,
+                        }
+                        if knowledge_result
+                        else None
+                    ),
                 },
             )
         )
@@ -321,6 +362,9 @@ class HarnessOrchestrator:
                 "repo_files": len(task.repo_map),
                 "context_hits": len(task.context),
                 "git_changed_paths": changed_paths,
+                "restricted_react_tool_calls": (
+                    knowledge_result.tool_calls if knowledge_result else 0
+                ),
             },
         )
         if not task.route or not task.route.requires_planning:

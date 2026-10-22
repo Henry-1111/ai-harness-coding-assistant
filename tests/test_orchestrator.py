@@ -143,3 +143,39 @@ def test_complex_task_executes_plan_node_and_records_assignments(
         "review",
     ]
     assert all(assignment.status == "completed" for assignment in state.assignments)
+
+
+def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel(
+        [
+            {
+                "action": "get_source_detail",
+                "arguments": {"path": "calculator.py", "start_line": 1, "end_line": 2},
+            },
+            {"action": "finish", "answer": "The implementation defect is confirmed."},
+            successful_edit(),
+        ]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+        restricted_react_enabled=True,
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator architecture across multiple modules",
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    react = state.scratchpad["restricted_react"]
+    assert react["tool_calls"] == 1
+    assert react["stop_reason"] == "model_finished"
+    assert any(hit.source == "restricted_react" for hit in state.context)

@@ -18,6 +18,8 @@ class Settings:
     lsp_command: str
     sandbox_mode: str
     sandbox_image: str
+    restricted_react_enabled: bool
+    restricted_react_max_tool_calls: int
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -29,14 +31,17 @@ class Settings:
             model_api_key=model_api_key,
             model_name=os.getenv("AI_HARNESS_MODEL", "gpt-4.1-mini"),
             model_timeout_seconds=float(os.getenv("AI_HARNESS_MODEL_TIMEOUT", "60")),
-            embedding_base_url=(
-                os.getenv("AI_HARNESS_EMBEDDING_BASE_URL") or model_base_url
-            ),
-            embedding_api_key=(
-                os.getenv("AI_HARNESS_EMBEDDING_API_KEY") or model_api_key
-            ),
+            embedding_base_url=(os.getenv("AI_HARNESS_EMBEDDING_BASE_URL") or model_base_url),
+            embedding_api_key=(os.getenv("AI_HARNESS_EMBEDDING_API_KEY") or model_api_key),
             embedding_model=os.getenv("AI_HARNESS_EMBEDDING_MODEL", ""),
             lsp_command=os.getenv("AI_HARNESS_LSP_COMMAND", ""),
             sandbox_mode=os.getenv("AI_HARNESS_SANDBOX_MODE", "docker"),
             sandbox_image=os.getenv("AI_HARNESS_SANDBOX_IMAGE", "python:3.12-slim"),
+            restricted_react_enabled=(
+                os.getenv("AI_HARNESS_RESTRICTED_REACT_ENABLED", "false").lower()
+                in {"1", "true", "yes", "on"}
+            ),
+            restricted_react_max_tool_calls=int(
+                os.getenv("AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS", "3")
+            ),
         )

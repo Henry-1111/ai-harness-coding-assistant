@@ -29,6 +29,7 @@ def build_orchestrator() -> HarnessOrchestrator:
         settings.model_timeout_seconds,
     )
     if settings.sandbox_mode == "docker":
+
         def runner_factory(workspace):
             return DockerSandbox(workspace, image=settings.sandbox_image)
 
@@ -52,12 +53,15 @@ def build_orchestrator() -> HarnessOrchestrator:
 
         def definition_provider_factory(repository):
             return LSPDefinitionEnricher(lsp_command, repository)
+
     return HarnessOrchestrator(
         model,
         settings.data_directory,
         runner_factory=runner_factory,
         embedding_provider=embedding_provider,
         definition_provider_factory=definition_provider_factory,
+        restricted_react_enabled=settings.restricted_react_enabled,
+        restricted_react_max_tool_calls=settings.restricted_react_max_tool_calls,
     )
 
 
