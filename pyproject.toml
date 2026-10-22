@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.6,<1"]
+lsp = ["pyright>=1.1.414,<2"]
 
 [project.scripts]
 ai-harness = "ai_harness.cli:main"

@@ -32,6 +32,30 @@ def test_retrieval_evaluator_reports_recall_precision_mrr_and_reduction(tmp_path
     assert result.by_language["python"].recall_at_k == 1.0
     assert result.by_task_type["quota"].hit_rate == 1.0
     assert result.baseline_recall_at_k == 1.0
+    assert result.baseline_mrr == 1.0
+    assert result.mrr_delta == 0.0
+    assert result.pairwise.ties == 1
+    assert result.pairwise.progressive_wins == 0
+    assert result.pairwise.baseline_wins == 0
+    assert result.bad_cases == []
+
+
+def test_evaluator_reports_bad_case_reasons(tmp_path: Path):
+    (tmp_path / "target.py").write_text("def target():\n    return True\n", encoding="utf-8")
+    (tmp_path / "other.py").write_text("def other():\n    return True\n", encoding="utf-8")
+    cases = [
+        RetrievalCase(
+            id="missing",
+            query="unfindable requirement",
+            relevant_paths=["target.py"],
+        )
+    ]
+
+    result = RetrievalEvaluator(Repository(tmp_path)).evaluate(cases, k=1)
+
+    assert result.bad_cases[0].id == "missing"
+    assert "missed_relevant_files" in result.bad_cases[0].reasons
+    assert result.bad_cases[0].missing_paths == ["target.py"]
 
 
 def test_load_cases_rejects_non_array_dataset(tmp_path: Path):

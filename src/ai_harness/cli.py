@@ -38,8 +38,8 @@ def build_orchestrator() -> HarnessOrchestrator:
         raise SystemExit("AI_HARNESS_SANDBOX_MODE must be 'docker' or 'local'")
     embedding_provider = (
         OpenAICompatibleEmbeddingProvider(
-            settings.model_base_url,
-            settings.model_api_key,
+            settings.embedding_base_url,
+            settings.embedding_api_key,
             settings.embedding_model,
             settings.model_timeout_seconds,
         )

@@ -68,6 +68,13 @@ pip install -e '.[dev]'
 pytest
 ```
 
+需要启用 Python 定义跳转时安装可选 LSP 依赖：
+
+```bash
+pip install -e '.[dev,lsp]'
+export AI_HARNESS_LSP_COMMAND="pyright-langserver --stdio"
+```
+
 ## CLI
 
 设置任意 OpenAI-compatible Provider：
@@ -83,6 +90,8 @@ export AI_HARNESS_MODEL=gpt-4.1-mini
 
 ```bash
 export AI_HARNESS_EMBEDDING_MODEL=text-embedding-3-small
+export AI_HARNESS_EMBEDDING_BASE_URL=http://127.0.0.1:8000/v1
+export AI_HARNESS_EMBEDDING_API_KEY='<llmgw-api-key>'
 export AI_HARNESS_LSP_COMMAND="pyright-langserver --stdio"
 ```
 
@@ -177,7 +186,9 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 - `hit_rate`：至少召回一个相关文件的任务比例；
 - `mean_context_reduction_ratio`：相对整个仓库，最终进入模型的上下文减少比例。
 - `baseline_recall_at_k` / `recall_delta`：与单轮检索结果对比；
+- `baseline_mrr` / `mrr_delta` / `pairwise`：比较单轮与多轮策略逐 Case 的胜、平、负；
 - `by_language` / `by_task_type`：按语言和任务类型定位薄弱项；
+- `bad_cases`：自动列出漏召回、相关文件未排第一、预算耗尽等失败原因；
 - 每个 Case 的 `rounds` 与 `stop_reason`：验证迭代检索是否按证据或预算停止。
 
 `tests/test_retrieval_benchmark.py` 设置了回归下限。当前数据集只有 8 个仓库内任务，只用于验证检索实现和防止
@@ -198,9 +209,9 @@ docker compose up --build
 
 - 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP 定义召回已接入
   Scout，但具体语言服务器仍需部署方通过 `AI_HARNESS_LSP_COMMAND` 配置。
-- Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭，配置
-  `AI_HARNESS_EMBEDDING_MODEL` 后可使用支持该接口的 Provider。当前 LLM Gateway 仅代理
-  `/chat/completions`，需在 Gateway 增加 `/embeddings` 路由后才能统一接入。
+- Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭。配置
+  `AI_HARNESS_EMBEDDING_MODEL`、`AI_HARNESS_EMBEDDING_BASE_URL` 和
+  `AI_HARNESS_EMBEDDING_API_KEY` 后，可与聊天请求一样统一经过 LLM Gateway。
 - 当前 Checkpoint 使用 SQLite，单机部署足够；多实例部署应切换 PostgreSQL 并增加任务租约。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。

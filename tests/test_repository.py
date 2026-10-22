@@ -192,3 +192,20 @@ def test_progressive_retrieval_refines_until_evidence_is_sufficient(tmp_path: Pa
     assert retriever.last_trace.rounds == 2
     assert any(stage.stage == "refine" for stage in retriever.last_trace.stages)
     assert retriever.last_trace.stop_reason == "max_rounds"
+
+
+def test_progressive_retrieval_preserves_first_round_rrf_order(tmp_path: Path):
+    (tmp_path / "primary.py").write_text(
+        "def exact_quota_reservation():\n    return True\n", encoding="utf-8"
+    )
+    (tmp_path / "secondary.py").write_text(
+        "# quota\n" * 20, encoding="utf-8"
+    )
+    repository = Repository(tmp_path)
+    repo_map = RepoMapBuilder().build(repository)
+    baseline = ContextIndex(repository, repo_map).search("exact quota reservation", limit=2)
+    progressive = ProgressiveRetriever(repository, repo_map).search(
+        "exact quota reservation", limit=2
+    )
+
+    assert [hit.path for hit in progressive] == [hit.path for hit in baseline]

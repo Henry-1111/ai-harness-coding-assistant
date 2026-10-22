@@ -39,6 +39,21 @@ class CaseMetrics(BaseModel):
     rounds: int
     stop_reason: str
     baseline_recall_at_k: float
+    baseline_reciprocal_rank: float
+
+
+class BadCase(BaseModel):
+    id: str
+    reasons: List[str]
+    missing_paths: List[str]
+    retrieved_paths: List[str]
+
+
+class PairwiseComparison(BaseModel):
+    metric: str = "reciprocal_rank"
+    progressive_wins: int = 0
+    ties: int = 0
+    baseline_wins: int = 0
 
 
 class EvaluationSlice(BaseModel):
@@ -59,6 +74,10 @@ class RetrievalEvaluation(BaseModel):
     mean_context_reduction_ratio: float
     baseline_recall_at_k: float
     recall_delta: float
+    baseline_mrr: float
+    mrr_delta: float
+    pairwise: PairwiseComparison
+    bad_cases: List[BadCase]
     by_language: Dict[str, EvaluationSlice] = Field(default_factory=dict)
     by_task_type: Dict[str, EvaluationSlice] = Field(default_factory=dict)
     details: List[CaseMetrics]
@@ -102,6 +121,14 @@ class RetrievalEvaluator:
                 (rank for rank, path in enumerate(retrieved, start=1) if path in relevant),
                 None,
             )
+            baseline_first_rank = next(
+                (
+                    rank
+                    for rank, path in enumerate(baseline_retrieved, start=1)
+                    if path in relevant
+                ),
+                None,
+            )
             dcg = sum(
                 1 / math.log2(rank + 1)
                 for rank, path in enumerate(retrieved, start=1)
@@ -127,6 +154,9 @@ class RetrievalEvaluator:
                     baseline_recall_at_k=round(
                         len(relevant.intersection(baseline_retrieved)) / len(relevant), 6
                     ),
+                    baseline_reciprocal_rank=(
+                        round(1 / baseline_first_rank, 6) if baseline_first_rank else 0.0
+                    ),
                 )
             )
         count = len(details)
@@ -136,12 +166,25 @@ class RetrievalEvaluator:
         baseline_recall = round(
             sum(item.baseline_recall_at_k for item in details) / count, 6
         )
+        mrr = round(sum(item.reciprocal_rank for item in details) / count, 6)
+        baseline_mrr = round(
+            sum(item.baseline_reciprocal_rank for item in details) / count, 6
+        )
+        pairwise = PairwiseComparison()
+        for item in details:
+            if item.reciprocal_rank > item.baseline_reciprocal_rank:
+                pairwise.progressive_wins += 1
+            elif item.reciprocal_rank < item.baseline_reciprocal_rank:
+                pairwise.baseline_wins += 1
+            else:
+                pairwise.ties += 1
+        bad_cases = self._bad_cases(details)
         return RetrievalEvaluation(
             cases=count,
             k=k,
             recall_at_k=recall,
             precision_at_k=round(sum(item.precision_at_k for item in details) / count, 6),
-            mrr=round(sum(item.reciprocal_rank for item in details) / count, 6),
+            mrr=mrr,
             ndcg_at_k=round(sum(item.ndcg_at_k for item in details) / count, 6),
             hit_rate=round(sum(item.hit for item in details) / count, 6),
             mean_context_reduction_ratio=round(
@@ -149,6 +192,10 @@ class RetrievalEvaluator:
             ),
             baseline_recall_at_k=baseline_recall,
             recall_delta=round(recall - baseline_recall, 6),
+            baseline_mrr=baseline_mrr,
+            mrr_delta=round(mrr - baseline_mrr, 6),
+            pairwise=pairwise,
+            bad_cases=bad_cases,
             by_language=by_language,
             by_task_type=by_task_type,
             details=details,
@@ -171,3 +218,28 @@ class RetrievalEvaluator:
             )
             for name, items in sorted(groups.items())
         }
+
+    @staticmethod
+    def _bad_cases(details: List[CaseMetrics]) -> List[BadCase]:
+        result = []
+        for item in details:
+            reasons = []
+            if item.recall_at_k < 1.0:
+                reasons.append("missed_relevant_files")
+            if item.reciprocal_rank < 1.0:
+                reasons.append("first_relevant_not_ranked_first")
+            if item.stop_reason in {"budget_exhausted", "max_rounds", "no_new_evidence"}:
+                reasons.append(item.stop_reason)
+            if not reasons:
+                continue
+            result.append(
+                BadCase(
+                    id=item.id,
+                    reasons=reasons,
+                    missing_paths=sorted(
+                        set(item.relevant_paths) - set(item.retrieved_paths)
+                    ),
+                    retrieved_paths=item.retrieved_paths,
+                )
+            )
+        return result

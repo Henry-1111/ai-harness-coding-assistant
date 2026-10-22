@@ -692,7 +692,9 @@ class ProgressiveRetriever:
                 elif hit.score > existing.score:
                     selected[hit.path] = hit
 
-            ranked = sorted(selected.values(), key=lambda item: (-item.score, item.path))
+            # ContextIndex has already applied RRF and priors. Preserve that order;
+            # sorting its display score again would apply lexical weight twice.
+            ranked = list(selected.values())
             budgeted = self._apply_budget(ranked, limit, max_context_chars)
             sufficient, coverage, missing = self.judge.assess(query, budgeted)
             stages.append(
@@ -736,7 +738,7 @@ class ProgressiveRetriever:
             current_query = refined
 
         final_hits = self._apply_budget(
-            sorted(selected.values(), key=lambda item: (-item.score, item.path)),
+            list(selected.values()),
             limit,
             max_context_chars,
         )

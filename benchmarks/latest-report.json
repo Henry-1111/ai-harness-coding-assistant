@@ -3,17 +3,55 @@
   "k": 5,
   "recall_at_k": 1.0,
   "precision_at_k": 0.225,
-  "mrr": 0.916667,
-  "ndcg_at_k": 0.922152,
+  "mrr": 0.9375,
+  "ndcg_at_k": 0.953866,
   "hit_rate": 1.0,
-  "mean_context_reduction_ratio": 0.99186,
+  "mean_context_reduction_ratio": 0.992288,
   "baseline_recall_at_k": 1.0,
   "recall_delta": 0.0,
+  "baseline_mrr": 0.9375,
+  "mrr_delta": 0.0,
+  "pairwise": {
+    "metric": "reciprocal_rank",
+    "progressive_wins": 0,
+    "ties": 8,
+    "baseline_wins": 0
+  },
+  "bad_cases": [
+    {
+      "id": "lsp-definition",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/lsp.py",
+        "src/ai_harness/repository.py",
+        "src/ai_harness/cli.py",
+        "tests/test_lsp.py",
+        "src/ai_harness/tools.py"
+      ]
+    },
+    {
+      "id": "provider-json",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/embeddings.py",
+        "src/ai_harness/agents.py",
+        "src/ai_harness/cli.py",
+        "tests/test_embeddings.py",
+        "tests/test_agents.py"
+      ]
+    }
+  ],
   "by_language": {
     "python": {
       "cases": 8,
       "recall_at_k": 1.0,
-      "mrr": 0.916667,
+      "mrr": 0.9375,
       "hit_rate": 1.0
     }
   },
@@ -27,7 +65,7 @@
     "integration": {
       "cases": 2,
       "recall_at_k": 1.0,
-      "mrr": 0.666667,
+      "mrr": 0.75,
       "hit_rate": 1.0
     },
     "planning": {
@@ -62,8 +100,8 @@
         "src/ai_harness/repository.py",
         "src/ai_harness/tools.py",
         "src/ai_harness/git_tools.py",
-        "src/ai_harness/orchestrator.py",
-        "src/ai_harness/models.py"
+        "src/ai_harness/models.py",
+        "src/ai_harness/orchestrator.py"
       ],
       "relevant_paths": [
         "src/ai_harness/repository.py"
@@ -73,19 +111,20 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.99141,
+      "context_reduction_ratio": 0.991636,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "checkpoint-resume",
       "retrieved_paths": [
         "src/ai_harness/orchestrator.py",
-        "src/ai_harness/cli.py",
-        "tests/test_checkpoints.py",
         "src/ai_harness/checkpoints.py",
-        "src/ai_harness/api.py"
+        "tests/test_checkpoints.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/cli.py"
       ],
       "relevant_paths": [
         "src/ai_harness/checkpoints.py",
@@ -94,12 +133,13 @@
       "recall_at_k": 1.0,
       "precision_at_k": 0.4,
       "reciprocal_rank": 1.0,
-      "ndcg_at_k": 0.877215,
+      "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.990954,
+      "context_reduction_ratio": 0.991191,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "docker-isolation",
@@ -118,10 +158,11 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.992128,
+      "context_reduction_ratio": 0.992334,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "mcp-identity",
@@ -129,8 +170,8 @@
         "src/ai_harness/mcp.py",
         "tests/test_mcp.py",
         "src/ai_harness/sandbox.py",
-        "src/ai_harness/tools.py",
-        "src/ai_harness/orchestrator.py"
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/tools.py"
       ],
       "relevant_paths": [
         "src/ai_harness/mcp.py"
@@ -140,19 +181,20 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.993604,
+      "context_reduction_ratio": 0.993771,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "lsp-definition",
       "retrieved_paths": [
         "src/ai_harness/lsp.py",
         "src/ai_harness/repository.py",
-        "tests/test_lsp.py",
         "src/ai_harness/cli.py",
-        "src/ai_harness/evaluation.py"
+        "tests/test_lsp.py",
+        "src/ai_harness/tools.py"
       ],
       "relevant_paths": [
         "src/ai_harness/lsp.py"
@@ -162,10 +204,11 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.990578,
-      "rounds": 1,
-      "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "context_reduction_ratio": 0.991886,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "bounded-edit",
@@ -174,7 +217,7 @@
         "tests/test_tools_and_sandbox.py",
         "src/ai_harness/models.py",
         "src/ai_harness/repository.py",
-        "src/ai_harness/orchestrator.py"
+        "src/ai_harness/sandbox.py"
       ],
       "relevant_paths": [
         "src/ai_harness/tools.py"
@@ -184,17 +227,18 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.991344,
+      "context_reduction_ratio": 0.99223,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     },
     {
       "id": "provider-json",
       "retrieved_paths": [
         "src/ai_harness/embeddings.py",
-        "src/ai_harness/cli.py",
         "src/ai_harness/agents.py",
+        "src/ai_harness/cli.py",
         "tests/test_embeddings.py",
         "tests/test_agents.py"
       ],
@@ -203,21 +247,22 @@
       ],
       "recall_at_k": 1.0,
       "precision_at_k": 0.2,
-      "reciprocal_rank": 0.333333,
-      "ndcg_at_k": 0.5,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
       "hit": true,
-      "context_reduction_ratio": 0.992956,
+      "context_reduction_ratio": 0.993141,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
     },
     {
       "id": "plan-cycle",
       "retrieved_paths": [
         "src/ai_harness/models.py",
         "tests/test_models_and_planner.py",
-        "src/ai_harness/planner.py",
         "src/ai_harness/sandbox.py",
+        "src/ai_harness/planner.py",
         "src/ai_harness/orchestrator.py"
       ],
       "relevant_paths": [
@@ -228,10 +273,11 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.991903,
+      "context_reduction_ratio": 0.992116,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
-      "baseline_recall_at_k": 1.0
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
     }
   ]
 }
