@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .jobs import JobStatus, TaskJob, TaskJobStore, TaskWorkerPool
+from .jobs import JobMetrics, QueueFullError, TaskJob, TaskJobStore, TaskWorkerPool
 from .models import TaskRequest, TaskResult, TaskState
 from .orchestrator import HarnessOrchestrator
 
@@ -26,14 +26,20 @@ def create_app(
     max_job_workers: int = 2,
     job_poll_interval_seconds: float = 0.2,
     job_lease_seconds: float = 300,
+    job_queue_capacity: int = 100,
+    job_timeout_seconds: float = 1800,
 ) -> FastAPI:
-    job_store = job_store or TaskJobStore(orchestrator.data_directory / "jobs.sqlite3")
+    job_store = job_store or TaskJobStore(
+        orchestrator.data_directory / "jobs.sqlite3",
+        max_outstanding_jobs=job_queue_capacity,
+    )
     worker_pool = worker_pool or TaskWorkerPool(
         orchestrator,
         job_store,
         max_workers=max_job_workers,
         poll_interval_seconds=job_poll_interval_seconds,
         lease_seconds=job_lease_seconds,
+        task_timeout_seconds=job_timeout_seconds,
     )
 
     @asynccontextmanager
@@ -65,7 +71,14 @@ def create_app(
 
     @app.post("/v1/jobs", response_model=TaskJob, status_code=202)
     def create_job(request: TaskRequest) -> TaskJob:
-        return job_store.enqueue(request)
+        try:
+            return job_store.enqueue(request)
+        except QueueFullError as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+    @app.get("/v1/jobs/metrics", response_model=JobMetrics)
+    def job_metrics() -> JobMetrics:
+        return job_store.metrics()
 
     @app.get("/v1/jobs/{job_id}", response_model=TaskJob)
     def get_job(job_id: str) -> TaskJob:
@@ -79,14 +92,6 @@ def create_app(
         job = job_store.cancel(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
-        if job.status == JobStatus.RUNNING:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "running jobs cannot be interrupted safely; "
-                    "only queued jobs can be cancelled"
-                ),
-            )
         return job
 
     @app.get("/v1/tasks/{task_id}", response_model=TaskState)

@@ -17,6 +17,7 @@ class TaskStatus(str, Enum):
     NEEDS_INPUT = "needs_input"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class AgentRole(str, Enum):

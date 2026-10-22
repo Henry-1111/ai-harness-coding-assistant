@@ -39,9 +39,13 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_JOB_WORKERS", "4")
     monkeypatch.setenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.5")
     monkeypatch.setenv("AI_HARNESS_JOB_LEASE_SECONDS", "120")
+    monkeypatch.setenv("AI_HARNESS_JOB_QUEUE_CAPACITY", "250")
+    monkeypatch.setenv("AI_HARNESS_JOB_TIMEOUT_SECONDS", "900")
 
     settings = Settings.from_environment()
 
     assert settings.job_workers == 4
     assert settings.job_poll_interval_seconds == 0.5
     assert settings.job_lease_seconds == 120
+    assert settings.job_queue_capacity == 250
+    assert settings.job_timeout_seconds == 900

@@ -132,12 +132,14 @@ export default function App() {
     }
   };
 
-  const cancelQueuedJob = async () => {
+  const cancelActiveJob = async () => {
     if (!job) return;
     try {
       const cancelled = await cancelJob(job.job_id);
       setJob(cancelled);
-      messageApi.info("排队任务已取消");
+      messageApi.info(
+        cancelled.status === "cancelled" ? "排队任务已取消" : "已提交安全停止请求",
+      );
     } catch (caught) {
       messageApi.warning(caught instanceof Error ? caught.message : "取消失败");
     }
@@ -250,7 +252,11 @@ export default function App() {
           <Card className="panel execution-panel" title="执行与验收">
             <Steps
               current={stepState}
-              status={result?.status === "failed" ? "error" : "process"}
+              status={
+                result?.status === "failed" || result?.status === "cancelled"
+                  ? "error"
+                  : "process"
+              }
               items={executionSteps}
             />
 
@@ -275,8 +281,14 @@ export default function App() {
                       : "正在创建持久化任务"}
                   </Text>
                   <Text type="secondary">Scout → Coder → Verify → Reviewer</Text>
-                  {job?.status === "pending" && (
-                    <Button danger onClick={cancelQueuedJob}>取消排队</Button>
+                  {(job?.status === "pending" || job?.status === "running") && (
+                    <Button
+                      danger
+                      disabled={job.cancel_requested}
+                      onClick={cancelActiveJob}
+                    >
+                      {job.cancel_requested ? "正在安全停止" : "取消任务"}
+                    </Button>
                   )}
                 </Space>
               </div>
@@ -292,6 +304,15 @@ export default function App() {
                     </Tag>
                     <Tag>attempt {job.attempts}/{job.max_attempts}</Tag>
                   </Space>
+                )}
+                {result.status === "cancelled" && (
+                  <Alert
+                    className="result-alert"
+                    type="warning"
+                    showIcon
+                    message="任务已在安全边界停止"
+                    description={result.error}
+                  />
                 )}
                 <Row gutter={16}>
                   <Col span={6}>

@@ -3,6 +3,8 @@ from __future__ import annotations
 import shutil
 import time
 import uuid
+from contextvars import ContextVar
+from dataclasses import dataclass
 from difflib import unified_diff
 from hashlib import sha256
 from pathlib import Path
@@ -50,6 +52,23 @@ from .tools import ToolContext, default_registry
 
 class WorkflowState(TypedDict):
     task: TaskState
+
+
+@dataclass(frozen=True)
+class ExecutionControl:
+    should_cancel: Callable[[], bool]
+    deadline: Optional[float] = None
+
+
+class ExecutionInterrupted(RuntimeError):
+    def __init__(self, message: str, *, timed_out: bool = False) -> None:
+        super().__init__(message)
+        self.timed_out = timed_out
+
+
+_EXECUTION_CONTROL: ContextVar[Optional[ExecutionControl]] = ContextVar(
+    "ai_harness_execution_control", default=None
+)
 
 
 class HarnessOrchestrator:
@@ -105,7 +124,12 @@ class HarnessOrchestrator:
         self.tools = default_registry()
         self.runner_factory = runner_factory or (lambda workspace: DockerSandbox(workspace))
 
-    def run(self, request: TaskRequest) -> TaskResult:
+    def run(
+        self,
+        request: TaskRequest,
+        *,
+        control: Optional[ExecutionControl] = None,
+    ) -> TaskResult:
         task_id = str(uuid.uuid4())
         workspace = self._create_workspace(task_id, Path(request.repository))
         normalized = self.router.normalizer.normalize(request)
@@ -150,13 +174,13 @@ class HarnessOrchestrator:
         self.checkpoints.save(state)
         if state.status == TaskStatus.NEEDS_INPUT:
             return self._result(state)
-        return self._invoke(state)
+        return self._invoke(state, control=control)
 
     def resume(self, task_id: str) -> TaskResult:
         state = self.checkpoints.load(task_id)
         if state is None:
             raise KeyError(f"task not found: {task_id}")
-        if state.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
+        if state.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELLED}:
             return self._result(state)
         if state.approval and state.approval.status == "pending":
             raise RuntimeError("task requires an explicit approval decision before resume")
@@ -280,11 +304,47 @@ class HarnessOrchestrator:
             )
         return "".join(chunks)
 
-    def _invoke(self, state: TaskState) -> TaskResult:
+    def _invoke(
+        self,
+        state: TaskState,
+        *,
+        control: Optional[ExecutionControl] = None,
+    ) -> TaskResult:
         graph = self._build_graph()
+        token = _EXECUTION_CONTROL.set(control)
         try:
             output = graph.invoke({"task": state})
             final_state = output["task"]
+        except ExecutionInterrupted as exc:
+            failed_node = state.current_node
+            state.status = TaskStatus.FAILED if exc.timed_out else TaskStatus.CANCELLED
+            state.error = str(exc)
+            state.current_node = "failed"
+            state.trace.append(
+                AgentTraceEvent(
+                    node="workflow",
+                    outcome="failed",
+                    details={
+                        "error_type": "task_timeout" if exc.timed_out else "task_cancelled",
+                        "message": str(exc),
+                    },
+                )
+            )
+            self._set_assignment_status(state, failed_node, "failed")
+            self._record_milestone(
+                state,
+                "CP8",
+                "Final result accepted",
+                "failed",
+                {"reason": "task_timeout" if exc.timed_out else "task_cancelled"},
+            )
+            self._record_experience(
+                state,
+                state.status.value,
+                failure_type="task_timeout" if exc.timed_out else "task_cancelled",
+            )
+            self.checkpoints.save(state)
+            final_state = state
         except Exception as exc:
             failed_node = state.current_node
             state.status = TaskStatus.FAILED
@@ -308,7 +368,19 @@ class HarnessOrchestrator:
             self._record_experience(state, "failed", failure_type=type(exc).__name__)
             self.checkpoints.save(state)
             final_state = state
+        finally:
+            _EXECUTION_CONTROL.reset(token)
         return self._result(final_state)
+
+    @staticmethod
+    def _check_execution_control() -> None:
+        control = _EXECUTION_CONTROL.get()
+        if control is None:
+            return
+        if control.should_cancel():
+            raise ExecutionInterrupted("task cancellation was requested")
+        if control.deadline is not None and time.monotonic() >= control.deadline:
+            raise ExecutionInterrupted("task execution deadline exceeded", timed_out=True)
 
     def _build_graph(self):
         graph = StateGraph(WorkflowState)
@@ -375,6 +447,7 @@ class HarnessOrchestrator:
         return "end"
 
     def _scout(self, payload: WorkflowState) -> WorkflowState:
+        self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
         self._set_assignment_status(task, "scout", "running")
@@ -401,6 +474,7 @@ class HarnessOrchestrator:
             definition_provider=definition_provider,
         )
         task.context = index.search(task.request.goal, limit=30)
+        self._check_execution_control()
         task.retrieval_trace = index.last_trace
         knowledge_result = None
         if self.restricted_react_enabled and index.last_trace.stop_reason != "evidence_sufficient":
@@ -429,6 +503,7 @@ class HarnessOrchestrator:
                 registry,
                 max_tool_calls=self.restricted_react_max_tool_calls,
             ).run(task.request.goal, identity)
+            self._check_execution_control()
             known = {(hit.path, hit.line, hit.text) for hit in task.context}
             for hit in sources_to_hits(knowledge_result.sources):
                 key = (hit.path, hit.line, hit.text)
@@ -492,6 +567,7 @@ class HarnessOrchestrator:
         return {"task": task}
 
     def _plan(self, payload: WorkflowState) -> WorkflowState:
+        self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
         self._set_assignment_status(task, "plan", "running")
@@ -521,6 +597,7 @@ class HarnessOrchestrator:
         return {"task": task}
 
     def _code(self, payload: WorkflowState) -> WorkflowState:
+        self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
         task.current_node = "code"
@@ -582,6 +659,7 @@ class HarnessOrchestrator:
                 memory_context=memory_context,
                 repair_plan=repair_plan,
             )
+        self._check_execution_control()
         repository = self._workspace_repository(task)
         context = ToolContext(
             repository=repository,
@@ -589,6 +667,7 @@ class HarnessOrchestrator:
             allowed_paths=task.request.file_scope,
         )
         for edit in decision.edits:
+            self._check_execution_control()
             path = self.tools.execute("apply_edit", context, edit=edit)
             if path not in task.changed_files:
                 task.changed_files.append(path)
@@ -632,12 +711,17 @@ class HarnessOrchestrator:
         return {"task": task}
 
     def _verify(self, payload: WorkflowState) -> WorkflowState:
+        self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
         self._set_assignment_status(task, "verify", "running")
         workspace = Path(str(task.scratchpad["workspace"]))
         sandbox = self.runner_factory(workspace)
-        task.verification = [sandbox.run(command) for command in task.request.verification_commands]
+        task.verification = []
+        for command in task.request.verification_commands:
+            self._check_execution_control()
+            task.verification.append(sandbox.run(command))
+            self._check_execution_control()
         exit_codes = [result.exit_code for result in task.verification]
         task.trace.append(
             AgentTraceEvent(
@@ -671,6 +755,7 @@ class HarnessOrchestrator:
         return {"task": task}
 
     def _review(self, payload: WorkflowState) -> WorkflowState:
+        self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
         self._set_assignment_status(task, "review", "running")

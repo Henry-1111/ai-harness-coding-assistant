@@ -2,16 +2,22 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import time
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from .models import TaskRequest, TaskResult, utc_now
-from .orchestrator import HarnessOrchestrator
+from .orchestrator import ExecutionControl, HarnessOrchestrator
+
+
+class QueueFullError(RuntimeError):
+    pass
 
 
 class JobStatus(str, Enum):
@@ -39,11 +45,23 @@ class TaskJob(BaseModel):
     updated_at: str
 
 
+class JobMetrics(BaseModel):
+    counts: dict[str, int]
+    outstanding_jobs: int
+    queue_capacity: int
+    retried_jobs: int
+    cancellation_requests: int
+    oldest_pending_age_seconds: float
+
+
 class TaskJobStore:
     """SQLite queue with atomic claims and expiring worker leases."""
 
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, database_path: Path, *, max_outstanding_jobs: int = 100) -> None:
+        if not 1 <= max_outstanding_jobs <= 100_000:
+            raise ValueError("max_outstanding_jobs must be within 1..100000")
         self.database_path = database_path
+        self.max_outstanding_jobs = max_outstanding_jobs
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -91,6 +109,23 @@ class TaskJobStore:
             updated_at=now,
         )
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            outstanding = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM task_jobs
+                WHERE status IN (?, ?, ?)
+                """,
+                (
+                    JobStatus.PENDING.value,
+                    JobStatus.RUNNING.value,
+                    JobStatus.NEEDS_INPUT.value,
+                ),
+            ).fetchone()
+            if int(outstanding["count"]) >= self.max_outstanding_jobs:
+                connection.execute("ROLLBACK")
+                raise QueueFullError(
+                    f"job queue capacity {self.max_outstanding_jobs} has been reached"
+                )
             connection.execute(
                 """
                 INSERT INTO task_jobs (
@@ -108,6 +143,7 @@ class TaskJobStore:
                     now,
                 ),
             )
+            connection.execute("COMMIT")
         return job
 
     def get(self, job_id: str) -> Optional[TaskJob]:
@@ -259,11 +295,62 @@ class TaskJobStore:
                     """,
                     (JobStatus.CANCELLED.value, now, job_id),
                 )
+            elif row["status"] == JobStatus.RUNNING.value:
+                connection.execute(
+                    """
+                    UPDATE task_jobs
+                    SET cancel_requested = 1, updated_at = ?
+                    WHERE job_id = ?
+                    """,
+                    (now, job_id),
+                )
             updated = connection.execute(
                 "SELECT * FROM task_jobs WHERE job_id = ?", (job_id,)
             ).fetchone()
             connection.execute("COMMIT")
         return self._decode(updated)
+
+    def is_cancel_requested(self, job_id: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT cancel_requested FROM task_jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+        return bool(row and row["cancel_requested"])
+
+    def metrics(self) -> JobMetrics:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT status, COUNT(*) AS count FROM task_jobs GROUP BY status"
+            ).fetchall()
+            aggregates = connection.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN attempts > 1 THEN 1 ELSE 0 END) AS retried_jobs,
+                    SUM(CASE WHEN cancel_requested = 1 THEN 1 ELSE 0 END)
+                        AS cancellation_requests,
+                    MIN(CASE WHEN status = ? THEN created_at END) AS oldest_pending
+                FROM task_jobs
+                """,
+                (JobStatus.PENDING.value,),
+            ).fetchone()
+        counts = {status.value: 0 for status in JobStatus}
+        counts.update({str(row["status"]): int(row["count"]) for row in rows})
+        outstanding = sum(
+            counts[status.value]
+            for status in (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_INPUT)
+        )
+        oldest_pending_age = 0.0
+        if aggregates["oldest_pending"]:
+            created_at = datetime.fromisoformat(str(aggregates["oldest_pending"]))
+            oldest_pending_age = max(0.0, (utc_now() - created_at).total_seconds())
+        return JobMetrics(
+            counts=counts,
+            outstanding_jobs=outstanding,
+            queue_capacity=self.max_outstanding_jobs,
+            retried_jobs=int(aggregates["retried_jobs"] or 0),
+            cancellation_requests=int(aggregates["cancellation_requests"] or 0),
+            oldest_pending_age_seconds=round(oldest_pending_age, 3),
+        )
 
     def update_for_task(self, result: TaskResult) -> None:
         status = JobStatus(result.status.value)
@@ -317,6 +404,7 @@ class TaskWorkerPool:
         max_workers: int = 2,
         poll_interval_seconds: float = 0.2,
         lease_seconds: float = 300,
+        task_timeout_seconds: float = 1800,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")
@@ -324,11 +412,14 @@ class TaskWorkerPool:
             raise ValueError("poll_interval_seconds must be positive")
         if lease_seconds <= 0:
             raise ValueError("lease_seconds must be positive")
+        if task_timeout_seconds <= 0:
+            raise ValueError("task_timeout_seconds must be positive")
         self.orchestrator = orchestrator
         self.store = store
         self.max_workers = max_workers
         self.poll_interval_seconds = poll_interval_seconds
         self.lease_seconds = lease_seconds
+        self.task_timeout_seconds = task_timeout_seconds
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
@@ -366,7 +457,11 @@ class TaskWorkerPool:
             )
             heartbeat.start()
             try:
-                result = self.orchestrator.run(job.request)
+                control = ExecutionControl(
+                    should_cancel=partial(self.store.is_cancel_requested, job.job_id),
+                    deadline=time.monotonic() + self.task_timeout_seconds,
+                )
+                result = self.orchestrator.run(job.request, control=control)
                 self.store.complete(job.job_id, worker_id, result)
             except Exception as exc:
                 self.store.fail(job.job_id, worker_id, f"{type(exc).__name__}: {exc}")

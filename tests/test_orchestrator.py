@@ -6,7 +6,7 @@ from conftest import ScriptedModel
 from ai_harness.mcp import MCPToolCatalog, MCPToolCatalogConfig
 from ai_harness.memory import MemoryLayer
 from ai_harness.models import TaskRequest, TaskStatus
-from ai_harness.orchestrator import HarnessOrchestrator
+from ai_harness.orchestrator import ExecutionControl, HarnessOrchestrator
 from ai_harness.sandbox import LocalCommandSandbox
 
 
@@ -26,6 +26,44 @@ def successful_edit(old="return left - right", new="return left + right"):
         "summary": "Correct addition implementation",
         "edits": [{"path": "calculator.py", "old_text": old, "new_text": new}],
     }
+
+
+def test_execution_control_cancels_before_model_or_tools(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([])
+    orchestrator = HarnessOrchestrator(
+        model, tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
+
+    result = orchestrator.run(
+        request_for(sample_repository),
+        control=ExecutionControl(should_cancel=lambda: True),
+    )
+
+    assert result.status == TaskStatus.CANCELLED
+    assert result.error == "task cancellation was requested"
+    assert model.calls == []
+    assert result.trace[-1].details["error_type"] == "task_cancelled"
+
+
+def test_execution_control_enforces_task_deadline(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([])
+    orchestrator = HarnessOrchestrator(
+        model, tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
+
+    result = orchestrator.run(
+        request_for(sample_repository),
+        control=ExecutionControl(should_cancel=lambda: False, deadline=0),
+    )
+
+    assert result.status == TaskStatus.FAILED
+    assert result.error == "task execution deadline exceeded"
+    assert model.calls == []
+    assert result.trace[-1].details["error_type"] == "task_timeout"
 
 
 def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample_repository: Path):

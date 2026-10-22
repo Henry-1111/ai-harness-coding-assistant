@@ -156,10 +156,14 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         while body["status"] in {"pending", "running"} and time.monotonic() < deadline:
             time.sleep(0.02)
             body = client.get(f"/v1/jobs/{job_id}").json()
+        metrics = client.get("/v1/jobs/metrics")
 
     assert body["status"] == "succeeded"
     assert body["attempts"] == 1
     assert body["result"]["changed_files"] == ["calculator.py"]
+    assert metrics.status_code == 200
+    assert metrics.json()["counts"]["succeeded"] == 1
+    assert metrics.json()["outstanding_jobs"] == 0
 
 
 def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):

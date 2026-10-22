@@ -1,5 +1,11 @@
-export type TaskStatus = "pending" | "running" | "needs_input" | "succeeded" | "failed";
-export type JobStatus = TaskStatus | "cancelled";
+export type TaskStatus =
+  | "pending"
+  | "running"
+  | "needs_input"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+export type JobStatus = TaskStatus;
 
 export interface CommandResult {
   command: string;

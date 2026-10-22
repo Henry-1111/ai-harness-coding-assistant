@@ -25,6 +25,8 @@ class Settings:
     job_workers: int
     job_poll_interval_seconds: float
     job_lease_seconds: float
+    job_queue_capacity: int
+    job_timeout_seconds: float
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -56,4 +58,6 @@ class Settings:
                 os.getenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.2")
             ),
             job_lease_seconds=float(os.getenv("AI_HARNESS_JOB_LEASE_SECONDS", "300")),
+            job_queue_capacity=int(os.getenv("AI_HARNESS_JOB_QUEUE_CAPACITY", "100")),
+            job_timeout_seconds=float(os.getenv("AI_HARNESS_JOB_TIMEOUT_SECONDS", "1800")),
         )

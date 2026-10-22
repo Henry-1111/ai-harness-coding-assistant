@@ -302,6 +302,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 max_job_workers=settings.job_workers,
                 job_poll_interval_seconds=settings.job_poll_interval_seconds,
                 job_lease_seconds=settings.job_lease_seconds,
+                job_queue_capacity=settings.job_queue_capacity,
+                job_timeout_seconds=settings.job_timeout_seconds,
             ),
             host=args.host,
             port=args.port,
