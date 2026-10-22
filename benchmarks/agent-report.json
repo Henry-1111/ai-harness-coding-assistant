@@ -1,0 +1,165 @@
+{
+  "generated_at": "2026-10-22T11:31:36.633901Z",
+  "dataset_sha256": "be0582c60612d4a1970adac9ca099aaf7e19f2b6b02c189d391ff3007b5cd35e",
+  "cases": 3,
+  "single": {
+    "cases": 3,
+    "success_rate": 1.0,
+    "mean_duration_ms": 2380.333,
+    "mean_model_calls": 1.0,
+    "mean_request_chars": 995.667,
+    "mean_total_tokens": 481.333,
+    "mean_repair_rounds": 0.0,
+    "mean_collaboration_rounds": 0.0,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0
+  },
+  "multi": {
+    "cases": 3,
+    "success_rate": 1.0,
+    "mean_duration_ms": 5751.0,
+    "mean_model_calls": 2.0,
+    "mean_request_chars": 2646.667,
+    "mean_total_tokens": 1466.667,
+    "mean_repair_rounds": 0.0,
+    "mean_collaboration_rounds": 1.0,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0
+  },
+  "multi_minus_single": {
+    "success_rate": 0.0,
+    "mean_duration_ms": 3370.667,
+    "mean_model_calls": 1.0,
+    "mean_total_tokens": 985.334,
+    "mean_repair_rounds": 0.0
+  },
+  "pairwise_success": {
+    "multi_wins": 0,
+    "ties": 3,
+    "single_wins": 0
+  },
+  "details": [
+    {
+      "case_id": "calculator-add",
+      "variant": "single",
+      "status": "succeeded",
+      "duration_ms": 2736,
+      "model_calls": 1,
+      "request_chars": 925,
+      "prompt_tokens": 321,
+      "completion_tokens": 67,
+      "total_tokens": 388,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "calculator.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "calculator-add",
+      "variant": "multi",
+      "status": "succeeded",
+      "duration_ms": 4990,
+      "model_calls": 2,
+      "request_chars": 2408,
+      "prompt_tokens": 756,
+      "completion_tokens": 381,
+      "total_tokens": 1137,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "calculator.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "quota-boundary",
+      "variant": "multi",
+      "status": "succeeded",
+      "duration_ms": 5881,
+      "model_calls": 2,
+      "request_chars": 2648,
+      "prompt_tokens": 760,
+      "completion_tokens": 648,
+      "total_tokens": 1408,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "quota.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "quota-boundary",
+      "variant": "single",
+      "status": "succeeded",
+      "duration_ms": 2074,
+      "model_calls": 1,
+      "request_chars": 1033,
+      "prompt_tokens": 327,
+      "completion_tokens": 136,
+      "total_tokens": 463,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "quota.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "slug-normalization",
+      "variant": "single",
+      "status": "succeeded",
+      "duration_ms": 2331,
+      "model_calls": 1,
+      "request_chars": 1029,
+      "prompt_tokens": 334,
+      "completion_tokens": 259,
+      "total_tokens": 593,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "text_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "slug-normalization",
+      "variant": "multi",
+      "status": "succeeded",
+      "duration_ms": 6382,
+      "model_calls": 2,
+      "request_chars": 2884,
+      "prompt_tokens": 846,
+      "completion_tokens": 1009,
+      "total_tokens": 1855,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "text_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    }
+  ]
+}

@@ -283,6 +283,8 @@ SHA-256，便于确认不同实验使用的是同一版本。
 
 这 3 个 Case 只验证评测链路，不能作为简历结论。要形成可信数据，应扩展到至少 30 个未参与提示词
 调优的独立任务，固定模型与 Gateway 配置，多次重复运行，并同时报告成功率提升和 Token/时延成本。
+首轮真实 DeepSeek 冒烟结果见 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，原始机器可读
+报告见 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)。
 
 ## Docker
 
