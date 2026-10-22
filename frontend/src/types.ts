@@ -33,9 +33,38 @@ export interface AgentTraceEvent {
   created_at: string;
 }
 
+export interface NormalizedTask {
+  normalized_goal: string;
+  task_type: "bugfix" | "feature" | "refactor" | "migration" | "test" | "general";
+  complexity: "simple" | "standard" | "complex";
+  risk_level: "low" | "medium" | "high" | "critical";
+  derived_acceptance: string[];
+  requires_clarification: boolean;
+  clarification_questions: string[];
+  requires_human_approval: boolean;
+}
+
+export interface RouteDecision {
+  route: "fast" | "standard" | "complex" | "human_gate";
+  reasons: string[];
+  requires_planning: boolean;
+  required_roles: Array<"scout" | "planner" | "coder" | "reviewer">;
+}
+
+export interface TaskMilestone {
+  code: `CP${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
+  title: string;
+  status: "completed" | "failed";
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface TaskResult {
   task_id: string;
   status: TaskStatus;
+  normalized?: NormalizedTask;
+  route?: RouteDecision;
+  milestones: TaskMilestone[];
   changed_files: string[];
   verification: CommandResult[];
   review?: ReviewDecision;

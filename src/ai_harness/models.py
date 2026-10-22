@@ -21,8 +21,38 @@ class TaskStatus(str, Enum):
 
 class AgentRole(str, Enum):
     SCOUT = "scout"
+    PLANNER = "planner"
     CODER = "coder"
     REVIEWER = "reviewer"
+
+
+class TaskType(str, Enum):
+    BUGFIX = "bugfix"
+    FEATURE = "feature"
+    REFACTOR = "refactor"
+    MIGRATION = "migration"
+    TEST = "test"
+    GENERAL = "general"
+
+
+class TaskComplexity(str, Enum):
+    SIMPLE = "simple"
+    STANDARD = "standard"
+    COMPLEX = "complex"
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class RouteKind(str, Enum):
+    FAST = "fast"
+    STANDARD = "standard"
+    COMPLEX = "complex"
+    HUMAN_GATE = "human_gate"
 
 
 class AcceptanceCriterion(BaseModel):
@@ -45,6 +75,39 @@ class TaskRequest(BaseModel):
             if value.startswith("/") or ".." in value.split("/"):
                 raise ValueError("file_scope must contain repository-relative paths")
         return values
+
+
+class NormalizedTask(BaseModel):
+    normalized_goal: str
+    task_type: TaskType
+    complexity: TaskComplexity
+    risk_level: RiskLevel
+    derived_acceptance: List[str] = Field(default_factory=list)
+    requires_clarification: bool = False
+    clarification_questions: List[str] = Field(default_factory=list)
+    requires_human_approval: bool = False
+
+
+class RouteDecision(BaseModel):
+    route: RouteKind
+    reasons: List[str] = Field(default_factory=list)
+    requires_planning: bool = False
+    required_roles: List[AgentRole] = Field(default_factory=list)
+
+
+class AgentAssignment(BaseModel):
+    assignment_id: str
+    step_id: str
+    role: AgentRole
+    status: Literal["pending", "running", "completed", "failed"] = "pending"
+
+
+class TaskMilestone(BaseModel):
+    code: Literal["CP1", "CP2", "CP3", "CP4", "CP5", "CP6", "CP7", "CP8"]
+    title: str
+    status: Literal["completed", "failed"]
+    details: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class PlanStep(BaseModel):
@@ -189,7 +252,11 @@ class TaskState(BaseModel):
     task_id: str
     request: TaskRequest
     status: TaskStatus = TaskStatus.PENDING
+    normalized: Optional[NormalizedTask] = None
+    route: Optional[RouteDecision] = None
     plan: Optional[PlanDAG] = None
+    assignments: List[AgentAssignment] = Field(default_factory=list)
+    milestones: List[TaskMilestone] = Field(default_factory=list)
     repo_map: List[RepoFile] = Field(default_factory=list)
     context: List[SearchHit] = Field(default_factory=list)
     retrieval_trace: Optional[RetrievalTrace] = None
@@ -208,6 +275,9 @@ class TaskState(BaseModel):
 class TaskResult(BaseModel):
     task_id: str
     status: TaskStatus
+    normalized: Optional[NormalizedTask] = None
+    route: Optional[RouteDecision] = None
+    milestones: List[TaskMilestone] = Field(default_factory=list)
     changed_files: List[str]
     verification: List[CommandResult]
     review: Optional[ReviewDecision] = None

@@ -38,6 +38,18 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
     assert result.retrieval_trace is not None
     assert result.retrieval_trace.stages[-1].stage == "judge"
     assert [event.node for event in result.trace] == ["scout", "code", "verify", "review"]
+    assert result.route is not None
+    assert result.route.route.value == "fast"
+    assert [milestone.code for milestone in result.milestones] == [
+        "CP1",
+        "CP2",
+        "CP3",
+        "CP4",
+        "CP5",
+        "CP6",
+        "CP7",
+        "CP8",
+    ]
     assert model.calls[0]["payload"]["memory_context"][0]["layer"] == "policy"
     assert orchestrator.memory.get(MemoryLayer.SESSION, result.task_id, "progress")["node"] == (
         "review"
@@ -92,3 +104,42 @@ def test_resume_of_completed_task_is_idempotent(tmp_path: Path, sample_repositor
 
     assert replay == result
     assert len(model.calls) == 1
+
+
+def test_complex_task_executes_plan_node_and_records_assignments(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([successful_edit()])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator architecture across multiple modules",
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert result.route is not None
+    assert result.route.route.value == "complex"
+    assert [event.node for event in result.trace] == [
+        "scout",
+        "plan",
+        "code",
+        "verify",
+        "review",
+    ]
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    assert [assignment.step_id for assignment in state.assignments] == [
+        "scout",
+        "plan",
+        "code",
+        "verify",
+        "review",
+    ]
+    assert all(assignment.status == "completed" for assignment in state.assignments)

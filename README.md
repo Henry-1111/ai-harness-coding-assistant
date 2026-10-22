@@ -68,6 +68,19 @@ pip install -e '.[dev]'
 pytest
 ```
 
+## 任务规范化、动态路由与进度账本
+
+任务进入执行图前会先规范化为任务类型、复杂度、风险等级、派生验收条件、澄清问题和
+人工审批要求。路由器据此选择：
+
+- `fast`：简单、低风险修改，执行 `Scout → Code → Verify → Review`；
+- `standard` / `complex`：增加 `Plan` 节点，校验 DAG 并为每个步骤创建 Assignment；
+- `human_gate`：标记关键风险和人工审批要求，最终仍必须通过显式 Promote 门禁。
+
+任务状态按飞书设计记录 CP1–CP8：目标规范化、上下文确认、Plan 校验、Assignment、写入
+前边界、确定性测试、Reviewer、最终验收。每个节点仍会生成 append-only Checkpoint，支持
+恢复和历史版本排查。
+
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 
 ```bash

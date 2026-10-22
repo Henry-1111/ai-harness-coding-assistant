@@ -56,10 +56,25 @@ export default function App() {
 
   const stepState = useMemo(() => {
     if (!result) return 0;
-    if (result.status === "succeeded") return 4;
-    if (result.status === "failed") return 3;
-    return 2;
+    const planningOffset = result.route?.requires_planning ? 1 : 0;
+    if (result.status === "succeeded") return 4 + planningOffset;
+    if (result.status === "failed") return 3 + planningOffset;
+    return 2 + planningOffset;
   }, [result]);
+
+  const executionSteps = useMemo(() => {
+    const steps = [{ title: "Scout", description: "Repo Map / Context" }];
+    if (result?.route?.requires_planning) {
+      steps.push({ title: "Plan", description: "DAG / Assignment" });
+    }
+    steps.push(
+      { title: "Coder", description: "Structured edits" },
+      { title: "Verify", description: "Tests / Lint / Build" },
+      { title: "Reviewer", description: "Scope / Evidence" },
+      { title: "Ready", description: "Promote gate" },
+    );
+    return steps;
+  }, [result?.route?.requires_planning]);
 
   const submit = async (values: FormValues) => {
     setRunning(true);
@@ -167,13 +182,7 @@ export default function App() {
             <Steps
               current={stepState}
               status={result?.status === "failed" ? "error" : "process"}
-              items={[
-                { title: "Scout", description: "Repo Map / Context" },
-                { title: "Coder", description: "Structured edits" },
-                { title: "Verify", description: "Tests / Lint / Build" },
-                { title: "Reviewer", description: "Scope / Evidence" },
-                { title: "Ready", description: "Promote gate" },
-              ]}
+              items={executionSteps}
             />
 
             {error && <Alert className="result-alert" type="error" showIcon message={error} />}
@@ -216,6 +225,36 @@ export default function App() {
                     />
                   </Col>
                 </Row>
+                {result.normalized && result.route && (
+                  <div className="routing-summary">
+                    <Text strong>任务规范化与路由</Text>
+                    <Space wrap>
+                      <Tag color="blue">{result.normalized.task_type}</Tag>
+                      <Tag color="purple">{result.normalized.complexity}</Tag>
+                      <Tag color={result.normalized.risk_level === "low" ? "green" : "orange"}>
+                        risk: {result.normalized.risk_level}
+                      </Tag>
+                      <Tag color="cyan">route: {result.route.route}</Tag>
+                      {result.normalized.requires_human_approval && (
+                        <Tag color="red">需要人工审批</Tag>
+                      )}
+                    </Space>
+                  </div>
+                )}
+                {result.milestones.length > 0 && (
+                  <div className="checkpoint-ledger">
+                    <Text strong>CP1–CP8 任务进度账本</Text>
+                    <Steps
+                      size="small"
+                      responsive
+                      items={result.milestones.map((milestone) => ({
+                        title: milestone.code,
+                        description: milestone.title,
+                        status: milestone.status === "completed" ? "finish" : "error",
+                      }))}
+                    />
+                  </div>
+                )}
                 <Space wrap className="file-tags">
                   {result.changed_files.map((path) => <Tag key={path}>{path}</Tag>)}
                 </Space>

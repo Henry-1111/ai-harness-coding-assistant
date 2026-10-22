@@ -1,7 +1,16 @@
 import pytest
 
-from ai_harness.models import AgentRole, PlanDAG, PlanStep, TaskRequest
-from ai_harness.planner import TaskRouter
+from ai_harness.models import (
+    AgentRole,
+    PlanDAG,
+    PlanStep,
+    RiskLevel,
+    RouteKind,
+    TaskComplexity,
+    TaskRequest,
+    TaskType,
+)
+from ai_harness.planner import TaskNormalizer, TaskRouter
 
 
 def test_plan_dag_returns_topological_order():
@@ -36,3 +45,52 @@ def test_router_builds_full_acceptance_workflow(tmp_path):
     plan = TaskRouter().build_plan(request)
 
     assert [step.id for step in plan.topological_order()] == ["scout", "code", "verify", "review"]
+
+
+def test_normalizer_classifies_intent_complexity_risk_and_clarification(tmp_path):
+    request = TaskRequest(
+        repository=str(tmp_path),
+        goal="  Refactor authentication across multiple modules in production  ",
+        verification_commands=["pytest -q", "ruff check ."],
+    )
+
+    normalized = TaskNormalizer().normalize(request)
+
+    assert normalized.normalized_goal == (
+        "Refactor authentication across multiple modules in production"
+    )
+    assert normalized.task_type == TaskType.REFACTOR
+    assert normalized.complexity == TaskComplexity.COMPLEX
+    assert normalized.risk_level == RiskLevel.CRITICAL
+    assert normalized.requires_human_approval is True
+    assert normalized.requires_clarification is True
+
+
+def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
+    request = TaskRequest(
+        repository=str(tmp_path),
+        goal="Refactor the service architecture across multiple modules",
+        file_scope=["src"],
+    )
+    router = TaskRouter()
+    normalized = router.normalizer.normalize(request)
+    route = router.decide(normalized)
+    plan = router.build_plan(request, normalized, route)
+    assignments = router.assignments(plan)
+
+    assert route.route == RouteKind.COMPLEX
+    assert route.requires_planning is True
+    assert [step.id for step in plan.topological_order()] == [
+        "scout",
+        "plan",
+        "code",
+        "verify",
+        "review",
+    ]
+    assert [assignment.step_id for assignment in assignments] == [
+        "scout",
+        "plan",
+        "code",
+        "verify",
+        "review",
+    ]
