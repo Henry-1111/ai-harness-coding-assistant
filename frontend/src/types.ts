@@ -51,6 +51,15 @@ export interface CollaborationTurn {
   created_at: string;
 }
 
+export interface ApprovalRecord {
+  status: "pending" | "approved" | "rejected";
+  reason: string;
+  requested_at: string;
+  decided_at?: string;
+  decided_by?: string;
+  note?: string;
+}
+
 export interface RetrievalTrace {
   queries: string[];
   cache_hit: boolean;
@@ -106,6 +115,7 @@ export interface TaskResult {
   review?: ReviewDecision;
   repair_history: RepairPlan[];
   collaboration_history: CollaborationTurn[];
+  approval?: ApprovalRecord;
   retrieval_trace?: RetrievalTrace;
   trace: AgentTraceEvent[];
   error?: string;

@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from .models import TaskRequest, TaskResult, TaskState
 from .orchestrator import HarnessOrchestrator
+
+
+class ApprovalDecisionRequest(BaseModel):
+    approved: bool
+    actor: str = Field(min_length=1, max_length=200)
+    note: str = Field(default="", max_length=1000)
 
 
 def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
@@ -38,6 +45,22 @@ def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
             return orchestrator.resume(task_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post("/v1/tasks/{task_id}/approval", response_model=TaskResult)
+    def decide_approval(task_id: str, decision: ApprovalDecisionRequest) -> TaskResult:
+        try:
+            return orchestrator.decide_approval(
+                task_id,
+                approved=decision.approved,
+                actor=decision.actor,
+                note=decision.note,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="task not found") from exc
+        except (RuntimeError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get("/v1/tasks/{task_id}/diff")
     def task_diff(task_id: str) -> dict[str, str]:
@@ -62,6 +85,7 @@ def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
             "collaboration": [
                 item.model_dump(mode="json") for item in task.collaboration_history
             ],
+            "approval": task.approval.model_dump(mode="json") if task.approval else None,
             "checkpoint_revisions": orchestrator.checkpoints.revisions(task_id),
         }
 

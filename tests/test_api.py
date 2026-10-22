@@ -68,3 +68,50 @@ def test_api_returns_404_for_unknown_task(tmp_path: Path):
     with TestClient(app) as client:
         response = client.get("/v1/tasks/missing")
     assert response.status_code == 404
+
+
+def test_api_requires_and_records_human_approval(tmp_path: Path, sample_repository: Path):
+    edit = {
+        "summary": "Fix add",
+        "edits": [
+            {
+                "path": "calculator.py",
+                "old_text": "return left - right",
+                "new_text": "return left + right",
+            }
+        ],
+    }
+    model = ScriptedModel([edit, edit])
+    app = create_app(
+        HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox)
+    )
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/tasks",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Modify production calculator behavior safely",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+        )
+        task_id = created.json()["task_id"]
+        blocked_resume = client.post(f"/v1/tasks/{task_id}/resume")
+        approved = client.post(
+            f"/v1/tasks/{task_id}/approval",
+            json={
+                "approved": True,
+                "actor": "web-reviewer",
+                "note": "Approved after scope review",
+            },
+        )
+        trace = client.get(f"/v1/tasks/{task_id}/trace")
+
+    assert created.status_code == 200
+    assert created.json()["status"] == "needs_input"
+    assert created.json()["approval"]["status"] == "pending"
+    assert blocked_resume.status_code == 409
+    assert approved.status_code == 200
+    assert approved.json()["status"] == "succeeded"
+    assert approved.json()["approval"]["decided_by"] == "web-reviewer"
+    assert trace.json()["approval"]["status"] == "approved"

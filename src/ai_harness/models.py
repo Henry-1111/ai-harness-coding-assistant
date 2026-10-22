@@ -244,6 +244,15 @@ class CollaborationTurn(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class ApprovalRecord(BaseModel):
+    status: Literal["pending", "approved", "rejected"] = "pending"
+    reason: str = Field(min_length=1, max_length=1000)
+    requested_at: datetime = Field(default_factory=utc_now)
+    decided_at: Optional[datetime] = None
+    decided_by: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    note: Optional[str] = Field(default=None, max_length=1000)
+
+
 class CommandResult(BaseModel):
     command: str
     exit_code: int
@@ -300,6 +309,7 @@ class TaskState(BaseModel):
     replan_count: int = 0
     repair_history: List[RepairPlan] = Field(default_factory=list)
     collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
+    approval: Optional[ApprovalRecord] = None
     error: Optional[str] = None
     scratchpad: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -317,6 +327,7 @@ class TaskResult(BaseModel):
     review: Optional[ReviewDecision] = None
     repair_history: List[RepairPlan] = Field(default_factory=list)
     collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
+    approval: Optional[ApprovalRecord] = None
     retrieval_trace: Optional[RetrievalTrace] = None
     trace: List[AgentTraceEvent] = Field(default_factory=list)
     error: Optional[str] = None

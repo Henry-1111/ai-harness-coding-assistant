@@ -24,7 +24,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { createTask, getDiff, promoteTask } from "./api";
+import { createTask, decideApproval, getDiff, promoteTask } from "./api";
 import type { CreateTaskInput, TaskResult } from "./types";
 
 const { Text, Title, Paragraph } = Typography;
@@ -52,18 +52,27 @@ export default function App() {
   const [diff, setDiff] = useState("");
   const [error, setError] = useState("");
   const [promoted, setPromoted] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [approvalActor, setApprovalActor] = useState("");
+  const [approvalNote, setApprovalNote] = useState("");
   const [messageApi, contextHolder] = message.useMessage();
 
   const stepState = useMemo(() => {
     if (!result) return 0;
+    if (result.status === "needs_input") return 0;
+    const approvalOffset = result.approval ? 1 : 0;
     const planningOffset = result.route?.requires_planning ? 1 : 0;
-    if (result.status === "succeeded") return 4 + planningOffset;
-    if (result.status === "failed") return 3 + planningOffset;
-    return 2 + planningOffset;
+    if (result.status === "succeeded") return 4 + planningOffset + approvalOffset;
+    if (result.status === "failed") return 3 + planningOffset + approvalOffset;
+    return 2 + planningOffset + approvalOffset;
   }, [result]);
 
   const executionSteps = useMemo(() => {
-    const steps = [{ title: "Scout", description: "Repo Map / Context" }];
+    const steps: Array<{ title: string; description: string }> = [];
+    if (result?.approval) {
+      steps.push({ title: "Approval", description: "Human risk gate" });
+    }
+    steps.push({ title: "Scout", description: "Repo Map / Context" });
     if (result?.route?.requires_planning) {
       steps.push({ title: "Plan", description: "DAG / Assignment" });
     }
@@ -82,6 +91,8 @@ export default function App() {
     setResult(undefined);
     setDiff("");
     setPromoted(false);
+    setApprovalActor("");
+    setApprovalNote("");
     const input: CreateTaskInput = {
       repository: values.repository,
       goal: values.goal,
@@ -112,6 +123,33 @@ export default function App() {
       messageApi.success(`已发布 ${response.promoted_files.length} 个文件`);
     } catch (caught) {
       messageApi.error(caught instanceof Error ? caught.message : "发布失败");
+    }
+  };
+
+  const submitApproval = async (approved: boolean) => {
+    if (!result || !approvalActor.trim()) {
+      messageApi.warning("请填写审批人");
+      return;
+    }
+    setApprovalBusy(true);
+    try {
+      const task = await decideApproval(result.task_id, {
+        approved,
+        actor: approvalActor.trim(),
+        note: approvalNote.trim(),
+      });
+      setResult(task);
+      const taskDiff = await getDiff(task.task_id);
+      setDiff(taskDiff.diff);
+      if (approved) {
+        messageApi.success("审批通过，任务已继续执行");
+      } else {
+        messageApi.warning("任务已拒绝");
+      }
+    } catch (caught) {
+      messageApi.error(caught instanceof Error ? caught.message : "审批失败");
+    } finally {
+      setApprovalBusy(false);
     }
   };
 
@@ -240,6 +278,58 @@ export default function App() {
                       )}
                     </Space>
                   </div>
+                )}
+                {result.approval?.status === "pending" && (
+                  <Alert
+                    className="result-alert"
+                    type="warning"
+                    showIcon
+                    message="高风险任务等待人工审批"
+                    description={(
+                      <Space direction="vertical" style={{ width: "100%" }}>
+                        <Text>{result.approval.reason}</Text>
+                        <Input
+                          value={approvalActor}
+                          onChange={(event) => setApprovalActor(event.target.value)}
+                          placeholder="审批人（必填）"
+                        />
+                        <Input
+                          value={approvalNote}
+                          onChange={(event) => setApprovalNote(event.target.value)}
+                          placeholder="审批说明（可选）"
+                        />
+                        <Space>
+                          <Button
+                            type="primary"
+                            loading={approvalBusy}
+                            onClick={() => submitApproval(true)}
+                          >
+                            批准并继续
+                          </Button>
+                          <Button
+                            danger
+                            disabled={approvalBusy}
+                            onClick={() => submitApproval(false)}
+                          >
+                            拒绝任务
+                          </Button>
+                        </Space>
+                      </Space>
+                    )}
+                  />
+                )}
+                {result.approval && result.approval.status !== "pending" && (
+                  <Alert
+                    className="result-alert"
+                    type={result.approval.status === "approved" ? "success" : "error"}
+                    showIcon
+                    message={
+                      result.approval.status === "approved" ? "人工审批已通过" : "人工审批已拒绝"
+                    }
+                    description={`审批人：${result.approval.decided_by ?? "未知"}${
+                      result.approval.note ? `；说明：${result.approval.note}` : ""
+                    }`}
+                  />
                 )}
                 {result.milestones.length > 0 && (
                   <div className="checkpoint-ledger">

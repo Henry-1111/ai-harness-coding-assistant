@@ -25,6 +25,7 @@ from .mcp import MCPToolCatalog
 from .memory import LayeredMemoryStore, MemoryLayer
 from .models import (
     AgentTraceEvent,
+    ApprovalRecord,
     ReviewFinding,
     RouteKind,
     TaskMilestone,
@@ -32,6 +33,7 @@ from .models import (
     TaskResult,
     TaskState,
     TaskStatus,
+    utc_now,
 )
 from .planner import TaskRouter
 from .repository import (
@@ -136,7 +138,18 @@ class HarnessOrchestrator:
                 "requires_clarification": normalized.requires_clarification,
             },
         )
+        if normalized.requires_human_approval:
+            state.status = TaskStatus.NEEDS_INPUT
+            state.current_node = "approval"
+            state.approval = ApprovalRecord(
+                reason=(
+                    f"risk={normalized.risk_level.value}; route={route.route.value}; "
+                    "explicit approval is required before model or tool execution"
+                )
+            )
         self.checkpoints.save(state)
+        if state.status == TaskStatus.NEEDS_INPUT:
+            return self._result(state)
         return self._invoke(state)
 
     def resume(self, task_id: str) -> TaskResult:
@@ -145,12 +158,83 @@ class HarnessOrchestrator:
             raise KeyError(f"task not found: {task_id}")
         if state.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
             return self._result(state)
+        if state.approval and state.approval.status == "pending":
+            raise RuntimeError("task requires an explicit approval decision before resume")
         workspace = Path(str(state.scratchpad.get("workspace", "")))
         if not workspace.is_dir():
             raise FileNotFoundError("task workspace is unavailable")
         state.status = TaskStatus.RUNNING
         state.error = None
         return self._invoke(state)
+
+    def decide_approval(
+        self,
+        task_id: str,
+        *,
+        approved: bool,
+        actor: str,
+        note: str = "",
+    ) -> TaskResult:
+        state = self.checkpoints.load(task_id)
+        if state is None:
+            raise KeyError(f"task not found: {task_id}")
+        if state.approval is None:
+            raise RuntimeError("task does not require approval")
+        decision = "approved" if approved else "rejected"
+        if state.approval.status != "pending":
+            if state.approval.status == decision:
+                return self._result(state)
+            raise RuntimeError(
+                f"approval was already {state.approval.status} by "
+                f"{state.approval.decided_by or 'unknown'}"
+            )
+        actor = actor.strip()
+        if not actor:
+            raise ValueError("approval actor is required")
+        note = note.strip()
+        state.approval = ApprovalRecord.model_validate(
+            {
+                **state.approval.model_dump(),
+                "status": decision,
+                "decided_at": utc_now(),
+                "decided_by": actor,
+                "note": note or None,
+            }
+        )
+        if approved:
+            state.status = TaskStatus.RUNNING
+            state.current_node = "start"
+            state.error = None
+            state.trace.append(
+                AgentTraceEvent(
+                    node="approval",
+                    outcome="succeeded",
+                    details={"decision": decision, "actor": actor, "note": note},
+                )
+            )
+            self.checkpoints.save(state)
+            return self._invoke(state)
+
+        state.status = TaskStatus.FAILED
+        state.current_node = "failed"
+        state.error = f"Approval rejected by {actor}" + (f": {note}" if note else "")
+        state.trace.append(
+            AgentTraceEvent(
+                node="approval",
+                outcome="failed",
+                details={"decision": decision, "actor": actor, "note": note},
+            )
+        )
+        self._record_milestone(
+            state,
+            "CP8",
+            "Final result accepted",
+            "failed",
+            {"reason": "approval_rejected", "actor": actor},
+        )
+        self._record_experience(state, "failed", failure_type="approval_rejected")
+        self.checkpoints.save(state)
+        return self._result(state)
 
     def get(self, task_id: str) -> Optional[TaskState]:
         return self.checkpoints.load(task_id)
@@ -818,6 +902,7 @@ class HarnessOrchestrator:
             review=state.review,
             repair_history=state.repair_history,
             collaboration_history=state.collaboration_history,
+            approval=state.approval,
             retrieval_trace=state.retrieval_trace,
             trace=state.trace,
             error=state.error,

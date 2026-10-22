@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from conftest import ScriptedModel
 
 from ai_harness.mcp import MCPToolCatalog, MCPToolCatalogConfig
@@ -70,6 +71,93 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
 
     assert orchestrator.promote(result.task_id) == ["calculator.py"]
     assert "left + right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")
+
+
+def test_high_risk_task_waits_for_explicit_approval_before_execution(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([successful_edit(), successful_edit()])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    pending = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Modify production calculator behavior safely",
+        )
+    )
+
+    assert pending.status == TaskStatus.NEEDS_INPUT
+    assert pending.approval is not None
+    assert pending.approval.status == "pending"
+    assert pending.changed_files == []
+    assert model.calls == []
+    with pytest.raises(RuntimeError, match="explicit approval"):
+        orchestrator.resume(pending.task_id)
+
+    approved = orchestrator.decide_approval(
+        pending.task_id,
+        approved=True,
+        actor="security-reviewer",
+        note="Scoped production change approved",
+    )
+
+    assert approved.status == TaskStatus.SUCCEEDED
+    assert approved.approval is not None
+    assert approved.approval.status == "approved"
+    assert approved.approval.decided_by == "security-reviewer"
+    assert approved.changed_files == ["calculator.py"]
+    assert len(model.calls) == 2
+    assert approved.trace[0].node == "approval"
+
+    replay = orchestrator.decide_approval(
+        pending.task_id,
+        approved=True,
+        actor="security-reviewer",
+    )
+    assert replay == approved
+    assert len(model.calls) == 2
+
+
+def test_rejected_task_never_invokes_model_or_changes_source(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+    pending = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Delete production calculator data",
+        )
+    )
+
+    rejected = orchestrator.decide_approval(
+        pending.task_id,
+        approved=False,
+        actor="owner",
+        note="Unsafe request",
+    )
+
+    assert rejected.status == TaskStatus.FAILED
+    assert rejected.approval is not None
+    assert rejected.approval.status == "rejected"
+    assert rejected.error == "Approval rejected by owner: Unsafe request"
+    assert rejected.changed_files == []
+    assert model.calls == []
+    assert "left - right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")
+    with pytest.raises(RuntimeError, match="already rejected"):
+        orchestrator.decide_approval(
+            pending.task_id,
+            approved=True,
+            actor="different-owner",
+        )
 
 
 def test_failed_verification_triggers_bounded_replan(tmp_path: Path, sample_repository: Path):

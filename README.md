@@ -79,7 +79,8 @@ pytest
 
 - `fast`：简单、低风险修改，执行 `Scout → Code → Verify → Review`；
 - `standard` / `complex`：增加 `Plan` 节点，校验 DAG 并为每个步骤创建 Assignment；
-- `human_gate`：标记关键风险和人工审批要求，最终仍必须通过显式 Promote 门禁。
+- `human_gate`：高风险任务在模型调用和工具执行前进入 `needs_input`，必须记录审批人和决定；
+  Reviewer 通过后仍需单独执行 Promote 才能修改源仓库。
 
 任务状态按飞书设计记录 CP1–CP8：目标规范化、上下文确认、Plan 校验、Assignment、写入
 前边界、确定性测试、Reviewer、最终验收。每个节点仍会生成 append-only Checkpoint，支持
@@ -183,6 +184,8 @@ ai-harness run /path/to/repository \
 ```bash
 ai-harness status <task-id>
 ai-harness resume <task-id>
+ai-harness approve <task-id> --actor security-reviewer --note "scope reviewed"
+ai-harness reject <task-id> --actor repository-owner --note "unsafe request"
 ai-harness promote <task-id>
 ```
 
@@ -214,6 +217,7 @@ Content-Type: application/json
 - `GET /v1/tasks/{task_id}/diff`
 - `GET /v1/tasks/{task_id}/trace`
 - `POST /v1/tasks/{task_id}/resume`
+- `POST /v1/tasks/{task_id}/approval`
 - `POST /v1/tasks/{task_id}/promote`
 
 ## Web 控制台

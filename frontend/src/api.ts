@@ -25,3 +25,13 @@ export function getDiff(taskId: string): Promise<{ task_id: string; diff: string
 export function promoteTask(taskId: string): Promise<{ promoted_files: string[] }> {
   return request(`/v1/tasks/${taskId}/promote`, { method: "POST" });
 }
+
+export function decideApproval(
+  taskId: string,
+  decision: { approved: boolean; actor: string; note: string },
+): Promise<TaskResult> {
+  return request(`/v1/tasks/${taskId}/approval`, {
+    method: "POST",
+    body: JSON.stringify(decision),
+  });
+}

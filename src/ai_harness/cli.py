@@ -108,6 +108,20 @@ def build_parser() -> argparse.ArgumentParser:
     resume = subparsers.add_parser("resume", help="Resume from the latest checkpoint")
     resume.add_argument("task_id")
 
+    approve = subparsers.add_parser(
+        "approve", help="Approve a task that is waiting at the human gate"
+    )
+    approve.add_argument("task_id")
+    approve.add_argument("--actor", required=True)
+    approve.add_argument("--note", default="")
+
+    reject = subparsers.add_parser(
+        "reject", help="Reject a task that is waiting at the human gate"
+    )
+    reject.add_argument("task_id")
+    reject.add_argument("--actor", required=True)
+    reject.add_argument("--note", default="")
+
     promote = subparsers.add_parser("promote", help="Copy an approved patch to the source repo")
     promote.add_argument("task_id")
 
@@ -267,6 +281,15 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         print(task.model_dump_json(indent=2))
     elif args.command == "resume":
         print(orchestrator.resume(args.task_id).model_dump_json(indent=2))
+    elif args.command in {"approve", "reject"}:
+        print(
+            orchestrator.decide_approval(
+                args.task_id,
+                approved=args.command == "approve",
+                actor=args.actor,
+                note=args.note,
+            ).model_dump_json(indent=2)
+        )
     elif args.command == "promote":
         print(json.dumps({"promoted_files": orchestrator.promote(args.task_id)}, indent=2))
     elif args.command == "serve":
