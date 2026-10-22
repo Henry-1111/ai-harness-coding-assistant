@@ -206,6 +206,66 @@ def test_complex_task_executes_plan_node_and_records_assignments(
     assert len(model.calls) == 2
 
 
+def test_collaboration_can_be_disabled_for_complex_task(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([successful_edit()])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+        collaboration_mode="disabled",
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator architecture across multiple modules",
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert result.collaboration_history == []
+    assert len(model.calls) == 1
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    assert [assignment.step_id for assignment in state.assignments] == [
+        "scout",
+        "plan",
+        "code",
+        "verify",
+        "review",
+    ]
+
+
+def test_collaboration_can_be_forced_for_fast_task(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([successful_edit(), successful_edit()])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+        collaboration_mode="forced",
+    )
+
+    result = orchestrator.run(request_for(sample_repository))
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert len(result.collaboration_history) == 1
+    assert len(model.calls) == 2
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    assert [assignment.step_id for assignment in state.assignments] == [
+        "scout",
+        "implementation",
+        "test_design",
+        "code",
+        "verify",
+        "review",
+    ]
+
+
 def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
     tmp_path: Path, sample_repository: Path, monkeypatch
 ):

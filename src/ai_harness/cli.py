@@ -3,9 +3,20 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import tempfile
+import time
+from hashlib import sha256
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Literal, Optional, Sequence
 
+from .agent_evaluation import (
+    AgentBenchmarkCase,
+    AgentBenchmarkEvaluator,
+    AgentBenchmarkObservation,
+    changed_path_metrics,
+    dataset_sha256,
+    load_agent_cases,
+)
 from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
@@ -13,17 +24,23 @@ from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
 from .lsp import LSPDefinitionEnricher
 from .mcp import MCPToolCatalog
-from .models import AcceptanceCriterion, TaskRequest
+from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .orchestrator import HarnessOrchestrator
 from .repository import Repository
 from .sandbox import DockerSandbox, LocalCommandSandbox
 
 
-def build_orchestrator() -> HarnessOrchestrator:
-    settings = Settings.from_environment()
+def build_orchestrator(
+    *,
+    settings: Optional[Settings] = None,
+    model: Optional[OpenAICompatibleModel] = None,
+    data_directory: Optional[Path] = None,
+    collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
+) -> HarnessOrchestrator:
+    settings = settings or Settings.from_environment()
     if not settings.model_api_key:
         raise SystemExit("AI_HARNESS_MODEL_API_KEY is required")
-    model = OpenAICompatibleModel(
+    model = model or OpenAICompatibleModel(
         settings.model_base_url,
         settings.model_api_key,
         settings.model_name,
@@ -62,7 +79,7 @@ def build_orchestrator() -> HarnessOrchestrator:
     )
     return HarnessOrchestrator(
         model,
-        settings.data_directory,
+        data_directory or settings.data_directory,
         runner_factory=runner_factory,
         embedding_provider=embedding_provider,
         definition_provider_factory=definition_provider_factory,
@@ -70,6 +87,7 @@ def build_orchestrator() -> HarnessOrchestrator:
         restricted_react_max_tool_calls=settings.restricted_react_max_tool_calls,
         mcp_tool_catalog=mcp_tool_catalog,
         tenant_id=settings.tenant_id,
+        collaboration_mode=collaboration_mode,
     )
 
 
@@ -105,7 +123,112 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--k", type=int, default=5)
     evaluate.add_argument("--split", choices=["train", "validation", "test"])
     evaluate.add_argument("--output", help="Write the JSON report to this path")
+
+    agent_evaluate = subparsers.add_parser(
+        "eval-agents",
+        help="Compare single-agent and multi-agent execution on the same task dataset",
+    )
+    agent_evaluate.add_argument("repository")
+    agent_evaluate.add_argument("dataset")
+    agent_evaluate.add_argument("--split", choices=["train", "validation", "test"])
+    agent_evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
+
+
+def run_agent_benchmark(args: argparse.Namespace) -> str:
+    settings = Settings.from_environment()
+    if not settings.model_api_key:
+        raise SystemExit("AI_HARNESS_MODEL_API_KEY is required")
+    repository = str(Path(args.repository).resolve())
+    dataset_path = Path(args.dataset)
+    cases = load_agent_cases(dataset_path)
+
+    with tempfile.TemporaryDirectory(prefix="ai-harness-agent-eval-") as temp_directory:
+        data_root = Path(temp_directory)
+
+        def runner(
+            case: AgentBenchmarkCase,
+            variant: Literal["single", "multi"],
+        ) -> AgentBenchmarkObservation:
+            model = OpenAICompatibleModel(
+                settings.model_base_url,
+                settings.model_api_key,
+                settings.model_name,
+                settings.model_timeout_seconds,
+            )
+            case_key = sha256(case.id.encode("utf-8")).hexdigest()[:12]
+            orchestrator = build_orchestrator(
+                settings=settings,
+                model=model,
+                data_directory=data_root / case_key / variant,
+                collaboration_mode="disabled" if variant == "single" else "forced",
+            )
+            request = TaskRequest(
+                repository=repository,
+                goal=case.goal,
+                acceptance_criteria=[
+                    AcceptanceCriterion(description=item)
+                    for item in case.acceptance_criteria
+                ],
+                file_scope=case.file_scope,
+                verification_commands=case.verification_commands,
+                max_replans=case.max_replans,
+            )
+            started = time.monotonic()
+            try:
+                result = orchestrator.run(request)
+                duration_ms = int((time.monotonic() - started) * 1000)
+                usage = model.usage_snapshot()
+                recall, precision = changed_path_metrics(
+                    result.changed_files,
+                    case.expected_changed_paths,
+                )
+                return AgentBenchmarkObservation(
+                    case_id=case.id,
+                    variant=variant,
+                    status=result.status,
+                    duration_ms=duration_ms,
+                    model_calls=usage.calls,
+                    request_chars=usage.request_chars,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    repair_rounds=len(result.repair_history),
+                    collaboration_rounds=len(result.collaboration_history),
+                    detected_conflicts=sum(
+                        len(turn.detected_conflicts)
+                        for turn in result.collaboration_history
+                    ),
+                    changed_paths=result.changed_files,
+                    changed_path_recall=recall,
+                    changed_path_precision=precision,
+                    error=result.error,
+                )
+            except Exception as exc:
+                usage = model.usage_snapshot()
+                return AgentBenchmarkObservation(
+                    case_id=case.id,
+                    variant=variant,
+                    status=TaskStatus.FAILED,
+                    duration_ms=int((time.monotonic() - started) * 1000),
+                    model_calls=usage.calls,
+                    request_chars=usage.request_chars,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    total_tokens=usage.total_tokens,
+                    repair_rounds=0,
+                    collaboration_rounds=0,
+                    detected_conflicts=0,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+
+        evaluation = AgentBenchmarkEvaluator().evaluate(
+            cases,
+            runner,
+            dataset_hash=dataset_sha256(dataset_path),
+            split=args.split,
+        )
+    return evaluation.model_dump_json(indent=2)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
@@ -117,6 +240,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             split=args.split,
         )
         report = evaluation.model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-agents":
+        report = run_agent_benchmark(args)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")
         print(report)

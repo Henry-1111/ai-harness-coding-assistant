@@ -9,6 +9,7 @@ class FakeResponse:
 
     def json(self):
         return {
+            "usage": {"prompt_tokens": 12, "completion_tokens": 4},
             "choices": [
                 {
                     "message": {
@@ -47,3 +48,9 @@ def test_openai_adapter_matches_llm_gateway_contract(monkeypatch):
     assert captured["body"]["response_format"] == {"type": "json_object"}
     assert captured["timeout"] == 15
     assert result["summary"] == "Gateway response"
+    usage = model.usage_snapshot()
+    assert usage.calls == 1
+    assert usage.request_chars > 0
+    assert usage.prompt_tokens == 12
+    assert usage.completion_tokens == 4
+    assert usage.total_tokens == 16

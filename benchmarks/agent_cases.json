@@ -1,0 +1,41 @@
+[
+  {
+    "id": "calculator-add",
+    "goal": "Fix add so it returns the arithmetic sum for positive and negative integers.",
+    "acceptance_criteria": [
+      "add(2, 3) returns 5",
+      "add(-2, 1) returns -1"
+    ],
+    "file_scope": ["calculator.py"],
+    "verification_commands": ["python -m unittest -q test_calculator.py"],
+    "expected_changed_paths": ["calculator.py"],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "quota-boundary",
+    "goal": "Fix quota reservation so a request exactly equal to the remaining quota is accepted without permitting overuse.",
+    "acceptance_criteria": [
+      "A request equal to remaining quota is accepted",
+      "A request greater than remaining quota is rejected"
+    ],
+    "file_scope": ["quota.py"],
+    "verification_commands": ["python -m unittest -q test_quota.py"],
+    "expected_changed_paths": ["quota.py"],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "slug-normalization",
+    "goal": "Fix slugify so leading, trailing, and repeated whitespace produce one hyphen-separated lowercase slug.",
+    "acceptance_criteria": [
+      "Repeated whitespace produces one hyphen",
+      "Leading and trailing whitespace produces no surrounding hyphens"
+    ],
+    "file_scope": ["text_utils.py"],
+    "verification_commands": ["python -m unittest -q test_text_utils.py"],
+    "expected_changed_paths": ["text_utils.py"],
+    "max_replans": 1,
+    "split": "test"
+  }
+]

@@ -255,6 +255,35 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 `tests/test_retrieval_benchmark.py` 设置了回归下限。当前数据集只有 8 个仓库内任务，只用于验证检索实现和防止
 回归，不能作为外部通用准确率；对外写入简历前，应扩展为独立、冻结且不参与调参的任务集。
 
+## 单 Agent / 多 Agent A/B 评测
+
+项目提供成对评测命令：同一模型、同一 Provider、同一冻结任务集分别走单 Coder 和
+Implementer + Test/Integrator 两条路径。每个 Case 都使用全新的隔离工作区，且运行顺序交替，避免
+前后顺序持续偏向某一组。评测不会执行 Promote，因此不会修改被测源仓库。
+
+仓库内附带 3 个确定性缺陷作为冒烟样例。使用宿主机本地执行器只适用于这组可信 Fixture：
+
+```bash
+export AI_HARNESS_SANDBOX_MODE=local
+export AI_HARNESS_MODEL_BASE_URL=http://127.0.0.1:8000/v1
+export AI_HARNESS_MODEL_API_KEY='<llmgw-api-key>'
+export AI_HARNESS_MODEL=gpt-4.1-mini
+
+ai-harness eval-agents \
+  benchmarks/fixtures/agent_eval \
+  benchmarks/agent_cases.json \
+  --split test \
+  --output benchmarks/agent-report.json
+```
+
+报告包含两组成功率、耗时、模型调用次数、请求字符数、Provider Token、修复轮数、协作轮数、冲突数、
+预期修改文件的 Recall/Precision，以及逐 Case 的胜/平/负。只有上游 OpenAI-compatible 接口返回
+`usage` 时才统计 Token；否则字段为 `null`，不会用字符数伪造 Token。报告同时写入冻结数据集的
+SHA-256，便于确认不同实验使用的是同一版本。
+
+这 3 个 Case 只验证评测链路，不能作为简历结论。要形成可信数据，应扩展到至少 30 个未参与提示词
+调优的独立任务，固定模型与 Gateway 配置，多次重复运行，并同时报告成功率提升和 Token/时延成本。
+
 ## Docker
 
 ```bash

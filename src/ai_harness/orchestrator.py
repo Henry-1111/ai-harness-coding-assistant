@@ -66,6 +66,7 @@ class HarnessOrchestrator:
         restricted_react_max_tool_calls: int = 3,
         mcp_tool_catalog: Optional[MCPToolCatalog] = None,
         tenant_id: str = "local",
+        collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -84,6 +85,9 @@ class HarnessOrchestrator:
         self.restricted_react_max_tool_calls = restricted_react_max_tool_calls
         self.mcp_tool_catalog = mcp_tool_catalog
         self.tenant_id = tenant_id
+        if collaboration_mode not in {"auto", "disabled", "forced"}:
+            raise ValueError("collaboration_mode must be auto, disabled or forced")
+        self.collaboration_mode = collaboration_mode
         self.memory = LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -104,7 +108,12 @@ class HarnessOrchestrator:
         workspace = self._create_workspace(task_id, Path(request.repository))
         normalized = self.router.normalizer.normalize(request)
         route = self.router.decide(normalized)
-        plan = self.router.build_plan(request, normalized, route)
+        plan = self.router.build_plan(
+            request,
+            normalized,
+            route,
+            collaboration=self._should_collaborate(route.route),
+        )
         state = TaskState(
             task_id=task_id,
             request=request,
@@ -461,7 +470,7 @@ class HarnessOrchestrator:
             )
         repair_plan = task.repair_history[-1] if task.repair_history else None
         collaboration_turn = None
-        if task.route and task.route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}:
+        if task.route and self._should_collaborate(task.route.route):
             self._set_assignment_status(task, "implementation", "running")
             self._set_assignment_status(task, "test_design", "running")
             try:
@@ -788,6 +797,13 @@ class HarnessOrchestrator:
     @staticmethod
     def _project_id(repository: str) -> str:
         return sha256(str(Path(repository).resolve()).encode()).hexdigest()[:20]
+
+    def _should_collaborate(self, route: RouteKind) -> bool:
+        if self.collaboration_mode == "forced":
+            return True
+        if self.collaboration_mode == "disabled":
+            return False
+        return route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}
 
     @staticmethod
     def _result(state: TaskState) -> TaskResult:

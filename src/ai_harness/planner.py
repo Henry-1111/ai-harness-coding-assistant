@@ -186,6 +186,7 @@ class TaskRouter:
         request: TaskRequest,
         normalized: Optional[NormalizedTask] = None,
         route: Optional[RouteDecision] = None,
+        collaboration: Optional[bool] = None,
     ) -> PlanDAG:
         normalized = normalized or self.normalizer.normalize(request)
         route = route or self.decide(normalized)
@@ -212,7 +213,12 @@ class TaskRouter:
                 )
             )
             code_dependency = "plan"
-        if route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}:
+        collaboration = (
+            route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}
+            if collaboration is None
+            else collaboration
+        )
+        if collaboration:
             steps.extend(
                 [
                     PlanStep(

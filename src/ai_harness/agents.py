@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Protocol
 
 import httpx
@@ -21,6 +22,15 @@ class AgentModel(Protocol):
     def complete_json(self, *, system: str, payload: Dict[str, Any]) -> Dict[str, Any]: ...
 
 
+@dataclass(frozen=True)
+class ModelUsageSnapshot:
+    calls: int
+    request_chars: int
+    prompt_tokens: Optional[int]
+    completion_tokens: Optional[int]
+    total_tokens: Optional[int]
+
+
 class OpenAICompatibleModel:
     def __init__(
         self,
@@ -33,8 +43,16 @@ class OpenAICompatibleModel:
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self._calls = 0
+        self._request_chars = 0
+        self._reported_usage = 0
+        self._prompt_tokens = 0
+        self._completion_tokens = 0
 
     def complete_json(self, *, system: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        encoded_payload = json.dumps(payload, ensure_ascii=False)
+        self._calls += 1
+        self._request_chars += len(system) + len(encoded_payload)
         response = httpx.post(
             f"{self.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -42,7 +60,7 @@ class OpenAICompatibleModel:
                 "model": self.model,
                 "messages": [
                     {"role": "system", "content": system},
-                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                    {"role": "user", "content": encoded_payload},
                 ],
                 "response_format": {"type": "json_object"},
                 "temperature": 0,
@@ -51,11 +69,35 @@ class OpenAICompatibleModel:
         )
         response.raise_for_status()
         body = response.json()
+        usage = body.get("usage")
+        if isinstance(usage, dict):
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
+            if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
+                self._reported_usage += 1
+                self._prompt_tokens += prompt_tokens
+                self._completion_tokens += completion_tokens
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
             raise ValueError("model response must be a JSON object")
         return parsed
+
+    def usage_snapshot(self) -> ModelUsageSnapshot:
+        complete_usage = self._calls == self._reported_usage
+        prompt_tokens = self._prompt_tokens if complete_usage else None
+        completion_tokens = self._completion_tokens if complete_usage else None
+        return ModelUsageSnapshot(
+            calls=self._calls,
+            request_chars=self._request_chars,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=(
+                prompt_tokens + completion_tokens
+                if prompt_tokens is not None and completion_tokens is not None
+                else None
+            ),
+        )
 
 
 class CoderAgent:
