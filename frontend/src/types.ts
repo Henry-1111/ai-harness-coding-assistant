@@ -36,6 +36,21 @@ export interface RepairPlan {
   created_at: string;
 }
 
+export interface CollaborationTurn {
+  round: number;
+  implementation_proposal: {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  };
+  integrated_decision: {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  };
+  detected_conflicts: string[];
+  participants: Array<"implementer" | "test_integrator">;
+  created_at: string;
+}
+
 export interface RetrievalTrace {
   queries: string[];
   cache_hit: boolean;
@@ -90,6 +105,7 @@ export interface TaskResult {
   verification: CommandResult[];
   review?: ReviewDecision;
   repair_history: RepairPlan[];
+  collaboration_history: CollaborationTurn[];
   retrieval_trace?: RetrievalTrace;
   trace: AgentTraceEvent[];
   error?: string;

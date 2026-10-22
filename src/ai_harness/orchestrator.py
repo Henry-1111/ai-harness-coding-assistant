@@ -12,6 +12,7 @@ from langgraph.graph import END, START, StateGraph
 
 from .agents import AgentModel, CoderAgent, ReviewerAgent
 from .checkpoints import CheckpointStore
+from .collaboration import CollaborativeCoder
 from .embeddings import EmbeddingProvider
 from .git_tools import GitCommandError, GitRepository
 from .knowledge import (
@@ -25,6 +26,7 @@ from .memory import LayeredMemoryStore, MemoryLayer
 from .models import (
     AgentTraceEvent,
     ReviewFinding,
+    RouteKind,
     TaskMilestone,
     TaskRequest,
     TaskResult,
@@ -91,6 +93,7 @@ class HarnessOrchestrator:
                 {"require_tests": True, "prefer_smallest_complete_change": True},
             )
         self.coder = CoderAgent(model)
+        self.collaborative_coder = CollaborativeCoder(model)
         self.reviewer = ReviewerAgent()
         self.self_healing = SelfHealingPlanner()
         self.tools = default_registry()
@@ -427,6 +430,7 @@ class HarnessOrchestrator:
     def _code(self, payload: WorkflowState) -> WorkflowState:
         started = time.monotonic()
         task = payload["task"]
+        task.current_node = "code"
         self._set_assignment_status(task, "code", "running")
         self._record_milestone(
             task,
@@ -456,13 +460,35 @@ class HarnessOrchestrator:
                 }
             )
         repair_plan = task.repair_history[-1] if task.repair_history else None
-        decision = self.coder.propose(
-            task.request,
-            task.context,
-            previous_failure,
-            memory_context=memory_context,
-            repair_plan=repair_plan,
-        )
+        collaboration_turn = None
+        if task.route and task.route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}:
+            self._set_assignment_status(task, "implementation", "running")
+            self._set_assignment_status(task, "test_design", "running")
+            try:
+                collaboration_turn = self.collaborative_coder.propose(
+                    task.request,
+                    task.context,
+                    round_number=len(task.collaboration_history) + 1,
+                    previous_failure=previous_failure,
+                    memory_context=memory_context,
+                    repair_plan=repair_plan,
+                )
+            except Exception:
+                self._set_assignment_status(task, "implementation", "failed")
+                self._set_assignment_status(task, "test_design", "failed")
+                raise
+            self._set_assignment_status(task, "implementation", "completed")
+            self._set_assignment_status(task, "test_design", "completed")
+            task.collaboration_history.append(collaboration_turn)
+            decision = collaboration_turn.integrated_decision
+        else:
+            decision = self.coder.propose(
+                task.request,
+                task.context,
+                previous_failure,
+                memory_context=memory_context,
+                repair_plan=repair_plan,
+            )
         repository = self._workspace_repository(task)
         context = ToolContext(
             repository=repository,
@@ -481,7 +507,24 @@ class HarnessOrchestrator:
                 node="code",
                 outcome="succeeded",
                 duration_ms=round((time.monotonic() - started) * 1000),
-                details={"changed_files": list(task.changed_files)},
+                details={
+                    "changed_files": list(task.changed_files),
+                    "collaboration": (
+                        {
+                            "round": collaboration_turn.round,
+                            "participants": collaboration_turn.participants,
+                            "candidate_edits": len(
+                                collaboration_turn.implementation_proposal.edits
+                            ),
+                            "integrated_edits": len(
+                                collaboration_turn.integrated_decision.edits
+                            ),
+                            "detected_conflicts": collaboration_turn.detected_conflicts,
+                        }
+                        if collaboration_turn
+                        else None
+                    ),
+                },
             )
         )
         self._set_assignment_status(task, "code", "completed")
@@ -705,6 +748,7 @@ class HarnessOrchestrator:
                 for result in task.verification
             ],
             "repair_attempts": len(task.repair_history),
+            "collaboration_rounds": len(task.collaboration_history),
             "repair_fingerprints": [
                 plan.failure_fingerprint for plan in task.repair_history
             ],
@@ -757,6 +801,7 @@ class HarnessOrchestrator:
             verification=state.verification,
             review=state.review,
             repair_history=state.repair_history,
+            collaboration_history=state.collaboration_history,
             retrieval_trace=state.retrieval_trace,
             trace=state.trace,
             error=state.error,

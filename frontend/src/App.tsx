@@ -283,6 +283,19 @@ export default function App() {
                     </Space>
                   </div>
                 )}
+                {result.collaboration_history.length > 0 && (
+                  <div className="routing-summary">
+                    <Text strong>多 Agent 协作</Text>
+                    <Space wrap>
+                      {result.collaboration_history.map((turn) => (
+                        <Tag key={turn.round} color={turn.detected_conflicts.length ? "orange" : "cyan"}>
+                          第 {turn.round} 轮：实现提案 {turn.implementation_proposal.edits.length} 项，
+                          整合后 {turn.integrated_decision.edits.length} 项
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
+                )}
                 <div className="diff-header">
                   <Text strong>Workspace Diff</Text>
                   <Button

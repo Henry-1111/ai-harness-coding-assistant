@@ -83,6 +83,8 @@ def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
     assert [step.id for step in plan.topological_order()] == [
         "scout",
         "plan",
+        "implementation",
+        "test_design",
         "code",
         "verify",
         "review",
@@ -90,6 +92,8 @@ def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
     assert [assignment.step_id for assignment in assignments] == [
         "scout",
         "plan",
+        "implementation",
+        "test_design",
         "code",
         "verify",
         "review",

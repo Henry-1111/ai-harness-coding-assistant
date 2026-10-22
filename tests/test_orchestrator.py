@@ -162,7 +162,7 @@ def test_resume_of_completed_task_is_idempotent(tmp_path: Path, sample_repositor
 def test_complex_task_executes_plan_node_and_records_assignments(
     tmp_path: Path, sample_repository: Path
 ):
-    model = ScriptedModel([successful_edit()])
+    model = ScriptedModel([successful_edit(), successful_edit()])
     orchestrator = HarnessOrchestrator(
         model,
         tmp_path / "data",
@@ -191,11 +191,19 @@ def test_complex_task_executes_plan_node_and_records_assignments(
     assert [assignment.step_id for assignment in state.assignments] == [
         "scout",
         "plan",
+        "implementation",
+        "test_design",
         "code",
         "verify",
         "review",
     ]
     assert all(assignment.status == "completed" for assignment in state.assignments)
+    assert len(result.collaboration_history) == 1
+    assert result.collaboration_history[0].participants == [
+        "implementer",
+        "test_integrator",
+    ]
+    assert len(model.calls) == 2
 
 
 def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
@@ -236,6 +244,7 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
                 "arguments": {"path": "calculator.py", "start_line": 1, "end_line": 2},
             },
             {"action": "finish", "answer": "The implementation defect is confirmed."},
+            successful_edit(),
             successful_edit(),
         ]
     )

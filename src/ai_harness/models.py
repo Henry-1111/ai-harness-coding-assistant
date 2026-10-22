@@ -233,6 +233,17 @@ class CodingDecision(BaseModel):
     edits: List[FileEdit]
 
 
+class CollaborationTurn(BaseModel):
+    round: int = Field(ge=1)
+    implementation_proposal: CodingDecision
+    integrated_decision: CodingDecision
+    detected_conflicts: List[str] = Field(default_factory=list)
+    participants: List[Literal["implementer", "test_integrator"]] = Field(
+        default_factory=lambda: ["implementer", "test_integrator"]
+    )
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class CommandResult(BaseModel):
     command: str
     exit_code: int
@@ -288,6 +299,7 @@ class TaskState(BaseModel):
     current_node: str = "start"
     replan_count: int = 0
     repair_history: List[RepairPlan] = Field(default_factory=list)
+    collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
     error: Optional[str] = None
     scratchpad: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -304,6 +316,7 @@ class TaskResult(BaseModel):
     verification: List[CommandResult]
     review: Optional[ReviewDecision] = None
     repair_history: List[RepairPlan] = Field(default_factory=list)
+    collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
     retrieval_trace: Optional[RetrievalTrace] = None
     trace: List[AgentTraceEvent] = Field(default_factory=list)
     error: Optional[str] = None

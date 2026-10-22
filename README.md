@@ -39,6 +39,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 受限 ReAct 知识子图：最多 3 次工具调用、Pydantic 参数校验、工具/路径权限过滤、只读 MCP 适配；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
+- 复杂任务由 Implementer 与 Test/Integrator 两个 Agent 形成提案、冲突检查和整合决策；
 - LangGraph 驱动的 Scout、Coder、Verify、Reviewer 工作流；
 - OpenAI-compatible JSON 模型适配器；
 - exact-match 文件编辑、目录穿越防护、文件范围和权限检查；
@@ -92,6 +93,13 @@ Reviewer 会把无修改、验证失败、超时和越界修改转换为结构�
 
 终态任务会把结果、验证状态、修复次数和失败指纹写入项目级 `experiences` 记忆。记录按 task ID
 幂等写入并最多保留 20 条；后续 Coder 只读取最近 5 条结构化经验，不保存模型思维链或 Provider 密钥。
+
+## 多 Agent 协作
+
+`complex` 和 `human_gate` 路由会把 Code 阶段展开为 `implementation → test_design → code`：
+Implementer 先生成候选修改，Test/Integrator 再依据验收条件、测试缺口和候选冲突生成唯一的最终决策。
+候选提案不会直接写文件；只有经过整合且不存在同一源文本竞争替换的最终编辑，才能进入权限受控的
+`apply_edit`。快速和标准任务仍使用单 Coder 路径，避免额外模型调用。
 
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 

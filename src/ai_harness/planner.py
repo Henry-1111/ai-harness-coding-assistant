@@ -212,6 +212,30 @@ class TaskRouter:
                 )
             )
             code_dependency = "plan"
+        if route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}:
+            steps.extend(
+                [
+                    PlanStep(
+                        id="implementation",
+                        title="Produce an implementation proposal",
+                        role=AgentRole.CODER,
+                        depends_on=[code_dependency],
+                        inputs=["context", "goal"],
+                        outputs=["implementation_proposal"],
+                        acceptance=["Proposal is scoped and structurally valid"],
+                    ),
+                    PlanStep(
+                        id="test_design",
+                        title="Review test coverage and integration conflicts",
+                        role=AgentRole.REVIEWER,
+                        depends_on=["implementation"],
+                        inputs=["implementation_proposal", "acceptance_criteria"],
+                        outputs=["integrated_decision"],
+                        acceptance=["Final proposal is conflict-free and test-aware"],
+                    ),
+                ]
+            )
+            code_dependency = "test_design"
         steps.extend(
             [
                 PlanStep(
