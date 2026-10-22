@@ -33,3 +33,15 @@ def test_mcp_catalog_and_tenant_are_loaded_from_trusted_environment(monkeypatch)
 
     assert settings.mcp_catalog_path == "/etc/ai-harness/mcp-tools.json"
     assert settings.tenant_id == "tenant-a"
+
+
+def test_job_worker_settings_are_configurable(monkeypatch):
+    monkeypatch.setenv("AI_HARNESS_JOB_WORKERS", "4")
+    monkeypatch.setenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.5")
+    monkeypatch.setenv("AI_HARNESS_JOB_LEASE_SECONDS", "120")
+
+    settings = Settings.from_environment()
+
+    assert settings.job_workers == 4
+    assert settings.job_poll_interval_seconds == 0.5
+    assert settings.job_lease_seconds == 120

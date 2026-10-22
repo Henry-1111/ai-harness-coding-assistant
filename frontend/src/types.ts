@@ -1,4 +1,5 @@
 export type TaskStatus = "pending" | "running" | "needs_input" | "succeeded" | "failed";
+export type JobStatus = TaskStatus | "cancelled";
 
 export interface CommandResult {
   command: string;
@@ -128,4 +129,20 @@ export interface CreateTaskInput {
   acceptance_criteria: Array<{ description: string }>;
   verification_commands: string[];
   max_replans: number;
+}
+
+export interface TaskJob {
+  job_id: string;
+  status: JobStatus;
+  request: CreateTaskInput;
+  task_id?: string;
+  result?: TaskResult;
+  error?: string;
+  attempts: number;
+  max_attempts: number;
+  cancel_requested: boolean;
+  lease_owner?: string;
+  lease_expires_at?: string;
+  created_at: string;
+  updated_at: string;
 }

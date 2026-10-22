@@ -6,6 +6,7 @@ import hashlib
 import math
 import os
 import re
+import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -216,23 +217,26 @@ class RetrievalCache:
     def __init__(self, max_entries: int = 128) -> None:
         self.max_entries = max_entries
         self._values: "OrderedDict[str, Tuple[List[SearchHit], RetrievalTrace]]" = OrderedDict()
+        self._lock = threading.Lock()
 
     def get(self, key: str) -> Optional[Tuple[List[SearchHit], RetrievalTrace]]:
-        value = self._values.get(key)
-        if value is None:
-            return None
-        self._values.move_to_end(key)
-        hits, trace = value
-        return [item.model_copy(deep=True) for item in hits], trace.model_copy(deep=True)
+        with self._lock:
+            value = self._values.get(key)
+            if value is None:
+                return None
+            self._values.move_to_end(key)
+            hits, trace = value
+            return [item.model_copy(deep=True) for item in hits], trace.model_copy(deep=True)
 
     def put(self, key: str, hits: List[SearchHit], trace: RetrievalTrace) -> None:
-        self._values[key] = (
-            [item.model_copy(deep=True) for item in hits],
-            trace.model_copy(deep=True),
-        )
-        self._values.move_to_end(key)
-        while len(self._values) > self.max_entries:
-            self._values.popitem(last=False)
+        with self._lock:
+            self._values[key] = (
+                [item.model_copy(deep=True) for item in hits],
+                trace.model_copy(deep=True),
+            )
+            self._values.move_to_end(key)
+            while len(self._values) > self.max_entries:
+                self._values.popitem(last=False)
 
 
 class DefinitionProvider(Protocol):

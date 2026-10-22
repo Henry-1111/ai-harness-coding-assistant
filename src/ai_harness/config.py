@@ -22,6 +22,9 @@ class Settings:
     restricted_react_max_tool_calls: int
     mcp_catalog_path: str
     tenant_id: str
+    job_workers: int
+    job_poll_interval_seconds: float
+    job_lease_seconds: float
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -48,4 +51,9 @@ class Settings:
             ),
             mcp_catalog_path=os.getenv("AI_HARNESS_MCP_CATALOG_PATH", ""),
             tenant_id=os.getenv("AI_HARNESS_TENANT_ID", "local"),
+            job_workers=int(os.getenv("AI_HARNESS_JOB_WORKERS", "2")),
+            job_poll_interval_seconds=float(
+                os.getenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.2")
+            ),
+            job_lease_seconds=float(os.getenv("AI_HARNESS_JOB_LEASE_SECONDS", "300")),
         )

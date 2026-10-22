@@ -1,4 +1,4 @@
-import type { CreateTaskInput, TaskResult } from "./types";
+import type { CreateTaskInput, TaskJob, TaskResult } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -16,6 +16,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function createTask(input: CreateTaskInput): Promise<TaskResult> {
   return request("/v1/tasks", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function createJob(input: CreateTaskInput): Promise<TaskJob> {
+  return request("/v1/jobs", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function getJob(jobId: string): Promise<TaskJob> {
+  return request(`/v1/jobs/${jobId}`);
+}
+
+export function cancelJob(jobId: string): Promise<TaskJob> {
+  return request(`/v1/jobs/${jobId}/cancel`, { method: "POST" });
 }
 
 export function getDiff(taskId: string): Promise<{ task_id: string; diff: string }> {

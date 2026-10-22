@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from conftest import ScriptedModel
@@ -115,3 +116,95 @@ def test_api_requires_and_records_human_approval(tmp_path: Path, sample_reposito
     assert approved.json()["status"] == "succeeded"
     assert approved.json()["approval"]["decided_by"] == "web-reviewer"
     assert trace.json()["approval"]["status"] == "approved"
+
+
+def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_repository: Path):
+    model = ScriptedModel(
+        [
+            {
+                "summary": "Fix add",
+                "edits": [
+                    {
+                        "path": "calculator.py",
+                        "old_text": "return left - right",
+                        "new_text": "return left + right",
+                    }
+                ],
+            }
+        ]
+    )
+    app = create_app(
+        HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox),
+        max_job_workers=1,
+        job_poll_interval_seconds=0.01,
+    )
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/jobs",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Fix calculator addition behavior",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+        )
+        assert created.status_code == 202
+        assert created.json()["status"] == "pending"
+        job_id = created.json()["job_id"]
+        deadline = time.monotonic() + 5
+        body = created.json()
+        while body["status"] in {"pending", "running"} and time.monotonic() < deadline:
+            time.sleep(0.02)
+            body = client.get(f"/v1/jobs/{job_id}").json()
+
+    assert body["status"] == "succeeded"
+    assert body["attempts"] == 1
+    assert body["result"]["changed_files"] == ["calculator.py"]
+
+
+def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):
+    edit = {
+        "summary": "Fix add",
+        "edits": [
+            {
+                "path": "calculator.py",
+                "old_text": "return left - right",
+                "new_text": "return left + right",
+            }
+        ],
+    }
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([edit, edit]),
+            tmp_path / "data",
+            runner_factory=LocalCommandSandbox,
+        ),
+        max_job_workers=1,
+        job_poll_interval_seconds=0.01,
+    )
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/jobs",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Modify production calculator behavior safely",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+        ).json()
+        deadline = time.monotonic() + 5
+        job = created
+        while job["status"] in {"pending", "running"} and time.monotonic() < deadline:
+            time.sleep(0.02)
+            job = client.get(f"/v1/jobs/{created['job_id']}").json()
+        assert job["status"] == "needs_input"
+
+        approved = client.post(
+            f"/v1/tasks/{job['task_id']}/approval",
+            json={"approved": True, "actor": "reviewer", "note": "scope checked"},
+        )
+        updated = client.get(f"/v1/jobs/{created['job_id']}")
+
+    assert approved.status_code == 200
+    assert updated.json()["status"] == "succeeded"
+    assert updated.json()["result"]["approval"]["status"] == "approved"

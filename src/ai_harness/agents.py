@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import threading
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Protocol
 
@@ -48,11 +49,13 @@ class OpenAICompatibleModel:
         self._reported_usage = 0
         self._prompt_tokens = 0
         self._completion_tokens = 0
+        self._usage_lock = threading.Lock()
 
     def complete_json(self, *, system: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         encoded_payload = json.dumps(payload, ensure_ascii=False)
-        self._calls += 1
-        self._request_chars += len(system) + len(encoded_payload)
+        with self._usage_lock:
+            self._calls += 1
+            self._request_chars += len(system) + len(encoded_payload)
         response = httpx.post(
             f"{self.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}"},
@@ -74,9 +77,10 @@ class OpenAICompatibleModel:
             prompt_tokens = usage.get("prompt_tokens")
             completion_tokens = usage.get("completion_tokens")
             if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
-                self._reported_usage += 1
-                self._prompt_tokens += prompt_tokens
-                self._completion_tokens += completion_tokens
+                with self._usage_lock:
+                    self._reported_usage += 1
+                    self._prompt_tokens += prompt_tokens
+                    self._completion_tokens += completion_tokens
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(content)
         if not isinstance(parsed, dict):
@@ -84,20 +88,21 @@ class OpenAICompatibleModel:
         return parsed
 
     def usage_snapshot(self) -> ModelUsageSnapshot:
-        complete_usage = self._calls == self._reported_usage
-        prompt_tokens = self._prompt_tokens if complete_usage else None
-        completion_tokens = self._completion_tokens if complete_usage else None
-        return ModelUsageSnapshot(
-            calls=self._calls,
-            request_chars=self._request_chars,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=(
-                prompt_tokens + completion_tokens
-                if prompt_tokens is not None and completion_tokens is not None
-                else None
-            ),
-        )
+        with self._usage_lock:
+            complete_usage = self._calls == self._reported_usage
+            prompt_tokens = self._prompt_tokens if complete_usage else None
+            completion_tokens = self._completion_tokens if complete_usage else None
+            return ModelUsageSnapshot(
+                calls=self._calls,
+                request_chars=self._request_chars,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=(
+                    prompt_tokens + completion_tokens
+                    if prompt_tokens is not None and completion_tokens is not None
+                    else None
+                ),
+            )
 
 
 class CoderAgent:

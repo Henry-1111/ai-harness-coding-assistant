@@ -24,8 +24,8 @@ import {
   Typography,
   message,
 } from "antd";
-import { createTask, decideApproval, getDiff, promoteTask } from "./api";
-import type { CreateTaskInput, TaskResult } from "./types";
+import { cancelJob, createJob, decideApproval, getDiff, getJob, promoteTask } from "./api";
+import type { CreateTaskInput, TaskJob, TaskResult } from "./types";
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -45,10 +45,14 @@ const splitLines = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
 export default function App() {
   const [form] = Form.useForm<FormValues>();
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<TaskResult>();
+  const [job, setJob] = useState<TaskJob>();
   const [diff, setDiff] = useState("");
   const [error, setError] = useState("");
   const [promoted, setPromoted] = useState(false);
@@ -89,6 +93,7 @@ export default function App() {
     setRunning(true);
     setError("");
     setResult(undefined);
+    setJob(undefined);
     setDiff("");
     setPromoted(false);
     setApprovalActor("");
@@ -104,14 +109,37 @@ export default function App() {
       max_replans: values.maxReplans,
     };
     try {
-      const task = await createTask(input);
-      setResult(task);
-      const taskDiff = await getDiff(task.task_id);
-      setDiff(taskDiff.diff);
+      let current = await createJob(input);
+      setJob(current);
+      while (current.status === "pending" || current.status === "running") {
+        await wait(500);
+        current = await getJob(current.job_id);
+        setJob(current);
+      }
+      if (current.result) {
+        setResult(current.result);
+        const taskDiff = await getDiff(current.result.task_id);
+        setDiff(taskDiff.diff);
+      } else if (current.status === "cancelled") {
+        messageApi.info("排队任务已取消");
+      } else {
+        setError(current.error ?? "后台任务执行失败");
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "任务执行失败");
     } finally {
       setRunning(false);
+    }
+  };
+
+  const cancelQueuedJob = async () => {
+    if (!job) return;
+    try {
+      const cancelled = await cancelJob(job.job_id);
+      setJob(cancelled);
+      messageApi.info("排队任务已取消");
+    } catch (caught) {
+      messageApi.warning(caught instanceof Error ? caught.message : "取消失败");
     }
   };
 
@@ -139,6 +167,9 @@ export default function App() {
         note: approvalNote.trim(),
       });
       setResult(task);
+      if (job) {
+        setJob(await getJob(job.job_id));
+      }
       const taskDiff = await getDiff(task.task_id);
       setDiff(taskDiff.diff);
       if (approved) {
@@ -234,13 +265,34 @@ export default function App() {
             {running && (
               <div className="empty-state pulse">
                 <DeploymentUnitOutlined />
-                <Title level={4}>正在编排任务</Title>
-                <Text type="secondary">Scout → Coder → Verify → Reviewer</Text>
+                <Title level={4}>
+                  {job?.status === "pending" ? "任务正在排队" : "正在编排任务"}
+                </Title>
+                <Space direction="vertical">
+                  <Text type="secondary">
+                    {job
+                      ? `Job ${job.job_id.slice(0, 8)} · 第 ${job.attempts}/${job.max_attempts} 次执行`
+                      : "正在创建持久化任务"}
+                  </Text>
+                  <Text type="secondary">Scout → Coder → Verify → Reviewer</Text>
+                  {job?.status === "pending" && (
+                    <Button danger onClick={cancelQueuedJob}>取消排队</Button>
+                  )}
+                </Space>
               </div>
             )}
             {result && (
               <>
                 <Divider />
+                {job && (
+                  <Space wrap className="file-tags">
+                    <Tag color="geekblue">Job {job.job_id.slice(0, 8)}</Tag>
+                    <Tag color={job.status === "succeeded" ? "green" : "orange"}>
+                      {job.status}
+                    </Tag>
+                    <Tag>attempt {job.attempts}/{job.max_attempts}</Tag>
+                  </Space>
+                )}
                 <Row gutter={16}>
                   <Col span={6}>
                     <Statistic title="状态" value={result.status.toUpperCase()} />

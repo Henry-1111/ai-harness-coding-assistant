@@ -20,6 +20,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
   -> test / lint / type-check / build
   -> Reviewer 验收或有限 Replan
   -> SQLite Checkpoint
+  -> SQLite Job Queue / 有界 Worker / 租约恢复
   -> 人工确认后 Promote 到源仓库
 ```
 
@@ -48,6 +49,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
 - 结构化 Reviewer Finding、可审计 RepairPlan、重复失败指纹熔断与项目经验沉淀；
 - SQLite append-only Checkpoint，可查询和恢复任务；
+- SQLite 持久化任务队列、原子领取、Worker 最大并发、租约心跳、失败重试与排队取消；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
 - 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
 - Policy、Project、User、Session、Scratchpad 五层 SQLite Memory，Policy 注入 Coder Prompt，
@@ -196,7 +198,7 @@ ai-harness serve --host 127.0.0.1 --port 8080
 ```
 
 ```http
-POST /v1/tasks
+POST /v1/jobs
 Content-Type: application/json
 
 {
@@ -210,9 +212,31 @@ Content-Type: application/json
 }
 ```
 
+异步入口立即返回 `job_id` 和 `pending` 状态。Worker 在后台领取任务，客户端通过
+`GET /v1/jobs/{job_id}` 查询 `pending → running → needs_input/succeeded/failed`。高风险任务仍会
+停在人工审批门，审批结果会回写到原 Job；只有尚未开始的 `pending` Job 可以取消。
+
+队列使用 SQLite 事务保证同一时刻只有一个 Worker 领取任务，并通过心跳续租。服务异常退出后，租约过期的
+`running` Job 会在重试预算内重新领取，因此执行语义是 at-least-once；每次执行都在新的隔离工作区内，且
+不会自动 Promote 到源仓库，避免重试产生不可逆的重复副作用。
+
+并发与恢复参数：
+
+```bash
+export AI_HARNESS_JOB_WORKERS=2
+export AI_HARNESS_JOB_POLL_INTERVAL_SECONDS=0.2
+export AI_HARNESS_JOB_LEASE_SECONDS=300
+```
+
+原有同步 `POST /v1/tasks` 保留，便于 CLI、测试和兼容调用方使用。
+
 其他接口：
 
 - `GET /health`
+- `POST /v1/jobs`
+- `GET /v1/jobs/{job_id}`
+- `POST /v1/jobs/{job_id}/cancel`
+- `POST /v1/tasks`（同步兼容入口）
 - `GET /v1/tasks/{task_id}`
 - `GET /v1/tasks/{task_id}/diff`
 - `GET /v1/tasks/{task_id}/trace`
@@ -228,8 +252,9 @@ npm install
 npm run dev
 ```
 
-浏览器访问 `http://127.0.0.1:5173`。控制台支持创建任务、查看 Plan DAG 执行状态、验证结果、Reviewer
-结论和完整 diff，并且只有任务通过审核后才允许点击 Promote。
+浏览器访问 `http://127.0.0.1:5173`。控制台使用异步 Job API 创建任务，展示排队/执行状态、尝试次数，
+并允许取消尚未领取的任务；任务完成后可查看 Plan DAG、验证结果、Reviewer 结论和完整 diff，并且只有
+任务通过审核后才允许点击 Promote。
 
 ## 检索评测
 
