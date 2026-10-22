@@ -24,6 +24,7 @@ from .mcp import MCPToolCatalog
 from .memory import LayeredMemoryStore, MemoryLayer
 from .models import (
     AgentTraceEvent,
+    ReviewFinding,
     TaskMilestone,
     TaskRequest,
     TaskResult,
@@ -39,6 +40,7 @@ from .repository import (
     RetrievalCache,
 )
 from .sandbox import CommandRunner, DockerSandbox
+from .self_healing import SelfHealingPlanner
 from .tools import ToolContext, default_registry
 
 
@@ -90,6 +92,7 @@ class HarnessOrchestrator:
             )
         self.coder = CoderAgent(model)
         self.reviewer = ReviewerAgent()
+        self.self_healing = SelfHealingPlanner()
         self.tools = default_registry()
         self.runner_factory = runner_factory or (lambda workspace: DockerSandbox(workspace))
 
@@ -206,6 +209,7 @@ class HarnessOrchestrator:
                 "failed",
                 {"error_type": type(exc).__name__, "message": str(exc)},
             )
+            self._record_experience(state, "failed", failure_type=type(exc).__name__)
             self.checkpoints.save(state)
             final_state = state
         return self._result(final_state)
@@ -441,11 +445,23 @@ class HarnessOrchestrator:
             user_id="local",
             session_id=task.task_id,
         )
+        project_id = self._project_id(task.request.repository)
+        experiences = self.memory.get(MemoryLayer.PROJECT, project_id, "experiences") or []
+        if experiences:
+            memory_context.append(
+                {
+                    "layer": "project_experience",
+                    "owner_id": project_id,
+                    "value": experiences[-5:],
+                }
+            )
+        repair_plan = task.repair_history[-1] if task.repair_history else None
         decision = self.coder.propose(
             task.request,
             task.context,
             previous_failure,
             memory_context=memory_context,
+            repair_plan=repair_plan,
         )
         repository = self._workspace_repository(task)
         context = ToolContext(
@@ -525,15 +541,33 @@ class HarnessOrchestrator:
         task.review = self.reviewer.review(
             task.request,
             task.changed_files,
-            [result.exit_code for result in task.verification],
+            task.verification,
         )
+        repair_plan = None
         if task.review.approved:
             task.status = TaskStatus.SUCCEEDED
-        elif task.replan_count < task.request.max_replans:
+        else:
+            repair_plan = self.self_healing.build(
+                task.review,
+                task.verification,
+                task.repair_history,
+            )
+            task.repair_history.append(repair_plan)
+        if task.review.approved:
+            pass
+        elif repair_plan and repair_plan.can_retry and task.replan_count < task.request.max_replans:
             task.replan_count += 1
             task.status = TaskStatus.RUNNING
         else:
             task.status = TaskStatus.FAILED
+            if repair_plan and not repair_plan.can_retry:
+                repeated = ReviewFinding(
+                    category="repeated_failure",
+                    message="The same deterministic failure repeated; self-healing stopped early",
+                    evidence=repair_plan.failure_fingerprint,
+                )
+                task.review.findings.append(repeated)
+                task.review.issues.append(repeated.message)
             task.error = "; ".join(task.review.issues)
         outcome = (
             "succeeded"
@@ -551,6 +585,7 @@ class HarnessOrchestrator:
                     "approved": task.review.approved,
                     "issues": list(task.review.issues),
                     "replan_count": task.replan_count,
+                    "repair_plan": repair_plan.model_dump(mode="json") if repair_plan else None,
                 },
             )
         )
@@ -568,6 +603,7 @@ class HarnessOrchestrator:
                 "approved": task.review.approved,
                 "issues": list(task.review.issues),
                 "replan_count": task.replan_count,
+                "repair_attempts": len(task.repair_history),
             },
         )
         if task.status in {TaskStatus.SUCCEEDED, TaskStatus.FAILED}:
@@ -578,6 +614,7 @@ class HarnessOrchestrator:
                 "completed" if task.status == TaskStatus.SUCCEEDED else "failed",
                 {"status": task.status.value},
             )
+            self._record_experience(task, task.status.value)
         self.memory.put(
             MemoryLayer.SESSION,
             task.task_id,
@@ -643,6 +680,49 @@ class HarnessOrchestrator:
                 return
         task.milestones.append(milestone)
 
+    def _record_experience(
+        self,
+        task: TaskState,
+        outcome: str,
+        *,
+        failure_type: Optional[str] = None,
+    ) -> None:
+        if task.scratchpad.get("experience_recorded"):
+            return
+        project_id = self._project_id(task.request.repository)
+        record = {
+            "task_id": task.task_id,
+            "outcome": outcome,
+            "task_type": task.normalized.task_type.value if task.normalized else "unknown",
+            "route": task.route.route.value if task.route else "unknown",
+            "changed_files": list(task.changed_files),
+            "verification": [
+                {
+                    "command": result.command,
+                    "exit_code": result.exit_code,
+                    "timed_out": result.timed_out,
+                }
+                for result in task.verification
+            ],
+            "repair_attempts": len(task.repair_history),
+            "repair_fingerprints": [
+                plan.failure_fingerprint for plan in task.repair_history
+            ],
+            "failure_type": failure_type,
+            "retrieval_stop_reason": (
+                task.retrieval_trace.stop_reason if task.retrieval_trace else None
+            ),
+        }
+        self.memory.append_bounded(
+            MemoryLayer.PROJECT,
+            project_id,
+            "experiences",
+            record,
+            max_items=20,
+            unique_by="task_id",
+        )
+        task.scratchpad["experience_recorded"] = True
+
     def _workspace_repository(self, task: TaskState) -> Repository:
         return Repository(Path(str(task.scratchpad["workspace"])))
 
@@ -676,6 +756,7 @@ class HarnessOrchestrator:
             changed_files=state.changed_files,
             verification=state.verification,
             review=state.review,
+            repair_history=state.repair_history,
             retrieval_trace=state.retrieval_trace,
             trace=state.trace,
             error=state.error,

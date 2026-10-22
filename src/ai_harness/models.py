@@ -242,10 +242,31 @@ class CommandResult(BaseModel):
     timed_out: bool = False
 
 
+class ReviewFinding(BaseModel):
+    category: Literal["no_changes", "verification", "timeout", "scope", "repeated_failure"]
+    severity: Literal["warning", "error"] = "error"
+    message: str
+    command: Optional[str] = None
+    path: Optional[str] = None
+    evidence: str = Field(default="", max_length=2000)
+
+
+class RepairPlan(BaseModel):
+    attempt: int = Field(ge=1)
+    failure_fingerprint: str
+    summary: str
+    instructions: List[str] = Field(default_factory=list)
+    failed_commands: List[str] = Field(default_factory=list)
+    repeat_count: int = Field(default=0, ge=0)
+    can_retry: bool = True
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ReviewDecision(BaseModel):
     approved: bool
     summary: str
     issues: List[str] = Field(default_factory=list)
+    findings: List[ReviewFinding] = Field(default_factory=list)
 
 
 class TaskState(BaseModel):
@@ -266,6 +287,7 @@ class TaskState(BaseModel):
     review: Optional[ReviewDecision] = None
     current_node: str = "start"
     replan_count: int = 0
+    repair_history: List[RepairPlan] = Field(default_factory=list)
     error: Optional[str] = None
     scratchpad: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -281,6 +303,7 @@ class TaskResult(BaseModel):
     changed_files: List[str]
     verification: List[CommandResult]
     review: Optional[ReviewDecision] = None
+    repair_history: List[RepairPlan] = Field(default_factory=list)
     retrieval_trace: Optional[RetrievalTrace] = None
     trace: List[AgentTraceEvent] = Field(default_factory=list)
     error: Optional[str] = None

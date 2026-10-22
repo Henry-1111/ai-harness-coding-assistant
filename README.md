@@ -45,6 +45,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - allowlist 命令执行，不经过 shell；
 - 本地持久化工作区，以及网络隔离、内存/CPU/PID 限制的 Docker Sandbox；
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
+- 结构化 Reviewer Finding、可审计 RepairPlan、重复失败指纹熔断与项目经验沉淀；
 - SQLite append-only Checkpoint，可查询和恢复任务；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
 - 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
@@ -82,6 +83,15 @@ pytest
 任务状态按飞书设计记录 CP1–CP8：目标规范化、上下文确认、Plan 校验、Assignment、写入
 前边界、确定性测试、Reviewer、最终验收。每个节点仍会生成 append-only Checkpoint，支持
 恢复和历史版本排查。
+
+## 结果评审、自愈与经验沉淀
+
+Reviewer 会把无修改、验证失败、超时和越界修改转换为结构化 Finding。失败任务生成带失败指纹、
+失败命令和修复指令的 RepairPlan，并在下一轮显式注入 Coder。相同确定性失败第二次出现时立即停止
+自动修复，避免无效循环耗尽模型额度；`max_replans` 仍是总重试上限。
+
+终态任务会把结果、验证状态、修复次数和失败指纹写入项目级 `experiences` 记忆。记录按 task ID
+幂等写入并最多保留 20 条；后续 Coder 只读取最近 5 条结构化经验，不保存模型思维链或 Provider 密钥。
 
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 

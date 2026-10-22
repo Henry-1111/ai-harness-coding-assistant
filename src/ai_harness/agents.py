@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 from typing import Any, Dict, List, Optional, Protocol
 
 import httpx
 
-from .models import CodingDecision, ReviewDecision, SearchHit, TaskRequest
+from .models import (
+    CodingDecision,
+    CommandResult,
+    RepairPlan,
+    ReviewDecision,
+    ReviewFinding,
+    SearchHit,
+    TaskRequest,
+)
 
 
 class AgentModel(Protocol):
@@ -64,6 +73,7 @@ Use only files in scope. Prefer the smallest complete change. Never emit command
         context: List[SearchHit],
         previous_failure: str = "",
         memory_context: Optional[List[Dict[str, Any]]] = None,
+        repair_plan: Optional[RepairPlan] = None,
     ) -> CodingDecision:
         payload = {
             "goal": request.goal,
@@ -72,6 +82,7 @@ Use only files in scope. Prefer the smallest complete change. Never emit command
             "context": [item.model_dump() for item in context],
             "previous_failure": previous_failure,
             "memory_context": memory_context or [],
+            "repair_plan": repair_plan.model_dump(mode="json") if repair_plan else None,
         }
         return CodingDecision.model_validate(
             self.model.complete_json(system=self.SYSTEM, payload=payload)
@@ -83,22 +94,59 @@ class ReviewerAgent:
         self,
         request: TaskRequest,
         changed_files: List[str],
-        verification_exit_codes: List[int],
+        verification: List[CommandResult],
     ) -> ReviewDecision:
-        issues: List[str] = []
+        findings: List[ReviewFinding] = []
         if not changed_files:
-            issues.append("No files were changed")
-        if any(code != 0 for code in verification_exit_codes):
-            issues.append("One or more verification commands failed")
+            findings.append(
+                ReviewFinding(
+                    category="no_changes",
+                    message="No files were changed",
+                )
+            )
+        for result in verification:
+            if result.timed_out:
+                findings.append(
+                    ReviewFinding(
+                        category="timeout",
+                        message=f"Verification timed out: {result.command}",
+                        command=result.command,
+                        evidence=(result.stderr or result.stdout)[-2000:],
+                    )
+                )
+            elif result.exit_code != 0:
+                findings.append(
+                    ReviewFinding(
+                        category="verification",
+                        message=(
+                            f"Verification failed with exit code {result.exit_code}: "
+                            f"{result.command}"
+                        ),
+                        command=result.command,
+                        evidence=(result.stderr or result.stdout)[-2000:],
+                    )
+                )
         if request.file_scope:
             for path in changed_files:
                 if not any(
-                    path == scope or path.startswith(scope.rstrip("/") + "/")
+                    path == scope
+                    or path.startswith(scope.rstrip("/") + "/")
+                    or fnmatch.fnmatch(path, scope)
                     for scope in request.file_scope
                 ):
-                    issues.append(f"Changed file is outside requested scope: {path}")
+                    findings.append(
+                        ReviewFinding(
+                            category="scope",
+                            message=f"Changed file is outside requested scope: {path}",
+                            path=path,
+                        )
+                    )
+        issues = [finding.message for finding in findings]
         return ReviewDecision(
-            approved=not issues,
-            summary="Change is bounded and verified" if not issues else "Change requires revision",
+            approved=not findings,
+            summary=(
+                "Change is bounded and verified" if not findings else "Change requires revision"
+            ),
             issues=issues,
+            findings=findings,
         )

@@ -55,6 +55,7 @@ def test_api_runs_and_reads_task(tmp_path: Path, sample_repository: Path):
     ]
     assert len(task_trace.json()["checkpoint_revisions"]) >= 5
     assert task_trace.json()["restricted_react"] is None
+    assert task_trace.json()["repairs"] == []
 
 
 def test_api_returns_404_for_unknown_task(tmp_path: Path):

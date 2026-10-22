@@ -68,6 +68,49 @@ class LayeredMemoryStore:
             ).fetchone()
         return json.loads(row["value_json"]) if row else None
 
+    def append_bounded(
+        self,
+        layer: MemoryLayer,
+        owner_id: str,
+        key: str,
+        value: Dict[str, Any],
+        *,
+        max_items: int = 20,
+        unique_by: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        if not owner_id or not key:
+            raise ValueError("owner_id and key are required")
+        if max_items < 1:
+            raise ValueError("max_items must be positive")
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                "SELECT value_json FROM memories WHERE layer = ? AND owner_id = ? AND key = ?",
+                (layer.value, owner_id, key),
+            ).fetchone()
+            existing = json.loads(row["value_json"]) if row else []
+            if not isinstance(existing, list):
+                raise ValueError("bounded memory value must be a list")
+            if unique_by and unique_by in value:
+                existing = [
+                    item
+                    for item in existing
+                    if not isinstance(item, dict)
+                    or item.get(unique_by) != value.get(unique_by)
+                ]
+            updated = [*existing, value][-max_items:]
+            encoded = json.dumps(updated, ensure_ascii=False, separators=(",", ":"))
+            connection.execute(
+                """
+                INSERT INTO memories(layer, owner_id, key, value_json, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(layer, owner_id, key) DO UPDATE SET
+                    value_json = excluded.value_json,
+                    updated_at = excluded.updated_at
+                """,
+                (layer.value, owner_id, key, encoded, utc_now().isoformat()),
+            )
+        return updated
+
     def resolve(
         self,
         key: str,

@@ -267,6 +267,22 @@ export default function App() {
                     description={result.review.issues.join("；") || "验收证据完整，可以人工发布。"}
                   />
                 )}
+                {result.repair_history.length > 0 && (
+                  <div className="routing-summary">
+                    <Text strong>自愈记录</Text>
+                    <Space wrap>
+                      {result.repair_history.map((repair) => (
+                        <Tag
+                          key={`${repair.attempt}-${repair.failure_fingerprint}`}
+                          color={repair.can_retry ? "orange" : "red"}
+                        >
+                          第 {repair.attempt} 次：
+                          {repair.can_retry ? "已生成修复计划" : "重复失败，已熔断"}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
+                )}
                 <div className="diff-header">
                   <Text strong>Workspace Diff</Text>
                   <Button

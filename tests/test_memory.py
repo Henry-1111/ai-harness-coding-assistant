@@ -30,3 +30,35 @@ def test_memory_upsert_replaces_same_scope_only(tmp_path: Path):
 
     assert store.get(MemoryLayer.SESSION, "session-a", "progress") == {"step": 2}
     assert store.get(MemoryLayer.SESSION, "session-b", "progress") is None
+
+
+def test_bounded_memory_appends_deduplicates_and_evicts_oldest(tmp_path: Path):
+    store = LayeredMemoryStore(tmp_path / "memory.sqlite3")
+
+    store.append_bounded(
+        MemoryLayer.PROJECT,
+        "project-a",
+        "experiences",
+        {"task_id": "one", "outcome": "failed"},
+        max_items=2,
+        unique_by="task_id",
+    )
+    store.append_bounded(
+        MemoryLayer.PROJECT,
+        "project-a",
+        "experiences",
+        {"task_id": "two", "outcome": "succeeded"},
+        max_items=2,
+        unique_by="task_id",
+    )
+    updated = store.append_bounded(
+        MemoryLayer.PROJECT,
+        "project-a",
+        "experiences",
+        {"task_id": "one", "outcome": "succeeded"},
+        max_items=2,
+        unique_by="task_id",
+    )
+
+    assert [item["task_id"] for item in updated] == ["two", "one"]
+    assert updated[-1]["outcome"] == "succeeded"

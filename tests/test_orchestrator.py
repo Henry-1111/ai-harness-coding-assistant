@@ -30,6 +30,13 @@ def successful_edit(old="return left - right", new="return left + right"):
 def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample_repository: Path):
     model = ScriptedModel([successful_edit()])
     orchestrator = HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox)
+    orchestrator.memory.append_bounded(
+        MemoryLayer.PROJECT,
+        orchestrator._project_id(str(sample_repository)),
+        "experiences",
+        {"task_id": "prior-task", "outcome": "succeeded", "repair_attempts": 0},
+        unique_by="task_id",
+    )
 
     result = orchestrator.run(request_for(sample_repository))
 
@@ -52,6 +59,7 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
         "CP8",
     ]
     assert model.calls[0]["payload"]["memory_context"][0]["layer"] == "policy"
+    assert model.calls[0]["payload"]["memory_context"][-1]["layer"] == "project_experience"
     assert orchestrator.memory.get(MemoryLayer.SESSION, result.task_id, "progress")["node"] == (
         "review"
     )
@@ -80,6 +88,50 @@ def test_failed_verification_triggers_bounded_replan(tmp_path: Path, sample_repo
     state = orchestrator.get(result.task_id)
     assert state is not None
     assert state.replan_count == 1
+    assert len(result.repair_history) == 1
+    assert result.repair_history[0].can_retry is True
+    assert model.calls[1]["payload"]["repair_plan"]["attempt"] == 1
+    experiences = orchestrator.memory.get(
+        MemoryLayer.PROJECT,
+        orchestrator._project_id(str(sample_repository)),
+        "experiences",
+    )
+    assert experiences[-1]["outcome"] == "succeeded"
+    assert experiences[-1]["repair_attempts"] == 1
+
+
+def test_repeated_failure_stops_self_healing_before_replan_budget(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel(
+        [
+            successful_edit(new="return left * right"),
+            successful_edit(
+                old="return left * right",
+                new="return left * right  # still wrong",
+            ),
+        ]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(request_for(sample_repository, max_replans=3))
+
+    assert result.status == TaskStatus.FAILED
+    assert len(model.calls) == 2
+    assert len(result.repair_history) == 2
+    assert result.repair_history[-1].can_retry is False
+    assert result.repair_history[-1].repeat_count == 1
+    assert "self-healing stopped early" in (result.error or "")
+    experiences = orchestrator.memory.get(
+        MemoryLayer.PROJECT,
+        orchestrator._project_id(str(sample_repository)),
+        "experiences",
+    )
+    assert experiences[-1]["outcome"] == "failed"
 
 
 def test_failed_task_cannot_be_promoted(tmp_path: Path, sample_repository: Path):

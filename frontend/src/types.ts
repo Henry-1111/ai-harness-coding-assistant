@@ -13,6 +13,27 @@ export interface ReviewDecision {
   approved: boolean;
   summary: string;
   issues: string[];
+  findings: ReviewFinding[];
+}
+
+export interface ReviewFinding {
+  category: "no_changes" | "verification" | "timeout" | "scope" | "repeated_failure";
+  severity: "warning" | "error";
+  message: string;
+  command?: string;
+  path?: string;
+  evidence: string;
+}
+
+export interface RepairPlan {
+  attempt: number;
+  failure_fingerprint: string;
+  summary: string;
+  instructions: string[];
+  failed_commands: string[];
+  repeat_count: number;
+  can_retry: boolean;
+  created_at: string;
 }
 
 export interface RetrievalTrace {
@@ -68,6 +89,7 @@ export interface TaskResult {
   changed_files: string[];
   verification: CommandResult[];
   review?: ReviewDecision;
+  repair_history: RepairPlan[];
   retrieval_trace?: RetrievalTrace;
   trace: AgentTraceEvent[];
   error?: string;

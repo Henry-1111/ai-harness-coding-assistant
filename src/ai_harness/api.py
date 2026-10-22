@@ -58,6 +58,7 @@ def create_app(orchestrator: HarnessOrchestrator) -> FastAPI:
                 task.retrieval_trace.model_dump(mode="json") if task.retrieval_trace else None
             ),
             "restricted_react": task.scratchpad.get("restricted_react"),
+            "repairs": [item.model_dump(mode="json") for item in task.repair_history],
             "checkpoint_revisions": orchestrator.checkpoints.revisions(task_id),
         }
 
