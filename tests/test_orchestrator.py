@@ -2,6 +2,7 @@ from pathlib import Path
 
 from conftest import ScriptedModel
 
+from ai_harness.mcp import MCPToolCatalog, MCPToolCatalogConfig
 from ai_harness.memory import MemoryLayer
 from ai_harness.models import TaskRequest, TaskStatus
 from ai_harness.orchestrator import HarnessOrchestrator
@@ -146,8 +147,36 @@ def test_complex_task_executes_plan_node_and_records_assignments(
 
 
 def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
-    tmp_path: Path, sample_repository: Path
+    tmp_path: Path, sample_repository: Path, monkeypatch
 ):
+    monkeypatch.setenv("TEST_MCP_TOKEN", "Bearer secret")
+    catalog = MCPToolCatalog(
+        MCPToolCatalogConfig.model_validate(
+            {
+                "servers": {
+                    "knowledge": {
+                        "url": "http://localhost:9000/mcp",
+                        "allowed_tenants": ["local"],
+                        "headers_from_env": {"Authorization": "TEST_MCP_TOKEN"},
+                    }
+                },
+                "tools": [
+                    {
+                        "name": "search_docs",
+                        "server": "knowledge",
+                        "remote_tool_name": "search",
+                        "description": "search project documentation",
+                        "allowed_tenants": ["local"],
+                        "input_schema": {
+                            "type": "object",
+                            "properties": {"query": {"type": "string"}},
+                            "required": ["query"],
+                        },
+                    }
+                ],
+            }
+        )
+    )
     model = ScriptedModel(
         [
             {
@@ -163,6 +192,7 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
         tmp_path / "data",
         runner_factory=LocalCommandSandbox,
         restricted_react_enabled=True,
+        mcp_tool_catalog=catalog,
     )
 
     result = orchestrator.run(
@@ -179,3 +209,8 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
     assert react["tool_calls"] == 1
     assert react["stop_reason"] == "model_finished"
     assert any(hit.source == "restricted_react" for hit in state.context)
+    assert {tool["name"] for tool in model.calls[0]["payload"]["tools"]} == {
+        "get_source_detail",
+        "search_docs",
+        "search_project_knowledge",
+    }

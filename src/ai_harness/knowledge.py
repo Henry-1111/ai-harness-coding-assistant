@@ -98,6 +98,8 @@ class RestrictedKnowledgeRegistry:
         self._tools: Dict[str, KnowledgeTool] = {}
 
     def register(self, tool: KnowledgeTool) -> None:
+        if tool.name in self._tools:
+            raise ValueError(f"knowledge tool is already registered: {tool.name}")
         if not tool.read_only:
             raise ValueError("restricted ReAct tools must be read-only")
         if tool.backend.lower() in self.FORBIDDEN_BACKENDS:
@@ -294,12 +296,11 @@ def repository_knowledge_registry(
 def sources_to_hits(sources: List[KnowledgeSource]) -> List[SearchHit]:
     return [
         SearchHit(
-            path=source.path,
+            path=source.path or source.source_id,
             line=int(source.metadata.get("line", source.metadata.get("start_line", 1))),
             text=source.content,
             score=float(source.metadata.get("score", 0.0)),
             source="restricted_react",
         )
         for source in sources
-        if source.path
     ]

@@ -92,6 +92,20 @@ def test_registry_rejects_write_and_direct_data_tools(read_only: bool, backend: 
         )
 
 
+def test_registry_rejects_duplicate_tool_names():
+    registry = RestrictedKnowledgeRegistry()
+    tool = KnowledgeTool(
+        name="search",
+        description="search",
+        input_schema=QueryInput,
+        handler=lambda arguments, actor: KnowledgeToolResult(),
+    )
+    registry.register(tool)
+
+    with pytest.raises(ValueError, match="already registered"):
+        registry.register(tool)
+
+
 def test_repository_detail_tool_is_bounded_to_task_scope(sample_repository: Path):
     repository = Repository(sample_repository)
     registry = repository_knowledge_registry(repository, RepoMapBuilder().build(repository))

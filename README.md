@@ -133,6 +133,22 @@ export AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS=3
 还要通过任务 `file_scope` 过滤。MCP 工具只能通过 `MCPReadOnlyTool` 注册，并同时满足工具 allowlist、
 MCP Server allowlist 以及租户/项目身份透传。
 
+### 配置外部 MCP 工具
+
+外部工具目录必须由部署方在本地固定，Agent 不能从远端动态扩大自己的权限。参考
+[`config/mcp-tools.example.json`](config/mcp-tools.example.json) 配置 Server、只读工具、输入 Schema
+和租户/项目 allowlist，然后设置：
+
+```bash
+export AI_HARNESS_MCP_CATALOG_PATH=/absolute/path/to/mcp-tools.json
+export AI_HARNESS_TENANT_ID=local
+export AI_HARNESS_MCP_AUTHORIZATION='Bearer replace-me'
+```
+
+配置中的 `headers_from_env` 只保存环境变量名称，不保存密钥。启动时会校验工具名唯一性、Server
+引用、租户授权包含关系、只读标记以及受支持的 JSON Schema；未知字段会被拒绝。MCP 返回文本按
+单次调用 12,000 字符封顶，并作为带来源标识的只读上下文进入 Coder，不会获得文件写权限。
+
 在隔离工作区执行任务：
 
 ```bash

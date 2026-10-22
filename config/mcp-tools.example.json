@@ -1,0 +1,40 @@
+{
+  "timeout_seconds": 20,
+  "servers": {
+    "project_knowledge": {
+      "url": "https://mcp.example.com/jsonrpc",
+      "allowed_tenants": ["local"],
+      "headers_from_env": {
+        "Authorization": "AI_HARNESS_MCP_AUTHORIZATION"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search_external_knowledge",
+      "server": "project_knowledge",
+      "remote_tool_name": "search_project_knowledge",
+      "description": "Search the tenant-authorized external project knowledge base.",
+      "read_only": true,
+      "allowed_tenants": ["local"],
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 500
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 5
+          }
+        },
+        "required": ["query"]
+      }
+    }
+  ]
+}

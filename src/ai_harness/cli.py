@@ -12,6 +12,7 @@ from .config import Settings
 from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
 from .lsp import LSPDefinitionEnricher
+from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest
 from .orchestrator import HarnessOrchestrator
 from .repository import Repository
@@ -54,6 +55,11 @@ def build_orchestrator() -> HarnessOrchestrator:
         def definition_provider_factory(repository):
             return LSPDefinitionEnricher(lsp_command, repository)
 
+    mcp_tool_catalog = (
+        MCPToolCatalog.load(Path(settings.mcp_catalog_path))
+        if settings.mcp_catalog_path
+        else None
+    )
     return HarnessOrchestrator(
         model,
         settings.data_directory,
@@ -62,6 +68,8 @@ def build_orchestrator() -> HarnessOrchestrator:
         definition_provider_factory=definition_provider_factory,
         restricted_react_enabled=settings.restricted_react_enabled,
         restricted_react_max_tool_calls=settings.restricted_react_max_tool_calls,
+        mcp_tool_catalog=mcp_tool_catalog,
+        tenant_id=settings.tenant_id,
     )
 
 

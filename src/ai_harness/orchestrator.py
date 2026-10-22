@@ -20,6 +20,7 @@ from .knowledge import (
     repository_knowledge_registry,
     sources_to_hits,
 )
+from .mcp import MCPToolCatalog
 from .memory import LayeredMemoryStore, MemoryLayer
 from .models import (
     AgentTraceEvent,
@@ -59,6 +60,8 @@ class HarnessOrchestrator:
         definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None,
         restricted_react_enabled: bool = False,
         restricted_react_max_tool_calls: int = 3,
+        mcp_tool_catalog: Optional[MCPToolCatalog] = None,
+        tenant_id: str = "local",
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -75,6 +78,8 @@ class HarnessOrchestrator:
             raise ValueError("restricted ReAct max tool calls must be within 1..3")
         self.restricted_react_enabled = restricted_react_enabled
         self.restricted_react_max_tool_calls = restricted_react_max_tool_calls
+        self.mcp_tool_catalog = mcp_tool_catalog
+        self.tenant_id = tenant_id
         self.memory = LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -300,11 +305,24 @@ class HarnessOrchestrator:
         knowledge_result = None
         if self.restricted_react_enabled and index.last_trace.stop_reason != "evidence_sufficient":
             registry = repository_knowledge_registry(repository, task.repo_map)
+            project_id = self._project_id(task.request.repository)
+            allowed_tools = {"search_project_knowledge", "get_source_detail"}
+            allowed_mcp_servers: frozenset[str] = frozenset()
+            if self.mcp_tool_catalog:
+                mcp_tools, allowed_mcp_servers = (
+                    self.mcp_tool_catalog.register_authorized_tools(
+                        registry,
+                        tenant_id=self.tenant_id,
+                        project_id=project_id,
+                    )
+                )
+                allowed_tools.update(mcp_tools)
             identity = KnowledgeIdentity(
-                tenant_id="local",
-                project_id=self._project_id(task.request.repository),
-                allowed_tools=frozenset({"search_project_knowledge", "get_source_detail"}),
+                tenant_id=self.tenant_id,
+                project_id=project_id,
+                allowed_tools=frozenset(allowed_tools),
                 allowed_paths=task.request.file_scope,
+                allowed_mcp_servers=allowed_mcp_servers,
             )
             knowledge_result = RestrictedKnowledgeAgent(
                 self.model,

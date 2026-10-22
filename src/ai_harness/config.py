@@ -20,6 +20,8 @@ class Settings:
     sandbox_image: str
     restricted_react_enabled: bool
     restricted_react_max_tool_calls: int
+    mcp_catalog_path: str
+    tenant_id: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -44,4 +46,6 @@ class Settings:
             restricted_react_max_tool_calls=int(
                 os.getenv("AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS", "3")
             ),
+            mcp_catalog_path=os.getenv("AI_HARNESS_MCP_CATALOG_PATH", ""),
+            tenant_id=os.getenv("AI_HARNESS_TENANT_ID", "local"),
         )

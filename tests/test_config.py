@@ -23,3 +23,13 @@ def test_embedding_endpoint_can_use_separate_gateway_credentials(monkeypatch):
 
     assert settings.embedding_base_url == "http://embedding-gateway/v1"
     assert settings.embedding_api_key == "embedding-key"
+
+
+def test_mcp_catalog_and_tenant_are_loaded_from_trusted_environment(monkeypatch):
+    monkeypatch.setenv("AI_HARNESS_MCP_CATALOG_PATH", "/etc/ai-harness/mcp-tools.json")
+    monkeypatch.setenv("AI_HARNESS_TENANT_ID", "tenant-a")
+
+    settings = Settings.from_environment()
+
+    assert settings.mcp_catalog_path == "/etc/ai-harness/mcp-tools.json"
+    assert settings.tenant_id == "tenant-a"
