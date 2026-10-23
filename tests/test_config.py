@@ -53,3 +53,13 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.job_timeout_seconds == 900
     assert settings.circuit_failure_threshold == 5
     assert settings.circuit_recovery_seconds == 45
+
+
+def test_request_authentication_settings_are_configurable(monkeypatch):
+    monkeypatch.setenv("AI_HARNESS_AUTH_ENABLED", "true")
+    monkeypatch.setenv("AI_HARNESS_AUTH_CONFIG_PATH", "/run/secrets/governance.json")
+
+    settings = Settings.from_environment()
+
+    assert settings.auth_enabled is True
+    assert settings.auth_config_path == "/run/secrets/governance.json"

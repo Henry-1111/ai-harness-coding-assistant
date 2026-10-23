@@ -1,3 +1,4 @@
+import hashlib
 import time
 from pathlib import Path
 
@@ -5,6 +6,13 @@ from conftest import ScriptedModel
 from fastapi.testclient import TestClient
 
 from ai_harness.api import create_app
+from ai_harness.governance import (
+    APIKeyAuthenticator,
+    APIKeyDefinition,
+    GovernanceConfig,
+    GovernanceStore,
+    Role,
+)
 from ai_harness.jobs import TaskJobStore, TaskWorkerPool
 from ai_harness.orchestrator import HarnessOrchestrator
 from ai_harness.sandbox import LocalCommandSandbox
@@ -270,3 +278,181 @@ def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repositor
     assert approved.status_code == 200
     assert updated.json()["status"] == "succeeded"
     assert updated.json()["result"]["approval"]["status"] == "approved"
+
+
+def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
+    tmp_path: Path, sample_repository: Path
+):
+    def definition(
+        key_id: str,
+        secret: str,
+        tenant_id: str,
+        subject: str,
+        *roles: Role,
+    ) -> APIKeyDefinition:
+        return APIKeyDefinition(
+            key_id=key_id,
+            secret_sha256=hashlib.sha256(secret.encode("utf-8")).hexdigest(),
+            tenant_id=tenant_id,
+            subject=subject,
+            roles=frozenset(roles),
+            repository_roots=[str(sample_repository)],
+        )
+
+    authenticator = APIKeyAuthenticator(
+        enabled=True,
+        config=GovernanceConfig(
+            keys=[
+                definition(
+                    "alice-key",
+                    "alice-secret",
+                    "tenant-a",
+                    "alice",
+                    Role.SUBMITTER,
+                    Role.REVIEWER,
+                ),
+                definition(
+                    "bob-key",
+                    "bob-secret",
+                    "tenant-a",
+                    "bob",
+                    Role.REVIEWER,
+                ),
+                definition(
+                    "carol-key",
+                    "carol-secret",
+                    "tenant-a",
+                    "carol",
+                    Role.PUBLISHER,
+                    Role.AUDITOR,
+                    Role.OPERATOR,
+                ),
+                definition(
+                    "mallory-key",
+                    "mallory-secret",
+                    "tenant-b",
+                    "mallory",
+                    Role.SUBMITTER,
+                ),
+            ]
+        ),
+    )
+    governance = GovernanceStore(tmp_path / "data" / "governance.sqlite3")
+    edit = {
+        "summary": "Fix add",
+        "edits": [
+            {
+                "path": "calculator.py",
+                "old_text": "return left - right",
+                "new_text": "return left + right",
+            }
+        ],
+    }
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([edit, edit]),
+            tmp_path / "data",
+            runner_factory=LocalCommandSandbox,
+        ),
+        max_job_workers=1,
+        job_poll_interval_seconds=0.01,
+        authenticator=authenticator,
+        governance_store=governance,
+    )
+    body = {
+        "repository": str(sample_repository),
+        "goal": "Modify production calculator behavior safely",
+        "file_scope": ["calculator.py"],
+        "verification_commands": ["python -m pytest -q"],
+    }
+    alice = {"Authorization": "Bearer alice-secret"}
+    bob = {"Authorization": "Bearer bob-secret"}
+    carol = {"Authorization": "Bearer carol-secret"}
+    mallory = {"Authorization": "Bearer mallory-secret"}
+
+    with TestClient(app) as client:
+        assert client.post("/v1/jobs", json=body).status_code == 401
+        created = client.post("/v1/jobs", json=body, headers=alice)
+        assert created.status_code == 202
+        job_id = created.json()["job_id"]
+        deadline = time.monotonic() + 5
+        job = created.json()
+        while job["status"] in {"pending", "running"} and time.monotonic() < deadline:
+            time.sleep(0.02)
+            job = client.get(f"/v1/jobs/{job_id}", headers=alice).json()
+
+        assert job["status"] == "needs_input"
+        task_id = job["task_id"]
+        assert client.get(f"/v1/jobs/{job_id}", headers=mallory).status_code == 403
+        self_approval = client.post(
+            f"/v1/tasks/{task_id}/approval",
+            json={"approved": True, "actor": "alice", "note": "self approval"},
+            headers=alice,
+        )
+        assert self_approval.status_code == 403
+        approved = client.post(
+            f"/v1/tasks/{task_id}/approval",
+            json={"approved": True, "actor": "bob", "note": "reviewed"},
+            headers=bob,
+        )
+        assert approved.status_code == 200
+        assert approved.json()["status"] == "succeeded"
+        assert client.post(f"/v1/tasks/{task_id}/promote", headers=alice).status_code == 403
+        promoted = client.post(f"/v1/tasks/{task_id}/promote", headers=carol)
+        audit = client.get("/v1/audit/events", headers=carol)
+        integrity = client.get("/v1/audit/integrity", headers=carol)
+
+    assert promoted.status_code == 200
+    assert promoted.json()["promoted_files"] == ["calculator.py"]
+    assert audit.status_code == 200
+    assert integrity.status_code == 200
+    assert integrity.json()["valid"] is True
+    actions = [event["action"] for event in audit.json()]
+    assert "job.create" in actions
+    assert "task.approval.decide" in actions
+    assert "task.promote" in actions
+    assert any(
+        event["action"] == "task.approval.decide" and event["outcome"] == "denied"
+        for event in audit.json()
+    )
+
+
+def test_authenticated_governance_rejects_repository_outside_key_scope(
+    tmp_path: Path, sample_repository: Path
+):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    definition = APIKeyDefinition(
+        key_id="scoped-key",
+        secret_sha256=hashlib.sha256(b"scoped-secret").hexdigest(),
+        tenant_id="tenant-a",
+        subject="alice",
+        roles=frozenset({Role.SUBMITTER}),
+        repository_roots=[str(allowed)],
+    )
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]),
+            tmp_path / "data",
+            runner_factory=LocalCommandSandbox,
+        ),
+        authenticator=APIKeyAuthenticator(
+            enabled=True,
+            config=GovernanceConfig(keys=[definition]),
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/jobs",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Fix calculator addition behavior",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+            headers={"Authorization": "Bearer scoped-secret"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "repository is outside the API key allowlist"

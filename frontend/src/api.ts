@@ -1,23 +1,46 @@
 import type {
   CreateTaskInput,
   JobEvent,
+  PrincipalIdentity,
   RuntimeSnapshot,
   TaskJob,
   TaskResult,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+let apiKey = window.sessionStorage.getItem("ai-harness-api-key") ?? "";
+
+export function setApiKey(value: string): void {
+  apiKey = value.trim();
+  if (apiKey) {
+    window.sessionStorage.setItem("ai-harness-api-key", apiKey);
+  } else {
+    window.sessionStorage.removeItem("ai-harness-api-key");
+  }
+}
+
+export function getStoredApiKey(): string {
+  return apiKey;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: response.statusText }));
     throw new Error(body.detail ?? `Request failed with ${response.status}`);
   }
   return response.json() as Promise<T>;
+}
+
+export function getIdentity(): Promise<PrincipalIdentity> {
+  return request("/v1/auth/me");
 }
 
 export function createTask(input: CreateTaskInput): Promise<TaskResult> {

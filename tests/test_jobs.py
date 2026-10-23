@@ -140,6 +140,30 @@ def test_idempotency_key_replays_same_job_and_rejects_different_request(
         )
 
 
+def test_idempotency_keys_are_scoped_per_tenant(tmp_path: Path):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    task_request = request(tmp_path)
+
+    tenant_a = store.enqueue(
+        task_request,
+        idempotency_key="shared-client-key",
+        tenant_id="tenant-a",
+        created_by="alice",
+    )
+    tenant_b = store.enqueue(
+        task_request,
+        idempotency_key="shared-client-key",
+        tenant_id="tenant-b",
+        created_by="bob",
+    )
+
+    assert tenant_a.job_id != tenant_b.job_id
+    assert tenant_a.tenant_id == "tenant-a"
+    assert tenant_a.created_by == "alice"
+    assert tenant_b.tenant_id == "tenant-b"
+    assert tenant_b.created_by == "bob"
+
+
 def test_concurrent_idempotent_submissions_create_one_job(tmp_path: Path):
     store = TaskJobStore(tmp_path / "jobs.sqlite3")
     task_request = request(tmp_path)
@@ -295,6 +319,36 @@ def test_worker_retries_exception_then_records_success(tmp_path: Path):
     assert completed is not None
     assert completed.attempts == 2
     assert calls == 2
+
+
+def test_worker_propagates_trusted_tenant_and_actor_to_execution_control(tmp_path: Path):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    captured: list[tuple[str | None, str | None]] = []
+
+    class CapturingOrchestrator:
+        def run(self, _: TaskRequest, *, control: ExecutionControl) -> TaskResult:
+            captured.append((control.tenant_id, control.actor))
+            return result("tenant-task")
+
+    job = store.enqueue(
+        request(tmp_path),
+        tenant_id="tenant-a",
+        created_by="alice",
+    )
+    pool = TaskWorkerPool(
+        CapturingOrchestrator(),  # type: ignore[arg-type]
+        store,
+        max_workers=1,
+        poll_interval_seconds=0.01,
+        lease_seconds=1,
+    )
+    pool.start()
+    try:
+        wait_until(lambda: store.get(job.job_id).status == JobStatus.SUCCEEDED)
+    finally:
+        pool.stop()
+
+    assert captured == [("tenant-a", "alice")]
 
 
 def test_worker_circuit_opens_and_pauses_claiming_after_infrastructure_failure(

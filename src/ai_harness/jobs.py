@@ -50,6 +50,8 @@ class TaskJob(BaseModel):
     created_at: str
     updated_at: str
     idempotency_key: Optional[str] = None
+    tenant_id: str = "local"
+    created_by: str = "system"
 
 
 class JobEvent(BaseModel):
@@ -250,10 +252,19 @@ class TaskJobStore:
                 connection.execute("ALTER TABLE task_jobs ADD COLUMN idempotency_key TEXT")
             if "request_hash" not in columns:
                 connection.execute("ALTER TABLE task_jobs ADD COLUMN request_hash TEXT")
+            if "tenant_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE task_jobs ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'local'"
+                )
+            if "created_by" not in columns:
+                connection.execute(
+                    "ALTER TABLE task_jobs ADD COLUMN created_by TEXT NOT NULL DEFAULT 'system'"
+                )
+            connection.execute("DROP INDEX IF EXISTS idx_task_jobs_idempotency_key")
             connection.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_jobs_idempotency_key
-                ON task_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL
+                ON task_jobs(tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL
                 """
             )
 
@@ -263,6 +274,8 @@ class TaskJobStore:
         *,
         max_attempts: int = 2,
         idempotency_key: Optional[str] = None,
+        tenant_id: str = "local",
+        created_by: str = "system",
     ) -> TaskJob:
         if not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be within 1..5")
@@ -270,6 +283,10 @@ class TaskJobStore:
             idempotency_key = idempotency_key.strip()
             if not 1 <= len(idempotency_key) <= 200:
                 raise ValueError("idempotency_key must be within 1..200 characters")
+        tenant_id = tenant_id.strip()
+        created_by = created_by.strip()
+        if not tenant_id or not created_by:
+            raise ValueError("tenant_id and created_by are required")
         request_json = request.model_dump_json()
         request_hash = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         now = utc_now().isoformat()
@@ -280,13 +297,15 @@ class TaskJobStore:
             created_at=now,
             updated_at=now,
             idempotency_key=idempotency_key,
+            tenant_id=tenant_id,
+            created_by=created_by,
         )
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             if idempotency_key:
                 existing = connection.execute(
-                    "SELECT * FROM task_jobs WHERE idempotency_key = ?",
-                    (idempotency_key,),
+                    "SELECT * FROM task_jobs WHERE tenant_id = ? AND idempotency_key = ?",
+                    (tenant_id, idempotency_key),
                 ).fetchone()
                 if existing is not None:
                     if existing["request_hash"] != request_hash:
@@ -318,8 +337,10 @@ class TaskJobStore:
                     job_id, status, request_json, task_id, result_json, error,
                     attempts, max_attempts, cancel_requested, lease_owner,
                     lease_expires_at, created_at, updated_at,
-                    idempotency_key, request_hash
-                ) VALUES (?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?, ?, ?)
+                    idempotency_key, request_hash, tenant_id, created_by
+                ) VALUES (
+                    ?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?, ?, ?, ?, ?
+                )
                 """,
                 (
                     job.job_id,
@@ -330,6 +351,8 @@ class TaskJobStore:
                     now,
                     idempotency_key,
                     request_hash,
+                    tenant_id,
+                    created_by,
                 ),
             )
             self._append_event(
@@ -347,6 +370,14 @@ class TaskJobStore:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT * FROM task_jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+        return self._decode(row) if row else None
+
+    def get_by_task_id(self, task_id: str) -> Optional[TaskJob]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM task_jobs WHERE task_id = ? ORDER BY created_at LIMIT 1",
+                (task_id,),
             ).fetchone()
         return self._decode(row) if row else None
 
@@ -681,6 +712,8 @@ class TaskJobStore:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             idempotency_key=row["idempotency_key"],
+            tenant_id=row["tenant_id"],
+            created_by=row["created_by"],
         )
 
     @staticmethod
@@ -842,6 +875,8 @@ class TaskWorkerPool:
                     control = ExecutionControl(
                         should_cancel=partial(self.store.is_cancel_requested, job.job_id),
                         deadline=time.monotonic() + self.task_timeout_seconds,
+                        tenant_id=job.tenant_id,
+                        actor=job.created_by,
                     )
                     result = self.orchestrator.run(job.request, control=control)
                     infrastructure_error = self._infrastructure_error(result)

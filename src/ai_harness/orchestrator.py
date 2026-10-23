@@ -58,6 +58,8 @@ class WorkflowState(TypedDict):
 class ExecutionControl:
     should_cancel: Callable[[], bool]
     deadline: Optional[float] = None
+    tenant_id: Optional[str] = None
+    actor: Optional[str] = None
 
 
 class ExecutionInterrupted(RuntimeError):
@@ -148,7 +150,11 @@ class HarnessOrchestrator:
             route=route,
             plan=plan,
             assignments=self.router.assignments(plan),
-            scratchpad={"workspace": str(workspace)},
+            scratchpad={
+                "workspace": str(workspace),
+                "tenant_id": (control.tenant_id if control else None) or self.tenant_id,
+                "requested_by": (control.actor if control else None) or "system",
+            },
         )
         self._record_milestone(
             state,
@@ -450,6 +456,7 @@ class HarnessOrchestrator:
         self._check_execution_control()
         started = time.monotonic()
         task = payload["task"]
+        execution_tenant = str(task.scratchpad.get("tenant_id", self.tenant_id))
         self._set_assignment_status(task, "scout", "running")
         repository = self._workspace_repository(task)
         task.repo_map = self.repo_map_builder.build(repository, task.request.file_scope)
@@ -486,13 +493,13 @@ class HarnessOrchestrator:
                 mcp_tools, allowed_mcp_servers = (
                     self.mcp_tool_catalog.register_authorized_tools(
                         registry,
-                        tenant_id=self.tenant_id,
+                        tenant_id=execution_tenant,
                         project_id=project_id,
                     )
                 )
                 allowed_tools.update(mcp_tools)
             identity = KnowledgeIdentity(
-                tenant_id=self.tenant_id,
+                tenant_id=execution_tenant,
                 project_id=project_id,
                 allowed_tools=frozenset(allowed_tools),
                 allowed_paths=task.request.file_scope,

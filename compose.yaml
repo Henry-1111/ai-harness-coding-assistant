@@ -14,6 +14,8 @@ services:
       AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS: ${AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS:-3}
       AI_HARNESS_MCP_CATALOG_PATH: ${AI_HARNESS_MCP_CATALOG_PATH:-}
       AI_HARNESS_TENANT_ID: ${AI_HARNESS_TENANT_ID:-local}
+      AI_HARNESS_AUTH_ENABLED: ${AI_HARNESS_AUTH_ENABLED:-false}
+      AI_HARNESS_AUTH_CONFIG_PATH: /run/secrets/ai-harness-governance.json
       AI_HARNESS_JOB_WORKERS: ${AI_HARNESS_JOB_WORKERS:-2}
       AI_HARNESS_JOB_POLL_INTERVAL_SECONDS: ${AI_HARNESS_JOB_POLL_INTERVAL_SECONDS:-0.2}
       AI_HARNESS_JOB_LEASE_SECONDS: ${AI_HARNESS_JOB_LEASE_SECONDS:-300}
@@ -27,6 +29,7 @@ services:
     volumes:
       - harness-data:/data
       - ${AI_HARNESS_REPOSITORY:-.}:/repository:ro
+      - ${AI_HARNESS_AUTH_CONFIG_HOST_PATH:-./config/governance.example.json}:/run/secrets/ai-harness-governance.json:ro
     read_only: true
     tmpfs:
       - /tmp:size=256m

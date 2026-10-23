@@ -22,6 +22,7 @@ from .api import create_app
 from .config import Settings
 from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
+from .governance import APIKeyAuthenticator, GovernanceStore
 from .lsp import LSPDefinitionEnricher
 from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
@@ -316,9 +317,22 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         import uvicorn
 
         settings = Settings.from_environment()
+        if settings.auth_enabled and not settings.auth_config_path:
+            raise SystemExit(
+                "AI_HARNESS_AUTH_CONFIG_PATH is required when AI_HARNESS_AUTH_ENABLED=true"
+            )
+        authenticator = (
+            APIKeyAuthenticator.from_file(Path(settings.auth_config_path))
+            if settings.auth_enabled
+            else APIKeyAuthenticator.disabled()
+        )
         uvicorn.run(
             create_app(
                 orchestrator,
+                authenticator=authenticator,
+                governance_store=GovernanceStore(
+                    settings.data_directory / "governance.sqlite3"
+                ),
                 max_job_workers=settings.job_workers,
                 job_poll_interval_seconds=settings.job_poll_interval_seconds,
                 job_lease_seconds=settings.job_lease_seconds,

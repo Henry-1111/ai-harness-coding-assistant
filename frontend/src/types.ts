@@ -7,6 +7,14 @@ export type TaskStatus =
   | "cancelled";
 export type JobStatus = TaskStatus;
 
+export interface PrincipalIdentity {
+  key_id: string;
+  tenant_id: string;
+  subject: string;
+  roles: string[];
+  authentication_enabled: boolean;
+}
+
 export interface CommandResult {
   command: string;
   exit_code: number;
@@ -152,6 +160,8 @@ export interface TaskJob {
   created_at: string;
   updated_at: string;
   idempotency_key?: string;
+  tenant_id: string;
+  created_by: string;
 }
 
 export interface JobEvent {

@@ -402,7 +402,7 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
                 "servers": {
                     "knowledge": {
                         "url": "http://localhost:9000/mcp",
-                        "allowed_tenants": ["local"],
+                        "allowed_tenants": ["tenant-a"],
                         "headers_from_env": {"Authorization": "TEST_MCP_TOKEN"},
                     }
                 },
@@ -412,7 +412,7 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
                         "server": "knowledge",
                         "remote_tool_name": "search",
                         "description": "search project documentation",
-                        "allowed_tenants": ["local"],
+                        "allowed_tenants": ["tenant-a"],
                         "input_schema": {
                             "type": "object",
                             "properties": {"query": {"type": "string"}},
@@ -446,7 +446,12 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
         request_for(
             sample_repository,
             goal="Refactor calculator architecture across multiple modules",
-        )
+        ),
+        control=ExecutionControl(
+            should_cancel=lambda: False,
+            tenant_id="tenant-a",
+            actor="alice",
+        ),
     )
 
     assert result.status == TaskStatus.SUCCEEDED
@@ -455,6 +460,8 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
     react = state.scratchpad["restricted_react"]
     assert react["tool_calls"] == 1
     assert react["stop_reason"] == "model_finished"
+    assert state.scratchpad["tenant_id"] == "tenant-a"
+    assert state.scratchpad["requested_by"] == "alice"
     assert any(hit.source == "restricted_react" for hit in state.context)
     assert {tool["name"] for tool in model.calls[0]["payload"]["tools"]} == {
         "get_source_detail",

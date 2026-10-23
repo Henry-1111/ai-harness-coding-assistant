@@ -3,11 +3,21 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+from .governance import (
+    APIKeyAuthenticator,
+    AuditEvent,
+    AuthenticationError,
+    AuthorizationError,
+    GovernanceStore,
+    Principal,
+    ResourceBinding,
+    Role,
+)
 from .jobs import (
     CircuitState,
     IdempotencyConflictError,
@@ -20,7 +30,7 @@ from .jobs import (
     TaskWorkerPool,
 )
 from .models import TaskRequest, TaskResult, TaskState
-from .orchestrator import HarnessOrchestrator
+from .orchestrator import ExecutionControl, HarnessOrchestrator
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -41,7 +51,13 @@ def create_app(
     job_timeout_seconds: float = 1800,
     circuit_failure_threshold: int = 3,
     circuit_recovery_seconds: float = 30,
+    authenticator: Optional[APIKeyAuthenticator] = None,
+    governance_store: Optional[GovernanceStore] = None,
 ) -> FastAPI:
+    authenticator = authenticator or APIKeyAuthenticator.disabled()
+    governance_store = governance_store or GovernanceStore(
+        orchestrator.data_directory / "governance.sqlite3"
+    )
     job_store = job_store or TaskJobStore(
         orchestrator.data_directory / "jobs.sqlite3",
         max_outstanding_jobs=job_queue_capacity,
@@ -69,16 +85,151 @@ def create_app(
     app.state.orchestrator = orchestrator
     app.state.job_store = job_store
     app.state.worker_pool = worker_pool
+    app.state.authenticator = authenticator
+    app.state.governance_store = governance_store
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
     )
+
+    def current_principal(
+        authorization: Optional[str] = Header(default=None, alias="Authorization"),
+    ) -> Principal:
+        try:
+            return authenticator.authenticate(authorization)
+        except AuthenticationError as exc:
+            governance_store.audit(
+                actor="anonymous",
+                action="authenticate",
+                outcome="denied",
+                details={"reason": str(exc)},
+            )
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    def require_roles(
+        principal: Principal,
+        *roles: Role,
+        action: str,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+    ) -> None:
+        if not principal.authentication_enabled or principal.has_any_role(*roles):
+            return
+        governance_store.audit(
+            actor=principal.subject,
+            tenant_id=principal.tenant_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            outcome="denied",
+            details={
+                "reason": "required role is missing",
+                "required_roles": sorted(role.value for role in roles),
+            },
+        )
+        raise HTTPException(status_code=403, detail="required role is missing")
+
+    def authorize_repository(principal: Principal, repository: str, *, action: str) -> None:
+        if principal.permits_repository(repository):
+            return
+        governance_store.audit(
+            actor=principal.subject,
+            tenant_id=principal.tenant_id,
+            action=action,
+            resource_type="repository",
+            resource_id=str(repository),
+            outcome="denied",
+            details={"reason": "repository is outside the API key allowlist"},
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="repository is outside the API key allowlist",
+        )
+
+    def authorize_binding(
+        principal: Principal,
+        resource_type: str,
+        resource_id: str,
+        *,
+        action: str,
+    ) -> ResourceBinding:
+        try:
+            return governance_store.authorize(principal, resource_type, resource_id)
+        except AuthorizationError as exc:
+            if not principal.authentication_enabled:
+                raise HTTPException(status_code=404, detail="resource not found") from exc
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                outcome="denied",
+                details={"reason": str(exc)},
+            )
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    def authorize_job(
+        principal: Principal,
+        job: TaskJob,
+        *,
+        action: str,
+    ) -> ResourceBinding:
+        binding = governance_store.binding("job", job.job_id)
+        if binding is None and not principal.authentication_enabled:
+            binding = governance_store.bind(
+                "job",
+                job.job_id,
+                principal,
+                repository=job.request.repository,
+            )
+        if binding is None:
+            return authorize_binding(principal, "job", job.job_id, action=action)
+        binding = authorize_binding(principal, "job", job.job_id, action=action)
+        if job.task_id and governance_store.binding("task", job.task_id) is None:
+            governance_store.bind_from("task", job.task_id, binding)
+        return binding
+
+    def authorize_task(
+        principal: Principal,
+        task_id: str,
+        *,
+        action: str,
+    ) -> ResourceBinding:
+        binding = governance_store.binding("task", task_id)
+        if binding is None:
+            job = job_store.get_by_task_id(task_id)
+            if job is not None:
+                owner = authorize_job(principal, job, action=action)
+                binding = governance_store.bind_from("task", task_id, owner)
+        if binding is None and not principal.authentication_enabled:
+            task = orchestrator.get(task_id)
+            if task is not None:
+                binding = governance_store.bind(
+                    "task",
+                    task_id,
+                    principal,
+                    repository=task.request.repository,
+                )
+        return authorize_binding(principal, "task", task_id, action=action)
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/v1/auth/me")
+    def auth_identity(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> dict[str, object]:
+        return {
+            "key_id": principal.key_id,
+            "tenant_id": principal.tenant_id,
+            "subject": principal.subject,
+            "roles": sorted(role.value for role in principal.roles),
+            "authentication_enabled": principal.authentication_enabled,
+        }
 
     @app.get("/ready")
     def readiness() -> dict[str, str]:
@@ -91,11 +242,17 @@ def create_app(
         return {"status": "ready"}
 
     @app.get("/v1/runtime", response_model=RuntimeSnapshot)
-    def runtime() -> RuntimeSnapshot:
+    def runtime(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> RuntimeSnapshot:
+        require_roles(principal, Role.OPERATOR, action="runtime.read")
         return worker_pool.runtime_snapshot()
 
     @app.get("/metrics", response_class=PlainTextResponse)
-    def prometheus_metrics() -> str:
+    def prometheus_metrics(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> str:
+        require_roles(principal, Role.OPERATOR, action="metrics.read")
         snapshot = worker_pool.runtime_snapshot()
         lines = [
             "# HELP ai_harness_ready Whether the worker runtime is ready.",
@@ -140,16 +297,68 @@ def create_app(
         return "\n".join(lines) + "\n"
 
     @app.post("/v1/tasks", response_model=TaskResult)
-    def create_task(request: TaskRequest) -> TaskResult:
-        return orchestrator.run(request)
+    def create_task(
+        request: TaskRequest,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskResult:
+        require_roles(principal, Role.SUBMITTER, action="task.create")
+        authorize_repository(principal, request.repository, action="task.create")
+        result = orchestrator.run(
+            request,
+            control=ExecutionControl(
+                should_cancel=lambda: False,
+                tenant_id=principal.tenant_id,
+                actor=principal.subject,
+            ),
+        )
+        governance_store.bind(
+            "task",
+            result.task_id,
+            principal,
+            repository=request.repository,
+        )
+        governance_store.audit(
+            actor=principal.subject,
+            tenant_id=principal.tenant_id,
+            action="task.create",
+            resource_type="task",
+            resource_id=result.task_id,
+            outcome="accepted",
+            details={"repository": str(request.repository)},
+        )
+        return result
 
     @app.post("/v1/jobs", response_model=TaskJob, status_code=202)
     def create_job(
         request: TaskRequest,
         idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
+        principal: Principal = Depends(current_principal),  # noqa: B008
     ) -> TaskJob:
+        require_roles(principal, Role.SUBMITTER, action="job.create")
+        authorize_repository(principal, request.repository, action="job.create")
         try:
-            return job_store.enqueue(request, idempotency_key=idempotency_key)
+            job = job_store.enqueue(
+                request,
+                idempotency_key=idempotency_key,
+                tenant_id=principal.tenant_id,
+                created_by=principal.subject,
+            )
+            governance_store.bind(
+                "job",
+                job.job_id,
+                principal,
+                repository=request.repository,
+            )
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="job.create",
+                resource_type="job",
+                resource_id=job.job_id,
+                outcome="accepted",
+                details={"idempotent_replay": job.attempts > 0},
+            )
+            return job
         except QueueFullError as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         except IdempotencyConflictError as exc:
@@ -158,38 +367,80 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/v1/jobs/metrics", response_model=JobMetrics)
-    def job_metrics() -> JobMetrics:
+    def job_metrics(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> JobMetrics:
+        require_roles(principal, Role.OPERATOR, action="job.metrics.read")
         return job_store.metrics()
 
     @app.get("/v1/jobs/{job_id}", response_model=TaskJob)
-    def get_job(job_id: str) -> TaskJob:
+    def get_job(
+        job_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskJob:
         job = job_store.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
+        authorize_job(principal, job, action="job.read")
         return job
 
     @app.get("/v1/jobs/{job_id}/events", response_model=list[JobEvent])
-    def get_job_events(job_id: str) -> list[JobEvent]:
-        if job_store.get(job_id) is None:
+    def get_job_events(
+        job_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> list[JobEvent]:
+        job = job_store.get(job_id)
+        if job is None:
             raise HTTPException(status_code=404, detail="job not found")
+        authorize_job(principal, job, action="job.events.read")
         return job_store.events(job_id)
 
     @app.post("/v1/jobs/{job_id}/cancel", response_model=TaskJob)
-    def cancel_job(job_id: str) -> TaskJob:
+    def cancel_job(
+        job_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskJob:
+        require_roles(
+            principal,
+            Role.SUBMITTER,
+            Role.OPERATOR,
+            action="job.cancel",
+            resource_type="job",
+            resource_id=job_id,
+        )
+        existing = job_store.get(job_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="job not found")
+        authorize_job(principal, existing, action="job.cancel")
         job = job_store.cancel(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
         return job
 
     @app.get("/v1/tasks/{task_id}", response_model=TaskState)
-    def get_task(task_id: str) -> TaskState:
+    def get_task(
+        task_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskState:
         task = orchestrator.get(task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
+        authorize_task(principal, task_id, action="task.read")
         return task
 
     @app.post("/v1/tasks/{task_id}/resume", response_model=TaskResult)
-    def resume_task(task_id: str) -> TaskResult:
+    def resume_task(
+        task_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskResult:
+        require_roles(
+            principal,
+            Role.SUBMITTER,
+            action="task.resume",
+            resource_type="task",
+            resource_id=task_id,
+        )
+        authorize_task(principal, task_id, action="task.resume")
         try:
             return orchestrator.resume(task_id)
         except KeyError as exc:
@@ -198,7 +449,44 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/v1/tasks/{task_id}/approval", response_model=TaskResult)
-    def decide_approval(task_id: str, decision: ApprovalDecisionRequest) -> TaskResult:
+    def decide_approval(
+        task_id: str,
+        decision: ApprovalDecisionRequest,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TaskResult:
+        require_roles(
+            principal,
+            Role.REVIEWER,
+            action="task.approval.decide",
+            resource_type="task",
+            resource_id=task_id,
+        )
+        binding = authorize_task(principal, task_id, action="task.approval.decide")
+        if principal.authentication_enabled and decision.actor != principal.subject:
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.approval.decide",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="denied",
+                details={"reason": "approval actor must match API identity"},
+            )
+            raise HTTPException(status_code=403, detail="approval actor must match API identity")
+        if principal.authentication_enabled and binding.created_by == principal.subject:
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.approval.decide",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="denied",
+                details={"reason": "submitters cannot approve their own task"},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="submitters cannot approve their own task",
+            )
         try:
             result = orchestrator.decide_approval(
                 task_id,
@@ -207,6 +495,15 @@ def create_app(
                 note=decision.note,
             )
             job_store.update_for_task(result)
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.approval.decide",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="accepted",
+                details={"approved": decision.approved},
+            )
             return result
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
@@ -214,17 +511,25 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.get("/v1/tasks/{task_id}/diff")
-    def task_diff(task_id: str) -> dict[str, str]:
+    def task_diff(
+        task_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> dict[str, str]:
+        authorize_task(principal, task_id, action="task.diff.read")
         try:
             return {"task_id": task_id, "diff": orchestrator.diff(task_id)}
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
 
     @app.get("/v1/tasks/{task_id}/trace")
-    def task_trace(task_id: str) -> dict[str, object]:
+    def task_trace(
+        task_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> dict[str, object]:
         task = orchestrator.get(task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
+        authorize_task(principal, task_id, action="task.trace.read")
         return {
             "task_id": task_id,
             "events": [event.model_dump(mode="json") for event in task.trace],
@@ -241,13 +546,49 @@ def create_app(
         }
 
     @app.post("/v1/tasks/{task_id}/promote")
-    def promote_task(task_id: str) -> dict[str, object]:
+    def promote_task(
+        task_id: str,
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> dict[str, object]:
+        require_roles(
+            principal,
+            Role.PUBLISHER,
+            action="task.promote",
+            resource_type="task",
+            resource_id=task_id,
+        )
+        authorize_task(principal, task_id, action="task.promote")
         try:
             files = orchestrator.promote(task_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="task not found") from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        governance_store.audit(
+            actor=principal.subject,
+            tenant_id=principal.tenant_id,
+            action="task.promote",
+            resource_type="task",
+            resource_id=task_id,
+            outcome="accepted",
+            details={"promoted_files": files},
+        )
         return {"task_id": task_id, "promoted_files": files}
+
+    @app.get("/v1/audit/events", response_model=list[AuditEvent])
+    def audit_events(
+        limit: int = Query(default=100, ge=1, le=1000),
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> list[AuditEvent]:
+        require_roles(principal, Role.AUDITOR, Role.OPERATOR, action="audit.read")
+        return governance_store.events(principal, limit=limit)
+
+    @app.get("/v1/audit/integrity")
+    def audit_integrity(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> dict[str, object]:
+        require_roles(principal, Role.AUDITOR, Role.OPERATOR, action="audit.verify")
+        valid, event_count = governance_store.verify_integrity(principal)
+        return {"valid": valid, "event_count": event_count}
 
     return app

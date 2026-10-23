@@ -22,6 +22,8 @@ class Settings:
     restricted_react_max_tool_calls: int
     mcp_catalog_path: str
     tenant_id: str
+    auth_enabled: bool
+    auth_config_path: str
     job_workers: int
     job_poll_interval_seconds: float
     job_lease_seconds: float
@@ -55,6 +57,11 @@ class Settings:
             ),
             mcp_catalog_path=os.getenv("AI_HARNESS_MCP_CATALOG_PATH", ""),
             tenant_id=os.getenv("AI_HARNESS_TENANT_ID", "local"),
+            auth_enabled=(
+                os.getenv("AI_HARNESS_AUTH_ENABLED", "false").lower()
+                in {"1", "true", "yes", "on"}
+            ),
+            auth_config_path=os.getenv("AI_HARNESS_AUTH_CONFIG_PATH", ""),
             job_workers=int(os.getenv("AI_HARNESS_JOB_WORKERS", "2")),
             job_poll_interval_seconds=float(
                 os.getenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.2")

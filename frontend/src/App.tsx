@@ -28,15 +28,19 @@ import {
   cancelJob,
   createJob,
   decideApproval,
+  getIdentity,
+  getStoredApiKey,
   getDiff,
   getJob,
   getJobEvents,
   getRuntime,
   promoteTask,
+  setApiKey,
 } from "./api";
 import type {
   CreateTaskInput,
   JobEvent,
+  PrincipalIdentity,
   RuntimeSnapshot,
   TaskJob,
   TaskResult,
@@ -76,16 +80,28 @@ export default function App() {
   const [approvalActor, setApprovalActor] = useState("");
   const [approvalNote, setApprovalNote] = useState("");
   const [runtime, setRuntime] = useState<RuntimeSnapshot>();
+  const [apiKey, setApiKeyValue] = useState(getStoredApiKey());
+  const [authRevision, setAuthRevision] = useState(0);
+  const [identity, setIdentity] = useState<PrincipalIdentity>();
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const snapshot = await getRuntime();
-        if (active) setRuntime(snapshot);
+        const [snapshot, currentIdentity] = await Promise.all([
+          getRuntime().catch(() => undefined),
+          getIdentity(),
+        ]);
+        if (active) {
+          setRuntime(snapshot);
+          setIdentity(currentIdentity);
+        }
       } catch {
-        if (active) setRuntime(undefined);
+        if (active) {
+          setRuntime(undefined);
+          setIdentity(undefined);
+        }
       }
     };
     void refresh();
@@ -94,7 +110,12 @@ export default function App() {
       active = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [authRevision]);
+
+  const applyApiKey = () => {
+    setApiKey(apiKey);
+    setAuthRevision((value) => value + 1);
+  };
 
   const stepState = useMemo(() => {
     if (!result) return 0;
@@ -245,6 +266,36 @@ export default function App() {
           <SafetyCertificateOutlined /> Docker Sandbox · Checkpoint · Review Gate
         </Space>
       </header>
+
+      <Card
+        className="panel identity-panel"
+        title="请求身份"
+        extra={identity ? <Tag color="green">{identity.tenant_id}</Tag> : <Tag>未认证</Tag>}
+      >
+        <Row gutter={[16, 12]} align="middle">
+          <Col xs={24} md={10}>
+            <Space.Compact block>
+              <Input.Password
+                value={apiKey}
+                onChange={(event) => setApiKeyValue(event.target.value)}
+                onPressEnter={applyApiKey}
+                placeholder="Bearer API Key（仅保存在当前浏览器会话）"
+              />
+              <Button onClick={applyApiKey}>应用身份</Button>
+            </Space.Compact>
+          </Col>
+          <Col xs={24} md={14}>
+            {identity ? (
+              <Space wrap>
+                <Text>{identity.subject}</Text>
+                {identity.roles.map((role) => <Tag key={role}>{role}</Tag>)}
+              </Space>
+            ) : (
+              <Text type="secondary">认证开启时，请输入管理员签发的租户 API Key。</Text>
+            )}
+          </Col>
+        </Row>
+      </Card>
 
       <Card
         className="panel runtime-panel"

@@ -1,0 +1,31 @@
+{
+  "keys": [
+    {
+      "key_id": "tenant-a-submitter",
+      "secret_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "tenant_id": "tenant-a",
+      "subject": "developer-a",
+      "roles": ["submitter"],
+      "repository_roots": ["/repository"],
+      "enabled": true
+    },
+    {
+      "key_id": "tenant-a-reviewer",
+      "secret_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "tenant_id": "tenant-a",
+      "subject": "reviewer-a",
+      "roles": ["reviewer"],
+      "repository_roots": ["/repository"],
+      "enabled": true
+    },
+    {
+      "key_id": "tenant-a-publisher",
+      "secret_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "tenant_id": "tenant-a",
+      "subject": "release-a",
+      "roles": ["publisher", "operator", "auditor"],
+      "repository_roots": ["/repository"],
+      "enabled": true
+    }
+  ]
+}

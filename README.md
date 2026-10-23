@@ -58,6 +58,44 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
   Project 保存最近检索，Session/Scratchpad 跟踪执行进度；
 - 只有测试通过且 Reviewer 批准后才能 Promote 到源仓库。
 
+## 请求身份、租户边界与 RBAC
+
+HTTP API 可启用基于 Bearer API Key 的请求级身份认证。配置文件只保存 Key 的 SHA-256，不保存明文；
+每个身份包含租户、主体、角色和允许访问的仓库根目录。Job 会把 `tenant_id` 与 `created_by` 持久化，
+Worker 再把可信租户身份传入 Agent 和 MCP 上下文，避免只在入口鉴权、执行阶段却串用默认租户。
+
+支持的角色：
+
+- `submitter`：提交、恢复和取消本租户任务；
+- `reviewer`：批准或拒绝本租户高风险任务，但不能审批自己提交的任务；
+- `publisher`：将已通过 Reviewer 的修改发布到源仓库；
+- `operator`：读取运行时、队列和 Prometheus 指标；
+- `auditor`：读取本租户治理审计事件；
+- `admin`：跨租户管理权限，仍会留下审计记录。
+
+先复制 [`config/governance.example.json`](config/governance.example.json)，为每个身份生成独立随机 Key，
+再把 SHA-256 写入配置。示例中的 `00/11/22` 哈希只是不可登录的占位符：
+
+```bash
+python -c 'import getpass,hashlib; print(hashlib.sha256(getpass.getpass().encode()).hexdigest())'
+
+export AI_HARNESS_AUTH_ENABLED=true
+export AI_HARNESS_AUTH_CONFIG_PATH=/absolute/path/to/governance.json
+ai-harness serve --host 127.0.0.1 --port 8080
+```
+
+调用时发送原始 Key，服务端只计算哈希后进行常量时间比较：
+
+```http
+Authorization: Bearer <tenant-api-key>
+```
+
+`GET /v1/auth/me` 返回当前主体、租户和角色。控制台中的 Key 只保存在当前标签页的
+`sessionStorage`；生产环境若存在不可信前端脚本，应改用 BFF 和 HttpOnly Session，而不是让浏览器直接持有
+长期 Key。`GET /v1/audit/events` 返回按租户隔离的 append-only 审计事件，每条事件包含前一条哈希，便于
+检测历史记录被改写；`GET /v1/audit/integrity` 会重新计算当前租户的完整哈希链。认证默认关闭，
+以兼容本地 CLI；部署环境应显式开启。
+
 ## 安全模型
 
 1. 模型不能直接执行命令，只能返回符合 Pydantic Schema 的 JSON。
