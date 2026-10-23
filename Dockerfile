@@ -4,6 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 
 RUN groupadd --system harness && useradd --system --gid harness --home-dir /app harness
+RUN mkdir -p /data && chown harness:harness /data
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir .

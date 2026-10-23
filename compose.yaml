@@ -43,6 +43,17 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,7 +96,8 @@ services:
   console:
     build: ./frontend
     depends_on:
-      - ai-harness
+      ai-harness:
+        condition: service_healthy
     ports:
       - "5173:80"
     read_only: true

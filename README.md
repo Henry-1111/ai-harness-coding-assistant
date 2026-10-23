@@ -505,7 +505,9 @@ docker compose up --build
 ```
 
 浏览器访问 `http://127.0.0.1:5173`。Compose 中源仓库以只读方式挂载，任务副本与 Checkpoint
-写入独立数据卷；控制台通过容器内反向代理访问 API。
+写入独立数据卷；控制台通过容器内反向代理访问 API。API 容器会使用 `/ready` 同时检查 Worker、熔断器、
+Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台；停止时保留 30 秒供 Worker 结束当前
+安全边界与释放资源，未完成任务仍可在租约过期后由其他实例接管。
 
 ## 项目边界
 
