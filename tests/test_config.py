@@ -63,3 +63,22 @@ def test_request_authentication_settings_are_configurable(monkeypatch):
 
     assert settings.auth_enabled is True
     assert settings.auth_config_path == "/run/secrets/governance.json"
+
+
+def test_distributed_governance_settings_are_configurable(monkeypatch):
+    monkeypatch.setenv(
+        "AI_HARNESS_GOVERNANCE_DATABASE_URL",
+        "postgresql://harness:secret@postgres/ai_harness",
+    )
+    monkeypatch.setenv("AI_HARNESS_REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("AI_HARNESS_REDIS_KEY_PREFIX", "test-harness")
+    monkeypatch.setenv("AI_HARNESS_REDIS_QUOTA_TTL_SECONDS", "86400")
+    monkeypatch.setenv("AI_HARNESS_REDIS_BINDING_CACHE_SECONDS", "60")
+
+    settings = Settings.from_environment()
+
+    assert settings.governance_database_url.endswith("/ai_harness")
+    assert settings.redis_url == "redis://redis:6379/0"
+    assert settings.redis_key_prefix == "test-harness"
+    assert settings.redis_quota_ttl_seconds == 86400
+    assert settings.redis_binding_cache_seconds == 60

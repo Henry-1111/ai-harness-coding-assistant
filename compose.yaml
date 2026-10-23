@@ -16,6 +16,11 @@ services:
       AI_HARNESS_TENANT_ID: ${AI_HARNESS_TENANT_ID:-local}
       AI_HARNESS_AUTH_ENABLED: ${AI_HARNESS_AUTH_ENABLED:-false}
       AI_HARNESS_AUTH_CONFIG_PATH: /run/secrets/ai-harness-governance.json
+      AI_HARNESS_GOVERNANCE_DATABASE_URL: postgresql://harness:${POSTGRES_PASSWORD:-harness-dev}@postgres:5432/ai_harness
+      AI_HARNESS_REDIS_URL: redis://redis:6379/0
+      AI_HARNESS_REDIS_KEY_PREFIX: ${AI_HARNESS_REDIS_KEY_PREFIX:-ai-harness}
+      AI_HARNESS_REDIS_QUOTA_TTL_SECONDS: ${AI_HARNESS_REDIS_QUOTA_TTL_SECONDS:-259200}
+      AI_HARNESS_REDIS_BINDING_CACHE_SECONDS: ${AI_HARNESS_REDIS_BINDING_CACHE_SECONDS:-300}
       AI_HARNESS_JOB_WORKERS: ${AI_HARNESS_JOB_WORKERS:-2}
       AI_HARNESS_JOB_POLL_INTERVAL_SECONDS: ${AI_HARNESS_JOB_POLL_INTERVAL_SECONDS:-0.2}
       AI_HARNESS_JOB_LEASE_SECONDS: ${AI_HARNESS_JOB_LEASE_SECONDS:-300}
@@ -37,6 +42,44 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ai_harness
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-harness-dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d ai_harness"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
 
   console:
     build: ./frontend
@@ -60,3 +103,5 @@ services:
 
 volumes:
   harness-data:
+  postgres-data:
+  redis-data:

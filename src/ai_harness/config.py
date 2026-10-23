@@ -24,6 +24,11 @@ class Settings:
     tenant_id: str
     auth_enabled: bool
     auth_config_path: str
+    governance_database_url: str
+    redis_url: str
+    redis_key_prefix: str
+    redis_quota_ttl_seconds: int
+    redis_binding_cache_seconds: int
     job_workers: int
     job_poll_interval_seconds: float
     job_lease_seconds: float
@@ -62,6 +67,15 @@ class Settings:
                 in {"1", "true", "yes", "on"}
             ),
             auth_config_path=os.getenv("AI_HARNESS_AUTH_CONFIG_PATH", ""),
+            governance_database_url=os.getenv("AI_HARNESS_GOVERNANCE_DATABASE_URL", ""),
+            redis_url=os.getenv("AI_HARNESS_REDIS_URL", ""),
+            redis_key_prefix=os.getenv("AI_HARNESS_REDIS_KEY_PREFIX", "ai-harness"),
+            redis_quota_ttl_seconds=int(
+                os.getenv("AI_HARNESS_REDIS_QUOTA_TTL_SECONDS", "259200")
+            ),
+            redis_binding_cache_seconds=int(
+                os.getenv("AI_HARNESS_REDIS_BINDING_CACHE_SECONDS", "300")
+            ),
             job_workers=int(os.getenv("AI_HARNESS_JOB_WORKERS", "2")),
             job_poll_interval_seconds=float(
                 os.getenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.2")

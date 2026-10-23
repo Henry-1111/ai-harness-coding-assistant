@@ -20,6 +20,7 @@ from .agent_evaluation import (
 from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
+from .distributed_governance import DistributedGovernanceStore
 from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
 from .governance import APIKeyAuthenticator, GovernanceStore
@@ -326,13 +327,27 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if settings.auth_enabled
             else APIKeyAuthenticator.disabled()
         )
+        if bool(settings.governance_database_url) != bool(settings.redis_url):
+            raise SystemExit(
+                "AI_HARNESS_GOVERNANCE_DATABASE_URL and AI_HARNESS_REDIS_URL "
+                "must be configured together"
+            )
+        governance_store = (
+            DistributedGovernanceStore.from_urls(
+                settings.governance_database_url,
+                settings.redis_url,
+                key_prefix=settings.redis_key_prefix,
+                quota_ttl_seconds=settings.redis_quota_ttl_seconds,
+                binding_cache_seconds=settings.redis_binding_cache_seconds,
+            )
+            if settings.governance_database_url
+            else GovernanceStore(settings.data_directory / "governance.sqlite3")
+        )
         uvicorn.run(
             create_app(
                 orchestrator,
                 authenticator=authenticator,
-                governance_store=GovernanceStore(
-                    settings.data_directory / "governance.sqlite3"
-                ),
+                governance_store=governance_store,
                 max_job_workers=settings.job_workers,
                 job_poll_interval_seconds=settings.job_poll_interval_seconds,
                 job_lease_seconds=settings.job_lease_seconds,

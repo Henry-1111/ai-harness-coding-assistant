@@ -134,6 +134,29 @@ SQLite `BEGIN IMMEDIATE` 事务内原子检查并预留 Token；达到任一上�
 }
 ```
 
+### PostgreSQL + Redis 分布式治理
+
+默认本地模式继续使用 SQLite。生产多实例部署同时配置以下两个变量后，资源归属、审计链和额度账本会写入
+PostgreSQL，Redis 则作为所有实例共享的实时准入层：
+
+```bash
+export AI_HARNESS_GOVERNANCE_DATABASE_URL='postgresql://harness:secret@postgres:5432/ai_harness'
+export AI_HARNESS_REDIS_URL='redis://redis:6379/0'
+export AI_HARNESS_REDIS_KEY_PREFIX='ai-harness'
+export AI_HARNESS_REDIS_QUOTA_TTL_SECONDS=259200
+export AI_HARNESS_REDIS_BINDING_CACHE_SECONDS=300
+```
+
+额度预留、结算和释放由 Redis Lua 脚本原子完成，因此多个 API/Worker 进程不会分别读取旧值后同时放行。
+Redis 准入成功后再写 PostgreSQL 长期账本；若 PostgreSQL 写入失败，服务会删除本次 Redis 预留并恢复计数。
+对外额度快照和第二道额度校验以 PostgreSQL 为准，因此 Redis 重启或缓存丢失也不会导致配额超发或展示归零。
+资源归属采用 cache-aside：先读 Redis，未命中再读 PostgreSQL 并回填；写入则以 PostgreSQL 为准并刷新缓存。
+审计链写入前使用 PostgreSQL transaction-level advisory lock 按租户串行化，避免多个实例同时生成相同
+`previous_hash` 导致链分叉。
+
+Compose 已启用 PostgreSQL 持久卷和 Redis AOF。当前 Lua 脚本面向单 Redis 主节点或 Sentinel；若部署
+Redis Cluster，需要把同一次脚本访问的 Key 重新设计为相同 hash slot。
+
 Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `usage.completion_tokens` 聚合到
 `TaskResult.model_usage`，终态后用实际 Token 替换预留量并释放在途名额。若 Provider 没有返回 usage，
 系统保守地按预留量结算，避免缺失统计导致配额超发；排队取消按 0 Token 结算。高风险任务停在审批门时
@@ -482,7 +505,8 @@ docker compose up --build
 - Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭。配置
   `AI_HARNESS_EMBEDDING_MODEL`、`AI_HARNESS_EMBEDDING_BASE_URL` 和
   `AI_HARNESS_EMBEDDING_API_KEY` 后，可与聊天请求一样统一经过 LLM Gateway。
-- 当前 Checkpoint 使用 SQLite，单机部署足够；多实例部署应切换 PostgreSQL 并增加任务租约。
+- 当前 Checkpoint 与任务队列仍使用 SQLite；治理、额度和资源归属已支持 PostgreSQL + Redis。完整的多实例
+  Worker 部署还需继续迁移 Checkpoint/Job Store，并增加数据库任务租约。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。
