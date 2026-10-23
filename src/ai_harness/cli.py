@@ -27,6 +27,7 @@ from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .orchestrator import HarnessOrchestrator
 from .repository import Repository
+from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import DockerSandbox, LocalCommandSandbox
 
 
@@ -146,6 +147,15 @@ def build_parser() -> argparse.ArgumentParser:
     agent_evaluate.add_argument("dataset")
     agent_evaluate.add_argument("--split", choices=["train", "validation", "test"])
     agent_evaluate.add_argument("--output", help="Write the JSON report to this path")
+
+    runtime_evaluate = subparsers.add_parser(
+        "eval-runtime",
+        help="Benchmark durable queue latency, throughput, concurrency and idempotency",
+    )
+    runtime_evaluate.add_argument("--jobs", type=int, default=100)
+    runtime_evaluate.add_argument("--workers", type=int, default=4)
+    runtime_evaluate.add_argument("--synthetic-work-ms", type=float, default=10)
+    runtime_evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
 
 
@@ -260,6 +270,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         return
     if args.command == "eval-agents":
         report = run_agent_benchmark(args)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-runtime":
+        report = run_runtime_benchmark(
+            jobs=args.jobs,
+            workers=args.workers,
+            synthetic_work_ms=args.synthetic_work_ms,
+        ).model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")
         print(report)

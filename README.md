@@ -343,6 +343,46 @@ SHA-256，便于确认不同实验使用的是同一版本。
 首轮真实 DeepSeek 冒烟结果见 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，原始机器可读
 报告见 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)。
 
+## 系统级验证与运行时基准
+
+自动化测试中的 `tests/test_system_e2e.py` 会启动一个本地 OpenAI-compatible HTTP Stub，验证完整链路：
+
+```text
+POST /v1/jobs -> SQLite Queue -> Worker -> LLM Gateway HTTP
+-> 结构化编辑 -> 隔离测试 -> Reviewer -> 显式 Promote
+```
+
+测试还会注入第一次 HTTP 500、第二次成功的故障，确认任务发生一次 `retry_scheduled` 后恢复，并且
+`queued → claimed → retry_scheduled → claimed → completed` 审计事件顺序可查。Stub 测试不访问外网，
+也不会消耗真实模型额度。
+
+运行时基准使用合成任务测量 SQLite Queue、Worker 并发和幂等语义：
+
+```bash
+ai-harness eval-runtime \
+  --jobs 100 \
+  --workers 4 \
+  --synthetic-work-ms 10 \
+  --output benchmarks/runtime-report.json
+```
+
+当前机器的一次实测结果见 [`benchmarks/RUNTIME_RESULTS.md`](benchmarks/RUNTIME_RESULTS.md)。该命令不会
+调用模型，`jobs_per_second` 只代表本机任务运行时上限，不能写成 DeepSeek 或 LLM Gateway 的请求吞吐。
+
+需要验证真实 AI Harness → LLM Gateway → DeepSeek 链路时，必须显式开启额度开关：
+
+```bash
+export AI_HARNESS_LIVE_E2E=1
+export AI_HARNESS_MODEL_BASE_URL=http://127.0.0.1:8000/v1
+export AI_HARNESS_MODEL_API_KEY='<llmgw-api-key>'
+export AI_HARNESS_MODEL=deepseek-chat
+
+PYTHONPATH=src python scripts/live_gateway_smoke.py
+```
+
+烟测只在临时仓库工作，不会自动 Promote，也不会打印 API Key。输出包含最终状态、修改文件、Provider
+返回的 Token 使用量，以及源仓库是否保持不变；未设置 `AI_HARNESS_LIVE_E2E=1` 时脚本直接拒绝运行。
+
 ## Docker
 
 ```bash
