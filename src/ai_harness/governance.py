@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Protocol
 
 import httpx
 import jwt
@@ -393,6 +393,69 @@ class TenantQuotaSnapshot(BaseModel):
     reserved_tokens: int
     actual_tokens: int
     policy: TenantQuotaPolicy
+
+
+class GovernanceStoreProtocol(Protocol):
+    """Persistence contract shared by local and distributed governance stores."""
+
+    def reserve_quota(
+        self,
+        *,
+        job_id: str,
+        tenant_id: str,
+        policy: TenantQuotaPolicy,
+    ) -> TenantQuotaSnapshot: ...
+
+    def settle_quota(self, job_id: str, actual_tokens: Optional[int]) -> bool: ...
+
+    def release_quota(self, job_id: str) -> bool: ...
+
+    def quota_snapshot(
+        self,
+        tenant_id: str,
+        policy: TenantQuotaPolicy,
+    ) -> TenantQuotaSnapshot: ...
+
+    def bind(
+        self,
+        resource_type: str,
+        resource_id: str,
+        principal: Principal,
+        *,
+        repository: Optional[str] = None,
+    ) -> ResourceBinding: ...
+
+    def bind_from(
+        self,
+        resource_type: str,
+        resource_id: str,
+        owner: ResourceBinding,
+    ) -> ResourceBinding: ...
+
+    def binding(self, resource_type: str, resource_id: str) -> Optional[ResourceBinding]: ...
+
+    def authorize(
+        self,
+        principal: Principal,
+        resource_type: str,
+        resource_id: str,
+    ) -> ResourceBinding: ...
+
+    def audit(
+        self,
+        *,
+        actor: str,
+        action: str,
+        outcome: str,
+        tenant_id: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
+    ) -> AuditEvent: ...
+
+    def events(self, principal: Principal, *, limit: int = 100) -> list[AuditEvent]: ...
+
+    def verify_integrity(self, principal: Principal) -> tuple[bool, int]: ...
 
 
 class GovernanceStore:

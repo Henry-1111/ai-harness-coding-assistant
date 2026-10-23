@@ -505,8 +505,9 @@ docker compose up --build
 - Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭。配置
   `AI_HARNESS_EMBEDDING_MODEL`、`AI_HARNESS_EMBEDDING_BASE_URL` 和
   `AI_HARNESS_EMBEDDING_API_KEY` 后，可与聊天请求一样统一经过 LLM Gateway。
-- 当前 Checkpoint 与任务队列仍使用 SQLite；治理、额度和资源归属已支持 PostgreSQL + Redis。完整的多实例
-  Worker 部署还需继续迁移 Checkpoint/Job Store，并增加数据库任务租约。
+- 配置 PostgreSQL + Redis 后，Checkpoint、任务队列、Worker 租约、治理、额度和资源归属均使用共享后端；
+  未配置时继续使用 SQLite 本地模式。多实例 Worker 通过 PostgreSQL `FOR UPDATE SKIP LOCKED` 抢占任务，
+  通过带所有者校验的租约心跳、完成和失败更新避免旧 Worker 覆盖已经被接管的任务。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。

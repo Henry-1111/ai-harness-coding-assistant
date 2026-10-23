@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Protocol
 
 from pydantic import BaseModel, Field
 
@@ -103,6 +103,45 @@ class RuntimeSnapshot(BaseModel):
     queue: JobMetrics
     circuit: CircuitSnapshot
     workers: list[WorkerSnapshot]
+
+
+class TaskJobStoreProtocol(Protocol):
+    """Queue contract shared by SQLite and PostgreSQL implementations."""
+
+    max_outstanding_jobs: int
+
+    def enqueue(
+        self,
+        request: TaskRequest,
+        *,
+        max_attempts: int = 2,
+        idempotency_key: Optional[str] = None,
+        tenant_id: str = "local",
+        created_by: str = "system",
+        job_id: Optional[str] = None,
+    ) -> TaskJob: ...
+
+    def get(self, job_id: str) -> Optional[TaskJob]: ...
+
+    def get_by_task_id(self, task_id: str) -> Optional[TaskJob]: ...
+
+    def events(self, job_id: str) -> list[JobEvent]: ...
+
+    def claim(self, worker_id: str, *, lease_seconds: float) -> Optional[TaskJob]: ...
+
+    def heartbeat(self, job_id: str, worker_id: str, *, lease_seconds: float) -> bool: ...
+
+    def complete(self, job_id: str, worker_id: str, result: TaskResult) -> bool: ...
+
+    def fail(self, job_id: str, worker_id: str, error: str) -> bool: ...
+
+    def cancel(self, job_id: str) -> Optional[TaskJob]: ...
+
+    def is_cancel_requested(self, job_id: str) -> bool: ...
+
+    def metrics(self) -> JobMetrics: ...
+
+    def update_for_task(self, result: TaskResult) -> None: ...
 
 
 class FailureCircuitBreaker:
@@ -769,7 +808,7 @@ class TaskWorkerPool:
     def __init__(
         self,
         orchestrator: HarnessOrchestrator,
-        store: TaskJobStore,
+        store: TaskJobStoreProtocol,
         *,
         max_workers: int = 2,
         poll_interval_seconds: float = 0.2,

@@ -15,6 +15,7 @@ from .governance import (
     AuthenticationError,
     AuthorizationError,
     GovernanceStore,
+    GovernanceStoreProtocol,
     Principal,
     QuotaExceededError,
     ResourceBinding,
@@ -31,6 +32,7 @@ from .jobs import (
     RuntimeSnapshot,
     TaskJob,
     TaskJobStore,
+    TaskJobStoreProtocol,
     TaskWorkerPool,
 )
 from .models import TaskRequest, TaskResult, TaskState, TaskStatus
@@ -46,7 +48,7 @@ class ApprovalDecisionRequest(BaseModel):
 def create_app(
     orchestrator: HarnessOrchestrator,
     *,
-    job_store: Optional[TaskJobStore] = None,
+    job_store: Optional[TaskJobStoreProtocol] = None,
     worker_pool: Optional[TaskWorkerPool] = None,
     max_job_workers: int = 2,
     job_poll_interval_seconds: float = 0.2,
@@ -56,7 +58,7 @@ def create_app(
     circuit_failure_threshold: int = 3,
     circuit_recovery_seconds: float = 30,
     authenticator: Optional[APIKeyAuthenticator] = None,
-    governance_store: Optional[GovernanceStore] = None,
+    governance_store: Optional[GovernanceStoreProtocol] = None,
 ) -> FastAPI:
     authenticator = authenticator or APIKeyAuthenticator.disabled()
     governance_store = governance_store or GovernanceStore(

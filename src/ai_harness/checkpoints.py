@@ -3,9 +3,27 @@ from __future__ import annotations
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Protocol
 
 from .models import TaskState, utc_now
+
+
+class CheckpointStoreProtocol(Protocol):
+    """Storage contract shared by local and distributed checkpoint backends."""
+
+    def save(self, state: TaskState) -> int: ...
+
+    def load(self, task_id: str) -> Optional[TaskState]: ...
+
+    def load_revision(self, task_id: str, revision: int) -> Optional[TaskState]: ...
+
+    def bisect_first(
+        self,
+        task_id: str,
+        predicate: Callable[[TaskState], bool],
+    ) -> Optional[int]: ...
+
+    def revisions(self, task_id: str) -> List[int]: ...
 
 
 class CheckpointStore:

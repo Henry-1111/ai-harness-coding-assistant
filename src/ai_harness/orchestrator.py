@@ -13,7 +13,7 @@ from typing import Callable, Literal, Optional, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from .agents import AgentModel, CoderAgent, ReviewerAgent, capture_task_model_usage
-from .checkpoints import CheckpointStore
+from .checkpoints import CheckpointStore, CheckpointStoreProtocol
 from .collaboration import CollaborativeCoder
 from .embeddings import EmbeddingProvider
 from .git_tools import GitCommandError, GitRepository
@@ -81,7 +81,7 @@ class HarnessOrchestrator:
         model: AgentModel,
         data_directory: Path,
         *,
-        checkpoint_store: Optional[CheckpointStore] = None,
+        checkpoint_store: Optional[CheckpointStoreProtocol] = None,
         runner_factory: Optional[Callable[[Path], CommandRunner]] = None,
         embedding_provider: Optional[EmbeddingProvider] = None,
         definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None,

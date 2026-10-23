@@ -7,7 +7,7 @@ import tempfile
 import time
 from hashlib import sha256
 from pathlib import Path
-from typing import Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence
 
 from .agent_evaluation import (
     AgentBenchmarkCase,
@@ -21,6 +21,7 @@ from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
 from .distributed_governance import DistributedGovernanceStore
+from .distributed_runtime import PostgresCheckpointStore, PostgresTaskJobStore
 from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
 from .governance import APIKeyAuthenticator, GovernanceStore
@@ -28,9 +29,9 @@ from .lsp import LSPDefinitionEnricher
 from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .orchestrator import HarnessOrchestrator
-from .repository import Repository
+from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
-from .sandbox import DockerSandbox, LocalCommandSandbox
+from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
 
 
 def build_orchestrator(
@@ -49,10 +50,13 @@ def build_orchestrator(
         settings.model_name,
         settings.model_timeout_seconds,
     )
+    runner_factory: Callable[[Path], CommandRunner]
     if settings.sandbox_mode == "docker":
 
-        def runner_factory(workspace):
+        def docker_runner_factory(workspace: Path) -> CommandRunner:
             return DockerSandbox(workspace, image=settings.sandbox_image)
+
+        runner_factory = docker_runner_factory
 
     elif settings.sandbox_mode == "local":
         runner_factory = LocalCommandSandbox
@@ -68,21 +72,29 @@ def build_orchestrator(
         if settings.embedding_model
         else None
     )
-    definition_provider_factory = None
+    definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None
     if settings.lsp_command:
         lsp_command = shlex.split(settings.lsp_command)
 
-        def definition_provider_factory(repository):
+        def lsp_definition_provider_factory(repository: Path) -> DefinitionProvider:
             return LSPDefinitionEnricher(lsp_command, repository)
+
+        definition_provider_factory = lsp_definition_provider_factory
 
     mcp_tool_catalog = (
         MCPToolCatalog.load(Path(settings.mcp_catalog_path))
         if settings.mcp_catalog_path
         else None
     )
+    checkpoint_store = (
+        PostgresCheckpointStore(settings.governance_database_url)
+        if settings.governance_database_url
+        else None
+    )
     return HarnessOrchestrator(
         model,
         data_directory or settings.data_directory,
+        checkpoint_store=checkpoint_store,
         runner_factory=runner_factory,
         embedding_provider=embedding_provider,
         definition_provider_factory=definition_provider_factory,
@@ -343,9 +355,18 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if settings.governance_database_url
             else GovernanceStore(settings.data_directory / "governance.sqlite3")
         )
+        job_store = (
+            PostgresTaskJobStore(
+                settings.governance_database_url,
+                max_outstanding_jobs=settings.job_queue_capacity,
+            )
+            if settings.governance_database_url
+            else None
+        )
         uvicorn.run(
             create_app(
                 orchestrator,
+                job_store=job_store,
                 authenticator=authenticator,
                 governance_store=governance_store,
                 max_job_workers=settings.job_workers,
