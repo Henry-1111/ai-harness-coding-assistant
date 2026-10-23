@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Type
+from typing import Any, Dict, List, Literal, Optional, Type, cast
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator, model_validator
@@ -230,7 +230,8 @@ class MCPToolCatalog:
             if field_name not in required:
                 annotation = Optional[annotation]
             fields[field_name] = (annotation, Field(default, **constraints))
-        return create_model(
+        model_factory = cast(Any, create_model)
+        return model_factory(
             f"MCP_{name}_Input",
             __config__=ConfigDict(extra="forbid", strict=True),
             **fields,
@@ -250,7 +251,12 @@ class MCPToolCatalog:
         constraints: Dict[str, Any] = {}
         if field_type == "array":
             items = definition.get("items", {})
-            item_type = scalar_types.get(items.get("type")) if isinstance(items, dict) else None
+            item_type_name = items.get("type") if isinstance(items, dict) else None
+            item_type = (
+                scalar_types.get(item_type_name)
+                if isinstance(item_type_name, str)
+                else None
+            )
             if item_type is None:
                 raise ValueError(
                     f"MCP tool {tool_name} field {field_name} has unsupported array items"
@@ -261,7 +267,7 @@ class MCPToolCatalog:
             if "maxItems" in definition:
                 constraints["max_length"] = definition["maxItems"]
             return annotation, constraints
-        annotation = scalar_types.get(field_type)
+        annotation = scalar_types.get(field_type) if isinstance(field_type, str) else None
         if annotation is None:
             raise ValueError(
                 f"MCP tool {tool_name} field {field_name} has unsupported type: {field_type}"

@@ -103,10 +103,14 @@ class AgentAssignment(BaseModel):
     status: Literal["pending", "running", "completed", "failed"] = "pending"
 
 
+MilestoneCode = Literal["CP1", "CP2", "CP3", "CP4", "CP5", "CP6", "CP7", "CP8"]
+MilestoneStatus = Literal["completed", "failed"]
+
+
 class TaskMilestone(BaseModel):
-    code: Literal["CP1", "CP2", "CP3", "CP4", "CP5", "CP6", "CP7", "CP8"]
+    code: MilestoneCode
     title: str
-    status: Literal["completed", "failed"]
+    status: MilestoneStatus
     details: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 

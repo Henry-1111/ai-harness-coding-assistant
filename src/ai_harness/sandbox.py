@@ -34,6 +34,12 @@ class CommandRunner(Protocol):
     def run(self, command: str) -> CommandResult: ...
 
 
+def _timeout_output(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")[-20_000:]
+    return (value or "")[-20_000:]
+
+
 def validate_command(command: str, allowlist: Iterable[str]) -> List[str]:
     arguments = shlex.split(command)
     if not arguments:
@@ -107,8 +113,8 @@ class LocalWorkspaceSandbox:
             return CommandResult(
                 command=command,
                 exit_code=124,
-                stdout=(exc.stdout or "")[-20_000:] if isinstance(exc.stdout, str) else "",
-                stderr=(exc.stderr or "")[-20_000:] if isinstance(exc.stderr, str) else "",
+                stdout=_timeout_output(exc.stdout),
+                stderr=_timeout_output(exc.stderr),
                 duration_ms=round((time.monotonic() - started) * 1000),
                 timed_out=True,
             )
@@ -155,8 +161,8 @@ class LocalCommandSandbox:
             return CommandResult(
                 command=command,
                 exit_code=124,
-                stdout=(exc.stdout or "")[-20_000:] if isinstance(exc.stdout, str) else "",
-                stderr=(exc.stderr or "")[-20_000:] if isinstance(exc.stderr, str) else "",
+                stdout=_timeout_output(exc.stdout),
+                stderr=_timeout_output(exc.stderr),
                 duration_ms=round((time.monotonic() - started) * 1000),
                 timed_out=True,
             )

@@ -187,6 +187,24 @@ pip install -e '.[dev]'
 pytest
 ```
 
+## 自动化质量门禁
+
+仓库的 GitHub Actions 会在每次 push 和 Pull Request 中并行执行三组检查：
+
+- 后端：Python 编译、Ruff、全项目 Pyright，以及连接真实 PostgreSQL 16 和 Redis 7.4 的完整测试；
+- 前端：固定依赖安装、TypeScript 检查和 Vite 生产构建；
+- 交付物：分别构建 API 与控制台容器镜像，并验证 Compose 配置可以解析。
+
+本地提交前可运行同等的核心检查：
+
+```bash
+python -m compileall -q src
+ruff check .
+pyright --pythonpath "$(command -v python)" src
+pytest -ra
+cd frontend && npm ci && npm run build
+```
+
 ## 任务规范化、动态路由与进度账本
 
 任务进入执行图前会先规范化为任务类型、复杂度、风险等级、派生验收条件、澄清问题和

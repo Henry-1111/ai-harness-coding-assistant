@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ai_harness
+          POSTGRES_USER: harness
+          POSTGRES_PASSWORD: harness-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U harness -d ai_harness"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      AI_HARNESS_TEST_POSTGRES_URL: postgresql://harness:harness-test@127.0.0.1:5432/ai_harness
+      AI_HARNESS_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+      AI_HARNESS_MODEL_API_KEY: test-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install backend dependencies
+        run: python -m pip install -e '.[dev,lsp]'
+      - name: Compile Python sources
+        run: python -m compileall -q src
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: pyright --pythonpath "$(command -v python)" src
+      - name: Test with PostgreSQL and Redis
+        run: pytest -ra
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Type check and build
+        run: npm run build
+
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build --tag ai-harness:ci .
+      - name: Build console image
+        run: docker build --tag ai-harness-console:ci frontend

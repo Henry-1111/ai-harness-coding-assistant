@@ -5,7 +5,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Sequence
+from typing import Any, BinaryIO, Dict, List, Optional, Sequence, cast
 from urllib.parse import unquote, urlparse
 
 from .models import SearchHit
@@ -149,7 +149,7 @@ class LSPClient:
     def _receive(self) -> Dict[str, Any]:
         if not self.process or not self.process.stdout:
             raise LSPError("LSP client is not running")
-        return read_message(self.process.stdout)
+        return read_message(cast(BinaryIO, self.process.stdout))
 
     @staticmethod
     def _location(item: Dict[str, Any]) -> DefinitionLocation:

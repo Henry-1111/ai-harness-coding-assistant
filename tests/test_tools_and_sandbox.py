@@ -1,4 +1,5 @@
 from pathlib import Path
+from subprocess import TimeoutExpired
 
 import pytest
 
@@ -65,6 +66,24 @@ def test_local_command_sandbox_runs_without_shell(tmp_path: Path):
 
     assert result.exit_code == 0
     assert result.stdout.strip() == "42"
+
+
+def test_local_command_sandbox_preserves_timeout_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    def time_out(*_args: object, **_kwargs: object) -> None:
+        raise TimeoutExpired(
+            cmd=["python"], timeout=1, output=b"partial output", stderr=b"timed out"
+        )
+
+    monkeypatch.setattr("ai_harness.sandbox.subprocess.run", time_out)
+
+    result = LocalCommandSandbox(tmp_path, timeout_seconds=1).run("python -V")
+
+    assert result.exit_code == 124
+    assert result.timed_out is True
+    assert result.stdout == "partial output"
+    assert result.stderr == "timed out"
 
 
 def test_docker_sandbox_applies_resource_and_network_limits(tmp_path: Path):

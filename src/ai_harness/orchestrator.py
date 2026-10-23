@@ -28,6 +28,8 @@ from .memory import LayeredMemoryStore, LayeredMemoryStoreProtocol, MemoryLayer
 from .models import (
     AgentTraceEvent,
     ApprovalRecord,
+    MilestoneCode,
+    MilestoneStatus,
     ReviewFinding,
     RouteKind,
     TaskMilestone,
@@ -516,10 +518,10 @@ class HarnessOrchestrator:
             return "code"
         return "end"
 
-    def _scout(self, payload: WorkflowState) -> WorkflowState:
+    def _scout(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()
         started = time.monotonic()
-        task = payload["task"]
+        task = state["task"]
         execution_tenant = str(task.scratchpad.get("tenant_id", self.tenant_id))
         self._set_assignment_status(task, "scout", "running")
         repository = self._workspace_repository(task)
@@ -635,10 +637,10 @@ class HarnessOrchestrator:
         self.checkpoints.save(task)
         return {"task": task}
 
-    def _plan(self, payload: WorkflowState) -> WorkflowState:
+    def _plan(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()
         started = time.monotonic()
-        task = payload["task"]
+        task = state["task"]
         self._set_assignment_status(task, "plan", "running")
         if task.plan is None:
             raise RuntimeError("normalized task does not have an execution plan")
@@ -665,10 +667,10 @@ class HarnessOrchestrator:
         self.checkpoints.save(task)
         return {"task": task}
 
-    def _code(self, payload: WorkflowState) -> WorkflowState:
+    def _code(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()
         started = time.monotonic()
-        task = payload["task"]
+        task = state["task"]
         task.current_node = "code"
         self._set_assignment_status(task, "code", "running")
         self._record_milestone(
@@ -778,10 +780,10 @@ class HarnessOrchestrator:
         self.checkpoints.save(task)
         return {"task": task}
 
-    def _verify(self, payload: WorkflowState) -> WorkflowState:
+    def _verify(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()
         started = time.monotonic()
-        task = payload["task"]
+        task = state["task"]
         self._set_assignment_status(task, "verify", "running")
         workspace = Path(str(task.scratchpad["workspace"]))
         sandbox = self.runner_factory(workspace)
@@ -822,10 +824,10 @@ class HarnessOrchestrator:
         self.checkpoints.save(task)
         return {"task": task}
 
-    def _review(self, payload: WorkflowState) -> WorkflowState:
+    def _review(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()
         started = time.monotonic()
-        task = payload["task"]
+        task = state["task"]
         self._set_assignment_status(task, "review", "running")
         task.review = self.reviewer.review(
             task.request,
@@ -952,9 +954,9 @@ class HarnessOrchestrator:
     @staticmethod
     def _record_milestone(
         task: TaskState,
-        code: str,
+        code: MilestoneCode,
         title: str,
-        status: str,
+        status: MilestoneStatus,
         details: dict,
     ) -> None:
         milestone = TaskMilestone(
