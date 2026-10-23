@@ -459,6 +459,8 @@ class GovernanceStoreProtocol(Protocol):
 
     def verify_integrity(self, principal: Principal) -> tuple[bool, int]: ...
 
+    def healthcheck(self) -> bool: ...
+
 
 class GovernanceStore:
     """Tenant resource ownership and append-only, hash-chained audit events."""
@@ -472,6 +474,10 @@ class GovernanceStore:
         connection = sqlite3.connect(self.database_path, timeout=30)
         connection.row_factory = sqlite3.Row
         return connection
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:

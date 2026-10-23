@@ -33,8 +33,16 @@ class PostgresGovernanceStore:
     def _connect(self) -> psycopg.Connection[dict[str, Any]]:
         return cast(
             psycopg.Connection[dict[str, Any]],
-            psycopg.connect(self.database_url, row_factory=cast(Any, dict_row)),
+            psycopg.connect(
+                self.database_url,
+                connect_timeout=5,
+                row_factory=cast(Any, dict_row),
+            ),
         )
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -692,6 +700,9 @@ class DistributedGovernanceStore:
 
     def active_quota_job_ids(self, *, limit: int = 100) -> list[str]:
         return self.postgres.active_quota_job_ids(limit=limit)
+
+    def healthcheck(self) -> bool:
+        return self.postgres.healthcheck() and bool(self.redis.ping())
 
     def quota_snapshot(
         self, tenant_id: str, policy: TenantQuotaPolicy

@@ -258,6 +258,20 @@ def create_app(
                 )
         return authorize_binding(principal, "task", task_id, action=action)
 
+    def dependency_health() -> dict[str, bool]:
+        probes = {
+            "checkpoints": orchestrator.checkpoints.healthcheck,
+            "jobs": job_store.healthcheck,
+            "governance": governance_store.healthcheck,
+        }
+        health: dict[str, bool] = {}
+        for name, probe in probes.items():
+            try:
+                health[name] = bool(probe())
+            except Exception:
+                health[name] = False
+        return health
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
@@ -277,7 +291,17 @@ def create_app(
 
     @app.get("/ready")
     def readiness() -> dict[str, str]:
-        runtime = worker_pool.runtime_snapshot()
+        dependencies = dependency_health()
+        unavailable = sorted(name for name, healthy in dependencies.items() if not healthy)
+        if unavailable:
+            raise HTTPException(
+                status_code=503,
+                detail=f"dependencies unavailable: {', '.join(unavailable)}",
+            )
+        try:
+            runtime = worker_pool.runtime_snapshot()
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="runtime storage unavailable") from exc
         if not runtime.ready:
             raise HTTPException(
                 status_code=503,
@@ -299,6 +323,7 @@ def create_app(
         require_roles(principal, Role.OPERATOR, action="metrics.read")
         snapshot = worker_pool.runtime_snapshot()
         reconciliation = quota_reconciler.snapshot()
+        dependencies = dependency_health()
         lines = [
             "# HELP ai_harness_ready Whether the worker runtime is ready.",
             "# TYPE ai_harness_ready gauge",
@@ -344,7 +369,12 @@ def create_app(
                 f"{reconciliation.settled_reservations}",
                 "# TYPE ai_harness_quota_reconciliation_failures counter",
                 f"ai_harness_quota_reconciliation_failures {reconciliation.failures}",
+                "# TYPE ai_harness_dependency_ready gauge",
             ]
+        )
+        lines.extend(
+            f'ai_harness_dependency_ready{{dependency="{name}"}} {int(healthy)}'
+            for name, healthy in sorted(dependencies.items())
         )
         return "\n".join(lines) + "\n"
 

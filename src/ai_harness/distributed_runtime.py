@@ -30,8 +30,16 @@ class PostgresCheckpointStore:
     def _connect(self) -> psycopg.Connection[dict[str, Any]]:
         return cast(
             psycopg.Connection[dict[str, Any]],
-            psycopg.connect(self.database_url, row_factory=cast(Any, dict_row)),
+            psycopg.connect(
+                self.database_url,
+                connect_timeout=5,
+                row_factory=cast(Any, dict_row),
+            ),
         )
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:
@@ -150,8 +158,16 @@ class PostgresTaskJobStore:
     def _connect(self) -> psycopg.Connection[dict[str, Any]]:
         return cast(
             psycopg.Connection[dict[str, Any]],
-            psycopg.connect(self.database_url, row_factory=cast(Any, dict_row)),
+            psycopg.connect(
+                self.database_url,
+                connect_timeout=5,
+                row_factory=cast(Any, dict_row),
+            ),
         )
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:

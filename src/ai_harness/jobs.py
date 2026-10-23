@@ -143,6 +143,8 @@ class TaskJobStoreProtocol(Protocol):
 
     def update_for_task(self, result: TaskResult) -> None: ...
 
+    def healthcheck(self) -> bool: ...
+
 
 class FailureCircuitBreaker:
     """Thread-safe closed/open/half-open breaker for worker infrastructure failures."""
@@ -244,6 +246,10 @@ class TaskJobStore:
         connection = sqlite3.connect(str(self.database_path), timeout=30, isolation_level=None)
         connection.row_factory = sqlite3.Row
         return connection
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:

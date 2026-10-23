@@ -106,6 +106,25 @@ def test_readiness_fails_while_worker_circuit_is_open(tmp_path: Path):
     assert runtime.json()["circuit"]["state"] == "open"
 
 
+def test_readiness_fails_closed_when_a_storage_dependency_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
+    store = TaskJobStore(tmp_path / "data" / "jobs.sqlite3")
+    store.healthcheck = lambda: False  # type: ignore[method-assign]
+    app = create_app(orchestrator, job_store=store)
+
+    with TestClient(app) as client:
+        ready = client.get("/ready")
+        metrics = client.get("/metrics")
+
+    assert ready.status_code == 503
+    assert ready.json()["detail"] == "dependencies unavailable: jobs"
+    assert 'ai_harness_dependency_ready{dependency="jobs"} 0' in metrics.text
+
+
 def test_api_requires_and_records_human_approval(tmp_path: Path, sample_repository: Path):
     edit = {
         "summary": "Fix add",
@@ -232,6 +251,7 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
     assert 'ai_harness_jobs{status="succeeded"} 1' in prometheus.text
     assert "ai_harness_circuit_state{state=\"closed\"} 1" in prometheus.text
     assert "ai_harness_quota_reconciliation_runs" in prometheus.text
+    assert 'ai_harness_dependency_ready{dependency="jobs"} 1' in prometheus.text
 
 
 def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):

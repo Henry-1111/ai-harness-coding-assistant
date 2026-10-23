@@ -25,6 +25,8 @@ class CheckpointStoreProtocol(Protocol):
 
     def revisions(self, task_id: str) -> List[int]: ...
 
+    def healthcheck(self) -> bool: ...
+
 
 class CheckpointStore:
     """Durable task/session state with append-only revisions."""
@@ -39,6 +41,10 @@ class CheckpointStore:
         connection = sqlite3.connect(str(self.database_path))
         connection.row_factory = sqlite3.Row
         return connection
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def _initialize(self) -> None:
         with self._connect() as connection:
