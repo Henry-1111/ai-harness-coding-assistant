@@ -51,6 +51,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - SQLite append-only Checkpoint，可查询和恢复任务；
 - SQLite 持久化任务队列、原子领取、Worker 最大并发、租约心跳、失败重试、容量保护与协作式取消；
 - Worker 注册表、基础设施失败熔断、半开探测、Readiness 与 Prometheus 指标；
+- `Idempotency-Key` 防重复提交，以及与状态变更同事务写入的 Job 审计事件；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
 - 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
 - Policy、Project、User、Session、Scratchpad 五层 SQLite Memory，Policy 注入 Coder Prompt，
@@ -201,6 +202,7 @@ ai-harness serve --host 127.0.0.1 --port 8080
 ```http
 POST /v1/jobs
 Content-Type: application/json
+Idempotency-Key: client-request-123
 
 {
   "repository": "/repository",
@@ -217,6 +219,11 @@ Content-Type: application/json
 `GET /v1/jobs/{job_id}` 查询 `pending → running → needs_input/succeeded/failed`。高风险任务仍会
 停在人工审批门，审批结果会回写到原 Job。`pending` Job 会立即取消；`running` Job 会记录停止请求，
 并在 Agent 节点、模型返回、文件写入和验证命令之间的安全边界协作式停止，不会伪装成已立即终止。
+
+调用方可以为 `POST /v1/jobs` 提供最长 200 字符的 `Idempotency-Key`。相同 Key 与相同请求会返回
+第一次创建的 Job，不消耗第二份队列容量；相同 Key 携带不同请求时返回 HTTP 409，防止误把不同任务合并。
+`GET /v1/jobs/{job_id}/events` 按顺序返回 `queued`、`claimed`、`retry_scheduled`、取消和完成等事件。
+事件与对应 Job 状态在同一个 SQLite 事务中落库，因此问题排查不依赖易丢失的进程日志。
 
 队列使用 SQLite 事务保证同一时刻只有一个 Worker 领取任务，并通过心跳续租。服务异常退出后，租约过期的
 `running` Job 会在重试预算内重新领取，因此执行语义是 at-least-once；每次执行都在新的隔离工作区内，且
@@ -254,6 +261,7 @@ Provider HTTP 错误、SQLite 运行错误和任务总超时会进入重试并�
 - `GET /v1/runtime`
 - `POST /v1/jobs`
 - `GET /v1/jobs/{job_id}`
+- `GET /v1/jobs/{job_id}/events`
 - `GET /v1/jobs/metrics`
 - `POST /v1/jobs/{job_id}/cancel`
 - `POST /v1/tasks`（同步兼容入口）

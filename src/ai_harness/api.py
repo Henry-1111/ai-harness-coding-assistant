@@ -3,13 +3,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from .jobs import (
     CircuitState,
+    IdempotencyConflictError,
+    JobEvent,
     JobMetrics,
     QueueFullError,
     RuntimeSnapshot,
@@ -142,11 +144,18 @@ def create_app(
         return orchestrator.run(request)
 
     @app.post("/v1/jobs", response_model=TaskJob, status_code=202)
-    def create_job(request: TaskRequest) -> TaskJob:
+    def create_job(
+        request: TaskRequest,
+        idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
+    ) -> TaskJob:
         try:
-            return job_store.enqueue(request)
+            return job_store.enqueue(request, idempotency_key=idempotency_key)
         except QueueFullError as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
+        except IdempotencyConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/v1/jobs/metrics", response_model=JobMetrics)
     def job_metrics() -> JobMetrics:
@@ -158,6 +167,12 @@ def create_app(
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
         return job
+
+    @app.get("/v1/jobs/{job_id}/events", response_model=list[JobEvent])
+    def get_job_events(job_id: str) -> list[JobEvent]:
+        if job_store.get(job_id) is None:
+            raise HTTPException(status_code=404, detail="job not found")
+        return job_store.events(job_id)
 
     @app.post("/v1/jobs/{job_id}/cancel", response_model=TaskJob)
     def cancel_job(job_id: str) -> TaskJob:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import threading
 import time
@@ -17,6 +19,10 @@ from .orchestrator import ExecutionControl, HarnessOrchestrator
 
 
 class QueueFullError(RuntimeError):
+    pass
+
+
+class IdempotencyConflictError(RuntimeError):
     pass
 
 
@@ -43,6 +49,17 @@ class TaskJob(BaseModel):
     lease_expires_at: Optional[str] = None
     created_at: str
     updated_at: str
+    idempotency_key: Optional[str] = None
+
+
+class JobEvent(BaseModel):
+    job_id: str
+    sequence: int
+    event_type: str
+    status: JobStatus
+    worker_id: Optional[str] = None
+    details: dict[str, object] = Field(default_factory=dict)
+    created_at: str
 
 
 class JobMetrics(BaseModel):
@@ -207,6 +224,17 @@ class TaskJobStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS job_events (
+                    job_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL,
+                    event_type TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    worker_id TEXT,
+                    details_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (job_id, sequence),
+                    FOREIGN KEY (job_id) REFERENCES task_jobs(job_id)
+                );
                 CREATE INDEX IF NOT EXISTS idx_task_jobs_claim
                     ON task_jobs(status, created_at);
                 CREATE INDEX IF NOT EXISTS idx_task_jobs_task_id
@@ -214,9 +242,36 @@ class TaskJobStore:
                 """
             )
 
-    def enqueue(self, request: TaskRequest, *, max_attempts: int = 2) -> TaskJob:
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(task_jobs)").fetchall()
+            }
+            if "idempotency_key" not in columns:
+                connection.execute("ALTER TABLE task_jobs ADD COLUMN idempotency_key TEXT")
+            if "request_hash" not in columns:
+                connection.execute("ALTER TABLE task_jobs ADD COLUMN request_hash TEXT")
+            connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_task_jobs_idempotency_key
+                ON task_jobs(idempotency_key) WHERE idempotency_key IS NOT NULL
+                """
+            )
+
+    def enqueue(
+        self,
+        request: TaskRequest,
+        *,
+        max_attempts: int = 2,
+        idempotency_key: Optional[str] = None,
+    ) -> TaskJob:
         if not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be within 1..5")
+        if idempotency_key is not None:
+            idempotency_key = idempotency_key.strip()
+            if not 1 <= len(idempotency_key) <= 200:
+                raise ValueError("idempotency_key must be within 1..200 characters")
+        request_json = request.model_dump_json()
+        request_hash = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         now = utc_now().isoformat()
         job = TaskJob(
             job_id=str(uuid.uuid4()),
@@ -224,9 +279,23 @@ class TaskJobStore:
             max_attempts=max_attempts,
             created_at=now,
             updated_at=now,
+            idempotency_key=idempotency_key,
         )
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            if idempotency_key:
+                existing = connection.execute(
+                    "SELECT * FROM task_jobs WHERE idempotency_key = ?",
+                    (idempotency_key,),
+                ).fetchone()
+                if existing is not None:
+                    if existing["request_hash"] != request_hash:
+                        connection.execute("ROLLBACK")
+                        raise IdempotencyConflictError(
+                            "idempotency key was already used with a different request"
+                        )
+                    connection.execute("COMMIT")
+                    return self._decode(existing)
             outstanding = connection.execute(
                 """
                 SELECT COUNT(*) AS count FROM task_jobs
@@ -248,17 +317,28 @@ class TaskJobStore:
                 INSERT INTO task_jobs (
                     job_id, status, request_json, task_id, result_json, error,
                     attempts, max_attempts, cancel_requested, lease_owner,
-                    lease_expires_at, created_at, updated_at
-                ) VALUES (?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?)
+                    lease_expires_at, created_at, updated_at,
+                    idempotency_key, request_hash
+                ) VALUES (?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?, ?, ?)
                 """,
                 (
                     job.job_id,
                     job.status.value,
-                    request.model_dump_json(),
+                    request_json,
                     max_attempts,
                     now,
                     now,
+                    idempotency_key,
+                    request_hash,
                 ),
+            )
+            self._append_event(
+                connection,
+                job.job_id,
+                "queued",
+                JobStatus.PENDING,
+                details={"max_attempts": max_attempts},
+                created_at=now,
             )
             connection.execute("COMMIT")
         return job
@@ -270,6 +350,14 @@ class TaskJobStore:
             ).fetchone()
         return self._decode(row) if row else None
 
+    def events(self, job_id: str) -> list[JobEvent]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM job_events WHERE job_id = ? ORDER BY sequence",
+                (job_id,),
+            ).fetchall()
+        return [self._decode_event(row) for row in rows]
+
     def claim(self, worker_id: str, *, lease_seconds: float) -> Optional[TaskJob]:
         if lease_seconds <= 0:
             raise ValueError("lease_seconds must be positive")
@@ -278,6 +366,13 @@ class TaskJobStore:
         lease_expires = (now + timedelta(seconds=lease_seconds)).isoformat()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            exhausted = connection.execute(
+                """
+                SELECT job_id, attempts FROM task_jobs
+                WHERE status = ? AND lease_expires_at <= ? AND attempts >= max_attempts
+                """,
+                (JobStatus.RUNNING.value, now_text),
+            ).fetchall()
             connection.execute(
                 """
                 UPDATE task_jobs
@@ -293,9 +388,21 @@ class TaskJobStore:
                     now_text,
                 ),
             )
+            for expired in exhausted:
+                self._append_event(
+                    connection,
+                    expired["job_id"],
+                    "failed",
+                    JobStatus.FAILED,
+                    details={
+                        "error": "worker lease expired and retry budget was exhausted",
+                        "attempt": int(expired["attempts"]),
+                    },
+                    created_at=now_text,
+                )
             row = connection.execute(
                 """
-                SELECT job_id FROM task_jobs
+                SELECT job_id, status FROM task_jobs
                 WHERE cancel_requested = 0 AND attempts < max_attempts
                   AND (status = ? OR (status = ? AND lease_expires_at <= ?))
                 ORDER BY created_at, job_id
@@ -324,6 +431,17 @@ class TaskJobStore:
             claimed = connection.execute(
                 "SELECT * FROM task_jobs WHERE job_id = ?", (row["job_id"],)
             ).fetchone()
+            self._append_event(
+                connection,
+                row["job_id"],
+                "lease_recovered"
+                if row["status"] == JobStatus.RUNNING.value
+                else "claimed",
+                JobStatus.RUNNING,
+                worker_id=worker_id,
+                details={"attempt": int(claimed["attempts"])},
+                created_at=now_text,
+            )
             connection.execute("COMMIT")
         return self._decode(claimed)
 
@@ -342,6 +460,7 @@ class TaskJobStore:
     def complete(self, job_id: str, worker_id: str, result: TaskResult) -> bool:
         status = JobStatus(result.status.value)
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 """
                 UPDATE task_jobs
@@ -360,6 +479,16 @@ class TaskJobStore:
                     worker_id,
                 ),
             )
+            if cursor.rowcount == 1:
+                self._append_event(
+                    connection,
+                    job_id,
+                    "completed",
+                    status,
+                    worker_id=worker_id,
+                    details={"task_id": result.task_id},
+                )
+            connection.execute("COMMIT")
         return cursor.rowcount == 1
 
     def fail(self, job_id: str, worker_id: str, error: str) -> bool:
@@ -390,6 +519,15 @@ class TaskJobStore:
                 """,
                 (status.value, error[:4000], now, job_id),
             )
+            self._append_event(
+                connection,
+                job_id,
+                "retry_scheduled" if status == JobStatus.PENDING else "failed",
+                status,
+                worker_id=worker_id,
+                details={"error": error[:1000], "attempt": int(row["attempts"])},
+                created_at=now,
+            )
             connection.execute("COMMIT")
         return True
 
@@ -398,7 +536,8 @@ class TaskJobStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT status FROM task_jobs WHERE job_id = ?", (job_id,)
+                "SELECT status, cancel_requested FROM task_jobs WHERE job_id = ?",
+                (job_id,),
             ).fetchone()
             if row is None:
                 connection.execute("COMMIT")
@@ -412,7 +551,17 @@ class TaskJobStore:
                     """,
                     (JobStatus.CANCELLED.value, now, job_id),
                 )
-            elif row["status"] == JobStatus.RUNNING.value:
+                self._append_event(
+                    connection,
+                    job_id,
+                    "cancelled",
+                    JobStatus.CANCELLED,
+                    created_at=now,
+                )
+            elif (
+                row["status"] == JobStatus.RUNNING.value
+                and not bool(row["cancel_requested"])
+            ):
                 connection.execute(
                     """
                     UPDATE task_jobs
@@ -420,6 +569,13 @@ class TaskJobStore:
                     WHERE job_id = ?
                     """,
                     (now, job_id),
+                )
+                self._append_event(
+                    connection,
+                    job_id,
+                    "cancellation_requested",
+                    JobStatus.RUNNING,
+                    created_at=now,
                 )
             updated = connection.execute(
                 "SELECT * FROM task_jobs WHERE job_id = ?", (job_id,)
@@ -471,7 +627,13 @@ class TaskJobStore:
 
     def update_for_task(self, result: TaskResult) -> None:
         status = JobStatus(result.status.value)
+        result_json = result.model_dump_json()
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                "SELECT job_id, status, result_json FROM task_jobs WHERE task_id = ?",
+                (result.task_id,),
+            ).fetchall()
             connection.execute(
                 """
                 UPDATE task_jobs
@@ -480,12 +642,23 @@ class TaskJobStore:
                 """,
                 (
                     status.value,
-                    result.model_dump_json(),
+                    result_json,
                     result.error,
                     utc_now().isoformat(),
                     result.task_id,
                 ),
             )
+            for row in rows:
+                if row["status"] == status.value and row["result_json"] == result_json:
+                    continue
+                self._append_event(
+                    connection,
+                    row["job_id"],
+                    "approval_completed",
+                    status,
+                    details={"task_id": result.task_id},
+                )
+            connection.execute("COMMIT")
 
     @staticmethod
     def _decode(row: sqlite3.Row) -> TaskJob:
@@ -507,6 +680,52 @@ class TaskJobStore:
             lease_expires_at=row["lease_expires_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            idempotency_key=row["idempotency_key"],
+        )
+
+    @staticmethod
+    def _decode_event(row: sqlite3.Row) -> JobEvent:
+        return JobEvent(
+            job_id=row["job_id"],
+            sequence=int(row["sequence"]),
+            event_type=row["event_type"],
+            status=JobStatus(row["status"]),
+            worker_id=row["worker_id"],
+            details=json.loads(row["details_json"]),
+            created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def _append_event(
+        connection: sqlite3.Connection,
+        job_id: str,
+        event_type: str,
+        status: JobStatus,
+        *,
+        worker_id: Optional[str] = None,
+        details: Optional[dict[str, object]] = None,
+        created_at: Optional[str] = None,
+    ) -> None:
+        row = connection.execute(
+            "SELECT COALESCE(MAX(sequence), 0) + 1 AS sequence "
+            "FROM job_events WHERE job_id = ?",
+            (job_id,),
+        ).fetchone()
+        connection.execute(
+            """
+            INSERT INTO job_events (
+                job_id, sequence, event_type, status, worker_id, details_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                int(row["sequence"]),
+                event_type,
+                status.value,
+                worker_id,
+                json.dumps(details or {}, ensure_ascii=False, separators=(",", ":")),
+                created_at or utc_now().isoformat(),
+            ),
         )
 
 

@@ -9,6 +9,7 @@ import pytest
 from ai_harness.jobs import (
     CircuitState,
     FailureCircuitBreaker,
+    IdempotencyConflictError,
     JobStatus,
     QueueFullError,
     TaskJobStore,
@@ -92,6 +93,80 @@ def test_store_persists_claims_and_recovers_an_expired_lease(tmp_path: Path):
     assert persisted is not None
     assert persisted.status == JobStatus.SUCCEEDED
     assert persisted.task_id == "task-1"
+    assert [event.event_type for event in reopened.events(queued.job_id)] == [
+        "queued",
+        "claimed",
+        "lease_recovered",
+        "completed",
+    ]
+
+
+def test_expired_lease_records_terminal_failure_when_retry_budget_is_exhausted(
+    tmp_path: Path,
+):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.enqueue(request(tmp_path), max_attempts=1)
+    assert store.claim("worker-a", lease_seconds=0.01) is not None
+
+    time.sleep(0.02)
+    assert store.claim("worker-b", lease_seconds=1) is None
+
+    failed = store.get(queued.job_id)
+    assert failed is not None
+    assert failed.status == JobStatus.FAILED
+    assert [event.event_type for event in store.events(queued.job_id)] == [
+        "queued",
+        "claimed",
+        "failed",
+    ]
+
+
+def test_idempotency_key_replays_same_job_and_rejects_different_request(
+    tmp_path: Path,
+):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    original_request = request(tmp_path)
+
+    first = store.enqueue(original_request, idempotency_key="request-123")
+    replay = store.enqueue(original_request, idempotency_key="request-123")
+
+    assert replay.job_id == first.job_id
+    assert replay.idempotency_key == "request-123"
+    assert [event.event_type for event in store.events(first.job_id)] == ["queued"]
+    with pytest.raises(IdempotencyConflictError, match="different request"):
+        store.enqueue(
+            request(tmp_path, "A different coding task"),
+            idempotency_key="request-123",
+        )
+
+
+def test_concurrent_idempotent_submissions_create_one_job(tmp_path: Path):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    task_request = request(tmp_path)
+    barrier = threading.Barrier(6)
+    job_ids: list[str] = []
+    errors: list[Exception] = []
+
+    def submit() -> None:
+        try:
+            barrier.wait()
+            job_ids.append(
+                store.enqueue(task_request, idempotency_key="concurrent-key").job_id
+            )
+        except Exception as exc:  # pragma: no cover - asserted below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=submit) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert len(job_ids) == 6
+    assert len(set(job_ids)) == 1
+    assert store.metrics().counts["pending"] == 1
+    assert [event.event_type for event in store.events(job_ids[0])] == ["queued"]
 
 
 def test_only_pending_jobs_can_be_cancelled(tmp_path: Path):
@@ -102,6 +177,10 @@ def test_only_pending_jobs_can_be_cancelled(tmp_path: Path):
     assert cancelled is not None
     assert cancelled.status == JobStatus.CANCELLED
     assert cancelled.cancel_requested is True
+    assert [event.event_type for event in store.events(pending.job_id)] == [
+        "queued",
+        "cancelled",
+    ]
     assert store.claim("worker", lease_seconds=1) is None
 
     running = store.enqueue(request(tmp_path, "Run another coding task"))
@@ -110,6 +189,7 @@ def test_only_pending_jobs_can_be_cancelled(tmp_path: Path):
     assert unchanged is not None
     assert unchanged.status == JobStatus.RUNNING
     assert unchanged.cancel_requested is True
+    assert store.events(running.job_id)[-1].event_type == "cancellation_requested"
 
 
 def test_queue_capacity_rejects_excess_outstanding_jobs(tmp_path: Path):

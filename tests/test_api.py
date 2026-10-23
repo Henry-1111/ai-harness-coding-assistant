@@ -165,18 +165,30 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         job_poll_interval_seconds=0.01,
     )
     with TestClient(app) as client:
+        request_body = {
+            "repository": str(sample_repository),
+            "goal": "Fix calculator addition behavior",
+            "file_scope": ["calculator.py"],
+            "verification_commands": ["python -m pytest -q"],
+        }
         created = client.post(
             "/v1/jobs",
-            json={
-                "repository": str(sample_repository),
-                "goal": "Fix calculator addition behavior",
-                "file_scope": ["calculator.py"],
-                "verification_commands": ["python -m pytest -q"],
-            },
+            json=request_body,
+            headers={"Idempotency-Key": "api-job-1"},
         )
         assert created.status_code == 202
         assert created.json()["status"] == "pending"
         job_id = created.json()["job_id"]
+        replay = client.post(
+            "/v1/jobs",
+            json=request_body,
+            headers={"Idempotency-Key": "api-job-1"},
+        )
+        conflict = client.post(
+            "/v1/jobs",
+            json={**request_body, "goal": "A different calculator change"},
+            headers={"Idempotency-Key": "api-job-1"},
+        )
         deadline = time.monotonic() + 5
         body = created.json()
         while body["status"] in {"pending", "running"} and time.monotonic() < deadline:
@@ -186,10 +198,19 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         runtime = client.get("/v1/runtime")
         ready = client.get("/ready")
         prometheus = client.get("/metrics")
+        events = client.get(f"/v1/jobs/{job_id}/events")
 
     assert body["status"] == "succeeded"
     assert body["attempts"] == 1
     assert body["result"]["changed_files"] == ["calculator.py"]
+    assert replay.status_code == 202
+    assert replay.json()["job_id"] == job_id
+    assert conflict.status_code == 409
+    assert [event["event_type"] for event in events.json()] == [
+        "queued",
+        "claimed",
+        "completed",
+    ]
     assert metrics.status_code == 200
     assert metrics.json()["counts"]["succeeded"] == 1
     assert metrics.json()["outstanding_jobs"] == 0

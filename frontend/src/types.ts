@@ -151,6 +151,17 @@ export interface TaskJob {
   lease_expires_at?: string;
   created_at: string;
   updated_at: string;
+  idempotency_key?: string;
+}
+
+export interface JobEvent {
+  job_id: string;
+  sequence: number;
+  event_type: string;
+  status: JobStatus;
+  worker_id?: string;
+  details: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface RuntimeSnapshot {

@@ -30,10 +30,17 @@ import {
   decideApproval,
   getDiff,
   getJob,
+  getJobEvents,
   getRuntime,
   promoteTask,
 } from "./api";
-import type { CreateTaskInput, RuntimeSnapshot, TaskJob, TaskResult } from "./types";
+import type {
+  CreateTaskInput,
+  JobEvent,
+  RuntimeSnapshot,
+  TaskJob,
+  TaskResult,
+} from "./types";
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -61,6 +68,7 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<TaskResult>();
   const [job, setJob] = useState<TaskJob>();
+  const [jobEvents, setJobEvents] = useState<JobEvent[]>([]);
   const [diff, setDiff] = useState("");
   const [error, setError] = useState("");
   const [promoted, setPromoted] = useState(false);
@@ -121,6 +129,7 @@ export default function App() {
     setError("");
     setResult(undefined);
     setJob(undefined);
+    setJobEvents([]);
     setDiff("");
     setPromoted(false);
     setApprovalActor("");
@@ -136,12 +145,19 @@ export default function App() {
       max_replans: values.maxReplans,
     };
     try {
-      let current = await createJob(input);
+      const idempotencyKey = window.crypto.randomUUID();
+      let current = await createJob(input, idempotencyKey);
       setJob(current);
+      setJobEvents(await getJobEvents(current.job_id));
       while (current.status === "pending" || current.status === "running") {
         await wait(500);
-        current = await getJob(current.job_id);
+        const [nextJob, events] = await Promise.all([
+          getJob(current.job_id),
+          getJobEvents(current.job_id),
+        ]);
+        current = nextJob;
         setJob(current);
+        setJobEvents(events);
       }
       if (current.result) {
         setResult(current.result);
@@ -198,6 +214,7 @@ export default function App() {
       setResult(task);
       if (job) {
         setJob(await getJob(job.job_id));
+        setJobEvents(await getJobEvents(job.job_id));
       }
       const taskDiff = await getDiff(task.task_id);
       setDiff(taskDiff.diff);
@@ -384,6 +401,18 @@ export default function App() {
                     </Tag>
                     <Tag>attempt {job.attempts}/{job.max_attempts}</Tag>
                   </Space>
+                )}
+                {jobEvents.length > 0 && (
+                  <div className="routing-summary">
+                    <Text strong>Job 审计时间线</Text>
+                    <Space wrap>
+                      {jobEvents.map((event) => (
+                        <Tag key={event.sequence} color="geekblue">
+                          #{event.sequence} {event.event_type} · {event.status}
+                        </Tag>
+                      ))}
+                    </Space>
+                  </div>
                 )}
                 {result.status === "cancelled" && (
                   <Alert

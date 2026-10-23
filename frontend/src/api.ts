@@ -1,4 +1,10 @@
-import type { CreateTaskInput, RuntimeSnapshot, TaskJob, TaskResult } from "./types";
+import type {
+  CreateTaskInput,
+  JobEvent,
+  RuntimeSnapshot,
+  TaskJob,
+  TaskResult,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -18,12 +24,20 @@ export function createTask(input: CreateTaskInput): Promise<TaskResult> {
   return request("/v1/tasks", { method: "POST", body: JSON.stringify(input) });
 }
 
-export function createJob(input: CreateTaskInput): Promise<TaskJob> {
-  return request("/v1/jobs", { method: "POST", body: JSON.stringify(input) });
+export function createJob(input: CreateTaskInput, idempotencyKey: string): Promise<TaskJob> {
+  return request("/v1/jobs", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify(input),
+  });
 }
 
 export function getJob(jobId: string): Promise<TaskJob> {
   return request(`/v1/jobs/${jobId}`);
+}
+
+export function getJobEvents(jobId: string): Promise<JobEvent[]> {
+  return request(`/v1/jobs/${jobId}/events`);
 }
 
 export function cancelJob(jobId: string): Promise<TaskJob> {
