@@ -153,6 +153,8 @@ Redis 准入成功后再写 PostgreSQL 长期账本；若 PostgreSQL 写入失�
 资源归属采用 cache-aside：先读 Redis，未命中再读 PostgreSQL 并回填；写入则以 PostgreSQL 为准并刷新缓存。
 审计链写入前使用 PostgreSQL transaction-level advisory lock 按租户串行化，避免多个实例同时生成相同
 `previous_hash` 导致链分叉。
+所有 PostgreSQL Store 在建表和索引初始化前还会争用统一的 transaction-level advisory lock，确保多个
+API/Worker 副本首次同时启动或滚动扩容时不会并发修改系统目录。
 
 Compose 已启用 PostgreSQL 持久卷和 Redis AOF。当前 Lua 脚本面向单 Redis 主节点或 Sentinel；若部署
 Redis Cluster，需要把同一次脚本访问的 Key 重新设计为相同 hash slot。

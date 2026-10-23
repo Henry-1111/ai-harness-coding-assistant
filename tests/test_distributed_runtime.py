@@ -19,6 +19,27 @@ requires_postgres = pytest.mark.skipif(
 )
 
 
+@requires_postgres
+def test_concurrent_schema_bootstrap_is_serialized() -> None:
+    with psycopg.connect(POSTGRES_URL) as connection:
+        connection.execute(
+            "DROP TABLE IF EXISTS task_checkpoints, job_events, task_jobs CASCADE"
+        )
+
+    def initialize(index: int) -> bool:
+        store = (
+            PostgresCheckpointStore(POSTGRES_URL)
+            if index % 2 == 0
+            else PostgresTaskJobStore(POSTGRES_URL)
+        )
+        return store.healthcheck()
+
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        health = list(executor.map(initialize, range(12)))
+
+    assert all(health)
+
+
 def reset_runtime_tables() -> None:
     with psycopg.connect(POSTGRES_URL) as connection:
         connection.execute(

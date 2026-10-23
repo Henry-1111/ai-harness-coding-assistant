@@ -105,12 +105,19 @@ def test_two_instances_share_atomic_quota_cache_and_audit_chain() -> None:
     suffix = uuid.uuid4().hex
     tenant_id = f"tenant-{suffix}"
     prefix = f"ai-harness-test:{suffix}"
-    first = DistributedGovernanceStore.from_urls(
-        POSTGRES_URL, REDIS_URL, key_prefix=prefix, binding_cache_seconds=60
-    )
-    second = DistributedGovernanceStore.from_urls(
-        POSTGRES_URL, REDIS_URL, key_prefix=prefix, binding_cache_seconds=60
-    )
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        stores = list(
+            executor.map(
+                lambda _: DistributedGovernanceStore.from_urls(
+                    POSTGRES_URL,
+                    REDIS_URL,
+                    key_prefix=prefix,
+                    binding_cache_seconds=60,
+                ),
+                range(8),
+            )
+        )
+    first, second = stores[:2]
     policy = TenantQuotaPolicy(
         tenant_id=tenant_id,
         max_outstanding_jobs=3,

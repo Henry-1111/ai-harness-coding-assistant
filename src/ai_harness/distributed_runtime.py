@@ -44,6 +44,10 @@ class PostgresCheckpointStore:
     def _initialize(self) -> None:
         with self._connect() as connection:
             connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                ("ai-harness:schema-bootstrap",),
+            )
+            connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS task_checkpoints (
                     task_id TEXT NOT NULL,
@@ -171,6 +175,10 @@ class PostgresTaskJobStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                ("ai-harness:schema-bootstrap",),
+            )
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS task_jobs (
