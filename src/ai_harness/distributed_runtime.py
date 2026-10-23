@@ -18,6 +18,7 @@ from .jobs import (
     TaskJob,
 )
 from .models import TaskRequest, TaskResult, TaskState, utc_now
+from .postgres_schema import apply_postgres_migrations
 
 
 class PostgresCheckpointStore:
@@ -43,12 +44,13 @@ class PostgresCheckpointStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-                ("ai-harness:schema-bootstrap",),
-            )
-            connection.execute(
-                """
+            apply_postgres_migrations(
+                connection,
+                component="checkpoints",
+                migrations=[
+                    (
+                        1,
+                        """
                 CREATE TABLE IF NOT EXISTS task_checkpoints (
                     task_id TEXT NOT NULL,
                     revision INTEGER NOT NULL,
@@ -60,7 +62,9 @@ class PostgresCheckpointStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_checkpoints_latest
                     ON task_checkpoints(task_id, revision DESC);
-                """
+                """,
+                    ),
+                ],
             )
 
     def save(self, state: TaskState) -> int:
@@ -129,9 +133,7 @@ class PostgresCheckpointStore:
             ).fetchall()
         return [int(row["revision"]) for row in rows]
 
-    def bisect_first(
-        self, task_id: str, predicate: Callable[[TaskState], bool]
-    ) -> Optional[int]:
+    def bisect_first(self, task_id: str, predicate: Callable[[TaskState], bool]) -> Optional[int]:
         revisions = self.revisions(task_id)
         low, high = 0, len(revisions) - 1
         answer: Optional[int] = None
@@ -175,12 +177,13 @@ class PostgresTaskJobStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-                ("ai-harness:schema-bootstrap",),
-            )
-            connection.execute(
-                """
+            apply_postgres_migrations(
+                connection,
+                component="jobs",
+                migrations=[
+                    (
+                        1,
+                        """
                 CREATE TABLE IF NOT EXISTS task_jobs (
                     job_id TEXT PRIMARY KEY,
                     status TEXT NOT NULL,
@@ -217,7 +220,9 @@ class PostgresTaskJobStore:
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_task_jobs_idempotency_key
                     ON task_jobs(tenant_id, idempotency_key)
                     WHERE idempotency_key IS NOT NULL;
-                """
+                """,
+                    ),
+                ],
             )
 
     def enqueue(
@@ -422,9 +427,7 @@ class PostgresTaskJobStore:
             self._append_event(
                 connection,
                 row["job_id"],
-                "lease_recovered"
-                if row["status"] == JobStatus.RUNNING.value
-                else "claimed",
+                "lease_recovered" if row["status"] == JobStatus.RUNNING.value else "claimed",
                 JobStatus.RUNNING,
                 worker_id=worker_id,
                 details={"attempt": int(claimed["attempts"])},
@@ -549,9 +552,7 @@ class PostgresTaskJobStore:
                 self._append_event(
                     connection, job_id, "cancelled", JobStatus.CANCELLED, created_at=now
                 )
-            elif row["status"] == JobStatus.RUNNING.value and not bool(
-                row["cancel_requested"]
-            ):
+            elif row["status"] == JobStatus.RUNNING.value and not bool(row["cancel_requested"]):
                 connection.execute(
                     """
                     UPDATE task_jobs SET cancel_requested = TRUE, updated_at = %s
@@ -660,9 +661,7 @@ class PostgresTaskJobStore:
             request=TaskRequest.model_validate_json(row["request_json"]),
             task_id=row["task_id"],
             result=(
-                TaskResult.model_validate_json(row["result_json"])
-                if row["result_json"]
-                else None
+                TaskResult.model_validate_json(row["result_json"]) if row["result_json"] else None
             ),
             error=row["error"],
             attempts=int(row["attempts"]),

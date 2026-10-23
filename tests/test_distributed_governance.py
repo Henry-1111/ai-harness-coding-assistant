@@ -5,6 +5,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+import psycopg
 import pytest
 
 from ai_harness.distributed_governance import DistributedGovernanceStore
@@ -118,6 +119,14 @@ def test_two_instances_share_atomic_quota_cache_and_audit_chain() -> None:
             )
         )
     first, second = stores[:2]
+    with psycopg.connect(POSTGRES_URL) as connection:
+        version = connection.execute(
+            """
+            SELECT MAX(version) FROM ai_harness_schema_migrations
+            WHERE component = 'governance'
+            """
+        ).fetchone()
+    assert version is not None and version[0] == 1
     policy = TenantQuotaPolicy(
         tenant_id=tenant_id,
         max_outstanding_jobs=3,

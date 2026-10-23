@@ -21,6 +21,7 @@ from .governance import (
     TenantQuotaSnapshot,
 )
 from .models import utc_now
+from .postgres_schema import apply_postgres_migrations
 
 
 class PostgresGovernanceStore:
@@ -46,12 +47,13 @@ class PostgresGovernanceStore:
 
     def _initialize(self) -> None:
         with self._connect() as connection:
-            connection.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
-                ("ai-harness:schema-bootstrap",),
-            )
-            connection.execute(
-                """
+            apply_postgres_migrations(
+                connection,
+                component="governance",
+                migrations=[
+                    (
+                        1,
+                        """
                 CREATE TABLE IF NOT EXISTS resource_bindings (
                     resource_type TEXT NOT NULL,
                     resource_id TEXT NOT NULL,
@@ -90,7 +92,9 @@ class PostgresGovernanceStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_tenant_quota_usage
                     ON tenant_quota_reservations(tenant_id, usage_date, status);
-                """
+                """,
+                    ),
+                ],
             )
 
     def reserve_quota(
@@ -203,9 +207,7 @@ class PostgresGovernanceStore:
             ).fetchall()
         return [str(row["job_id"]) for row in rows]
 
-    def quota_snapshot(
-        self, tenant_id: str, policy: TenantQuotaPolicy
-    ) -> TenantQuotaSnapshot:
+    def quota_snapshot(self, tenant_id: str, policy: TenantQuotaPolicy) -> TenantQuotaSnapshot:
         usage_date = utc_now().date().isoformat()
         with self._connect() as connection:
             row = self._quota_row(connection, tenant_id, usage_date)
@@ -510,9 +512,7 @@ return {1}
 class RedisQuotaStore:
     """Atomic, cross-process quota gate backed by Redis Lua scripts."""
 
-    def __init__(
-        self, client: redis.Redis, *, key_prefix: str, ttl_seconds: int
-    ) -> None:
+    def __init__(self, client: redis.Redis, *, key_prefix: str, ttl_seconds: int) -> None:
         self.client = client
         self.key_prefix = key_prefix.rstrip(":")
         self.ttl_seconds = ttl_seconds
@@ -586,9 +586,7 @@ class RedisQuotaStore:
         )
         return int(result[0]) == 1
 
-    def quota_snapshot(
-        self, tenant_id: str, policy: TenantQuotaPolicy
-    ) -> TenantQuotaSnapshot:
+    def quota_snapshot(self, tenant_id: str, policy: TenantQuotaPolicy) -> TenantQuotaSnapshot:
         usage_date = utc_now().date().isoformat()
         state_key = self._keys(tenant_id, usage_date, "snapshot")[0]
         values = cast(
@@ -678,13 +676,9 @@ class DistributedGovernanceStore:
     def reserve_quota(
         self, *, job_id: str, tenant_id: str, policy: TenantQuotaPolicy
     ) -> TenantQuotaSnapshot:
-        self.quota.reserve_quota(
-            job_id=job_id, tenant_id=tenant_id, policy=policy
-        )
+        self.quota.reserve_quota(job_id=job_id, tenant_id=tenant_id, policy=policy)
         try:
-            return self.postgres.reserve_quota(
-                job_id=job_id, tenant_id=tenant_id, policy=policy
-            )
+            return self.postgres.reserve_quota(job_id=job_id, tenant_id=tenant_id, policy=policy)
         except Exception:
             self.quota.release_quota(job_id, forget=True)
             raise
@@ -708,9 +702,7 @@ class DistributedGovernanceStore:
     def healthcheck(self) -> bool:
         return self.postgres.healthcheck() and bool(self.redis.ping())
 
-    def quota_snapshot(
-        self, tenant_id: str, policy: TenantQuotaPolicy
-    ) -> TenantQuotaSnapshot:
+    def quota_snapshot(self, tenant_id: str, policy: TenantQuotaPolicy) -> TenantQuotaSnapshot:
         return self.postgres.quota_snapshot(tenant_id, policy)
 
     def _binding_cache_key(self, resource_type: str, resource_id: str) -> str:
@@ -724,9 +716,7 @@ class DistributedGovernanceStore:
         *,
         repository: Optional[str] = None,
     ) -> ResourceBinding:
-        binding = self.postgres.bind(
-            resource_type, resource_id, principal, repository=repository
-        )
+        binding = self.postgres.bind(resource_type, resource_id, principal, repository=repository)
         self._cache_binding(binding)
         return binding
 

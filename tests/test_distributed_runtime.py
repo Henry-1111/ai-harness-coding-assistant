@@ -38,6 +38,34 @@ def test_concurrent_schema_bootstrap_is_serialized() -> None:
         health = list(executor.map(initialize, range(12)))
 
     assert all(health)
+    with psycopg.connect(POSTGRES_URL) as connection:
+        versions = dict(
+            connection.execute(
+                """
+                SELECT component, MAX(version) FROM ai_harness_schema_migrations
+                WHERE component IN ('checkpoints', 'jobs') GROUP BY component
+                """
+            ).fetchall()
+        )
+    assert versions == {"checkpoints": 1, "jobs": 1}
+    with psycopg.connect(POSTGRES_URL) as connection:
+        connection.execute(
+            """
+            INSERT INTO ai_harness_schema_migrations (component, version)
+            VALUES ('checkpoints', 2)
+            """
+        )
+    try:
+        with pytest.raises(RuntimeError, match="supports only version 1"):
+            PostgresCheckpointStore(POSTGRES_URL)
+    finally:
+        with psycopg.connect(POSTGRES_URL) as connection:
+            connection.execute(
+                """
+                DELETE FROM ai_harness_schema_migrations
+                WHERE component = 'checkpoints' AND version = 2
+                """
+            )
 
 
 def reset_runtime_tables() -> None:
