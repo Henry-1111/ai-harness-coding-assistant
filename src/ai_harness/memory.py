@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol
 
 from .models import utc_now
 
@@ -16,6 +16,35 @@ class MemoryLayer(str, Enum):
     USER = "user"
     SESSION = "session"
     SCRATCHPAD = "scratchpad"
+
+
+class LayeredMemoryStoreProtocol(Protocol):
+    def put(self, layer: MemoryLayer, owner_id: str, key: str, value: Any) -> None: ...
+
+    def get(self, layer: MemoryLayer, owner_id: str, key: str) -> Optional[Any]: ...
+
+    def append_bounded(
+        self,
+        layer: MemoryLayer,
+        owner_id: str,
+        key: str,
+        value: Dict[str, Any],
+        *,
+        max_items: int = 20,
+        unique_by: Optional[str] = None,
+    ) -> List[Dict[str, Any]]: ...
+
+    def resolve(
+        self,
+        key: str,
+        *,
+        policy_id: str,
+        project_id: str,
+        user_id: str,
+        session_id: str,
+    ) -> List[Dict[str, Any]]: ...
+
+    def healthcheck(self) -> bool: ...
 
 
 class LayeredMemoryStore:
@@ -43,6 +72,10 @@ class LayeredMemoryStore:
         connection = sqlite3.connect(str(self.database_path))
         connection.row_factory = sqlite3.Row
         return connection
+
+    def healthcheck(self) -> bool:
+        with self._connect() as connection:
+            return connection.execute("SELECT 1").fetchone() is not None
 
     def put(self, layer: MemoryLayer, owner_id: str, key: str, value: Any) -> None:
         if not owner_id or not key:
@@ -94,8 +127,7 @@ class LayeredMemoryStore:
                 existing = [
                     item
                     for item in existing
-                    if not isinstance(item, dict)
-                    or item.get(unique_by) != value.get(unique_by)
+                    if not isinstance(item, dict) or item.get(unique_by) != value.get(unique_by)
                 ]
             updated = [*existing, value][-max_items:]
             encoded = json.dumps(updated, ensure_ascii=False, separators=(",", ":"))

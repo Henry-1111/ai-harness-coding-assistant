@@ -21,6 +21,7 @@ from .agents import OpenAICompatibleModel
 from .api import create_app
 from .config import Settings
 from .distributed_governance import DistributedGovernanceStore
+from .distributed_memory import PostgresLayeredMemoryStore
 from .distributed_runtime import PostgresCheckpointStore, PostgresTaskJobStore
 from .embeddings import OpenAICompatibleEmbeddingProvider
 from .evaluation import RetrievalEvaluator, load_cases
@@ -91,10 +92,16 @@ def build_orchestrator(
         if settings.governance_database_url
         else None
     )
+    memory_store = (
+        PostgresLayeredMemoryStore(settings.governance_database_url)
+        if settings.governance_database_url
+        else None
+    )
     return HarnessOrchestrator(
         model,
         data_directory or settings.data_directory,
         checkpoint_store=checkpoint_store,
+        memory_store=memory_store,
         runner_factory=runner_factory,
         embedding_provider=embedding_provider,
         definition_provider_factory=definition_provider_factory,

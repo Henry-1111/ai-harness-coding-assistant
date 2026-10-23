@@ -24,7 +24,7 @@ from .knowledge import (
     sources_to_hits,
 )
 from .mcp import MCPToolCatalog
-from .memory import LayeredMemoryStore, MemoryLayer
+from .memory import LayeredMemoryStore, LayeredMemoryStoreProtocol, MemoryLayer
 from .models import (
     AgentTraceEvent,
     ApprovalRecord,
@@ -82,6 +82,7 @@ class HarnessOrchestrator:
         data_directory: Path,
         *,
         checkpoint_store: Optional[CheckpointStoreProtocol] = None,
+        memory_store: Optional[LayeredMemoryStoreProtocol] = None,
         runner_factory: Optional[Callable[[Path], CommandRunner]] = None,
         embedding_provider: Optional[EmbeddingProvider] = None,
         definition_provider_factory: Optional[Callable[[Path], DefinitionProvider]] = None,
@@ -111,7 +112,7 @@ class HarnessOrchestrator:
         if collaboration_mode not in {"auto", "disabled", "forced"}:
             raise ValueError("collaboration_mode must be auto, disabled or forced")
         self.collaboration_mode = collaboration_mode
-        self.memory = LayeredMemoryStore(self.data_directory / "memory.sqlite3")
+        self.memory = memory_store or LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
                 MemoryLayer.POLICY,
@@ -422,8 +423,7 @@ class HarnessOrchestrator:
             )
             completion_tokens = (
                 current.completion_tokens + captured.completion_tokens
-                if current.completion_tokens is not None
-                and captured.completion_tokens is not None
+                if current.completion_tokens is not None and captured.completion_tokens is not None
                 else None
             )
             final_state.model_usage = current.model_copy(
@@ -554,12 +554,10 @@ class HarnessOrchestrator:
             allowed_tools = {"search_project_knowledge", "get_source_detail"}
             allowed_mcp_servers: frozenset[str] = frozenset()
             if self.mcp_tool_catalog:
-                mcp_tools, allowed_mcp_servers = (
-                    self.mcp_tool_catalog.register_authorized_tools(
-                        registry,
-                        tenant_id=execution_tenant,
-                        project_id=project_id,
-                    )
+                mcp_tools, allowed_mcp_servers = self.mcp_tool_catalog.register_authorized_tools(
+                    registry,
+                    tenant_id=execution_tenant,
+                    project_id=project_id,
                 )
                 allowed_tools.update(mcp_tools)
             identity = KnowledgeIdentity(
@@ -759,9 +757,7 @@ class HarnessOrchestrator:
                             "candidate_edits": len(
                                 collaboration_turn.implementation_proposal.edits
                             ),
-                            "integrated_edits": len(
-                                collaboration_turn.integrated_decision.edits
-                            ),
+                            "integrated_edits": len(collaboration_turn.integrated_decision.edits),
                             "detected_conflicts": collaboration_turn.detected_conflicts,
                         }
                         if collaboration_turn
@@ -998,9 +994,7 @@ class HarnessOrchestrator:
             ],
             "repair_attempts": len(task.repair_history),
             "collaboration_rounds": len(task.collaboration_history),
-            "repair_fingerprints": [
-                plan.failure_fingerprint for plan in task.repair_history
-            ],
+            "repair_fingerprints": [plan.failure_fingerprint for plan in task.repair_history],
             "failure_type": failure_type,
             "retrieval_stop_reason": (
                 task.retrieval_trace.stop_reason if task.retrieval_trace else None

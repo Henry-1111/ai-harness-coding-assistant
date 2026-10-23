@@ -54,7 +54,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - `Idempotency-Key` 防重复提交，以及与状态变更同事务写入的 Job 审计事件；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
 - 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
-- Policy、Project、User、Session、Scratchpad 五层 SQLite Memory，Policy 注入 Coder Prompt，
+- Policy、Project、User、Session、Scratchpad 五层 SQLite/PostgreSQL Memory，Policy 注入 Coder Prompt，
   Project 保存最近检索，Session/Scratchpad 跟踪执行进度；
 - 只有测试通过且 Reviewer 批准后才能 Promote 到源仓库。
 
@@ -136,8 +136,8 @@ SQLite `BEGIN IMMEDIATE` 事务内原子检查并预留 Token；达到任一上�
 
 ### PostgreSQL + Redis 分布式治理
 
-默认本地模式继续使用 SQLite。生产多实例部署同时配置以下两个变量后，资源归属、审计链和额度账本会写入
-PostgreSQL，Redis 则作为所有实例共享的实时准入层：
+默认本地模式继续使用 SQLite。生产多实例部署同时配置以下两个变量后，Checkpoint、Job、五层 Memory、
+资源归属、审计链和额度账本会写入 PostgreSQL，Redis 则作为所有实例共享的实时准入层：
 
 ```bash
 export AI_HARNESS_GOVERNANCE_DATABASE_URL='postgresql://harness:secret@postgres:5432/ai_harness'
@@ -522,6 +522,9 @@ Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台�
 - 配置 PostgreSQL + Redis 后，Checkpoint、任务队列、Worker 租约、治理、额度和资源归属均使用共享后端；
   未配置时继续使用 SQLite 本地模式。多实例 Worker 通过 PostgreSQL `FOR UPDATE SKIP LOCKED` 抢占任务，
   通过带所有者校验的租约心跳、完成和失败更新避免旧 Worker 覆盖已经被接管的任务。
+- PostgreSQL 模式也会共享五层 Memory，并用按记忆键加锁的事务避免多个 Worker 同时追加经验时丢数据。
+  跨主机执行仍要求所有实例能访问同一个任务工作区（例如共享 POSIX 卷）；当前 Compose 是单主机部署，尚未
+  提供对象存储工作区适配器。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。

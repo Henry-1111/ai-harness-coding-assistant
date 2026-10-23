@@ -291,6 +291,7 @@ def create_app(
         probes = {
             "checkpoints": orchestrator.checkpoints.healthcheck,
             "jobs": job_store.healthcheck,
+            "memory": orchestrator.memory.healthcheck,
             "governance": governance_store.healthcheck,
         }
         health: dict[str, bool] = {}
