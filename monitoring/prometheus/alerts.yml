@@ -1,0 +1,68 @@
+groups:
+  - name: ai-harness-runtime
+    rules:
+      - alert: AIHarnessNotReady
+        expr: ai_harness_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: AI Harness runtime is not ready
+          description: The worker runtime has reported not-ready for more than two minutes.
+
+      - alert: AIHarnessDependencyUnavailable
+        expr: ai_harness_dependency_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: AI Harness dependency is unavailable
+          description: Dependency {{ $labels.dependency }} has failed readiness checks.
+
+      - alert: AIHarnessCircuitOpen
+        expr: ai_harness_circuit_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: AI Harness worker circuit breaker is open
+          description: Infrastructure failures have paused new job claims.
+
+      - alert: AIHarnessQueueStalled
+        expr: ai_harness_queue_oldest_pending_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: AI Harness queue is stalled
+          description: The oldest pending job has waited for more than five minutes.
+
+      - alert: AIHarnessNoWorkers
+        expr: ai_harness_queue_outstanding > 0 and ai_harness_workers == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: AI Harness has queued work but no workers
+          description: Outstanding jobs cannot make progress because no worker is registered.
+
+      - alert: AIHarnessQuotaReconciliationFailure
+        expr: increase(ai_harness_quota_reconciliation_failures[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: AI Harness quota reconciliation failed
+          description: At least one durable quota settlement retry failed in the last ten minutes.
+
+      - alert: AIHarnessHighServerErrorRate
+        expr: >-
+          sum(rate(ai_harness_http_requests_total{status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(ai_harness_http_requests_total[5m])), 0.001)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: AI Harness HTTP 5xx rate is high
+          description: More than 5% of HTTP requests have failed for five minutes.

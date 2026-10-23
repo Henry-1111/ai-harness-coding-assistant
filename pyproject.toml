@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "ruff>=0.6,<1"]
+dev = ["pytest>=8,<10", "pyyaml>=6,<7", "ruff>=0.6,<1"]
 lsp = ["pyright>=1.1.414,<2"]
 
 [project.scripts]

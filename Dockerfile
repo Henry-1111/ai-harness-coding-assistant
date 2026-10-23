@@ -5,9 +5,17 @@ WORKDIR /app
 
 RUN groupadd --system harness && useradd --system --gid harness --home-dir /app harness
 RUN mkdir -p /data && chown harness:harness /data
-COPY pyproject.toml README.md ./
+
+# Resolve third-party dependencies in a layer that source-only edits do not invalidate.
+COPY pyproject.toml ./
+RUN --mount=type=cache,target=/root/.cache/pip mkdir -p src/ai_harness \
+    && touch src/ai_harness/__init__.py \
+    && printf '# AI Harness\n' > README.md \
+    && pip install .
+
+COPY README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir .
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-deps --force-reinstall .
 
 USER harness
 EXPOSE 8080

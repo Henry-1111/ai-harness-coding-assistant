@@ -88,3 +88,9 @@ jobs:
         run: docker build --tag ai-harness:ci .
       - name: Build console image
         run: docker build --tag ai-harness-console:ci frontend
+      - name: Validate Prometheus configuration and alert rules
+        run: >-
+          docker run --rm --entrypoint promtool
+          --volume "$PWD/monitoring/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.5.0
+          check config /etc/prometheus/prometheus.yml
