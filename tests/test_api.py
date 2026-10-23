@@ -252,6 +252,10 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
     assert "ai_harness_circuit_state{state=\"closed\"} 1" in prometheus.text
     assert "ai_harness_quota_reconciliation_runs" in prometheus.text
     assert 'ai_harness_dependency_ready{dependency="jobs"} 1' in prometheus.text
+    assert (
+        'ai_harness_http_requests_total{method="GET",route="/ready",status="200"} 1'
+        in prometheus.text
+    )
 
 
 def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):

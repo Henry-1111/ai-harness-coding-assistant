@@ -359,7 +359,8 @@ Provider HTTP 错误、SQLite 运行错误和任务总超时会进入重试并�
 领取新任务；恢复窗口结束后只允许一个 Worker 做半开探测，探测成功才恢复并发。`GET /ready` 在熔断打开，
 或 Checkpoint、Job Store、治理存储任一依赖不可用时返回 HTTP 503；PostgreSQL 探测连接最长等待 5 秒。
 `GET /v1/runtime` 返回 Worker、队列和熔断快照，`GET /metrics` 输出 Prometheus 文本，并分别暴露各依赖的
-ready gauge。
+ready gauge。HTTP 指标按方法、路由模板和状态码统计请求数及延迟直方图；`/v1/jobs/{job_id}` 这类动态
+路径只使用模板作为标签，不会因真实 Job ID 持续制造高基数时间序列。
 
 原有同步 `POST /v1/tasks` 保留，便于 CLI、测试和兼容调用方使用。
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
@@ -36,6 +37,7 @@ from .jobs import (
     TaskWorkerPool,
 )
 from .models import TaskRequest, TaskResult, TaskState, TaskStatus
+from .observability import HTTPMetrics
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 from .quota_reconciliation import QuotaReconciler
 
@@ -112,6 +114,7 @@ def create_app(
         settle_job_quota,
         interval_seconds=quota_reconciliation_interval_seconds,
     )
+    http_metrics = HTTPMetrics()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -130,12 +133,38 @@ def create_app(
     app.state.authenticator = authenticator
     app.state.governance_store = governance_store
     app.state.quota_reconciler = quota_reconciler
+    app.state.http_metrics = http_metrics
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
     )
+
+    @app.middleware("http")
+    async def collect_http_metrics(request: Request, call_next) -> Response:
+        started_at = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            route_object = request.scope.get("route")
+            route = str(getattr(route_object, "path", "unmatched"))
+            http_metrics.observe(
+                request.method,
+                route,
+                500,
+                time.perf_counter() - started_at,
+            )
+            raise
+        route_object = request.scope.get("route")
+        route = str(getattr(route_object, "path", "unmatched"))
+        http_metrics.observe(
+            request.method,
+            route,
+            response.status_code,
+            time.perf_counter() - started_at,
+        )
+        return response
 
     def current_principal(
         authorization: Optional[str] = Header(default=None, alias="Authorization"),
@@ -376,6 +405,7 @@ def create_app(
             f'ai_harness_dependency_ready{{dependency="{name}"}} {int(healthy)}'
             for name, healthy in sorted(dependencies.items())
         )
+        lines.extend(http_metrics.render_prometheus())
         return "\n".join(lines) + "\n"
 
     @app.post("/v1/tasks", response_model=TaskResult)
