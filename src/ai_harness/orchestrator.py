@@ -550,7 +550,7 @@ class HarnessOrchestrator:
         knowledge_result = None
         if self.restricted_react_enabled and index.last_trace.stop_reason != "evidence_sufficient":
             registry = repository_knowledge_registry(repository, task.repo_map)
-            project_id = self._project_id(task.request.repository)
+            project_id = self._project_id(task.request.repository, execution_tenant)
             allowed_tools = {"search_project_knowledge", "get_source_detail"}
             allowed_mcp_servers: frozenset[str] = frozenset()
             if self.mcp_tool_catalog:
@@ -581,7 +581,7 @@ class HarnessOrchestrator:
                     known.add(key)
             task.scratchpad["restricted_react"] = knowledge_result.model_dump(mode="json")
         task.scratchpad["git_changed_paths"] = changed_paths
-        project_id = self._project_id(task.request.repository)
+        project_id = self._project_id(task.request.repository, execution_tenant)
         self.memory.put(
             MemoryLayer.PROJECT,
             project_id,
@@ -681,14 +681,15 @@ class HarnessOrchestrator:
         previous_failure = "\n".join(
             result.stderr or result.stdout for result in task.verification if result.exit_code != 0
         )[-4000:]
+        memory_tenant = str(task.scratchpad.get("tenant_id", self.tenant_id))
+        project_id = self._project_id(task.request.repository, memory_tenant)
         memory_context = self.memory.resolve(
             "instructions",
             policy_id="default",
-            project_id=self._project_id(task.request.repository),
-            user_id="local",
+            project_id=project_id,
+            user_id=str(task.scratchpad.get("requested_by", "system")),
             session_id=task.task_id,
         )
-        project_id = self._project_id(task.request.repository)
         experiences = self.memory.get(MemoryLayer.PROJECT, project_id, "experiences") or []
         if experiences:
             memory_context.append(
@@ -977,7 +978,10 @@ class HarnessOrchestrator:
     ) -> None:
         if task.scratchpad.get("experience_recorded"):
             return
-        project_id = self._project_id(task.request.repository)
+        project_id = self._project_id(
+            task.request.repository,
+            str(task.scratchpad.get("tenant_id", self.tenant_id)),
+        )
         record = {
             "task_id": task.task_id,
             "outcome": outcome,
@@ -1029,8 +1033,9 @@ class HarnessOrchestrator:
         return destination
 
     @staticmethod
-    def _project_id(repository: str) -> str:
-        return sha256(str(Path(repository).resolve()).encode()).hexdigest()[:20]
+    def _project_id(repository: str, tenant_id: str = "local") -> str:
+        identity = f"{tenant_id}:{Path(repository).resolve()}"
+        return sha256(identity.encode()).hexdigest()[:20]
 
     def _should_collaborate(self, route: RouteKind) -> bool:
         if self.collaboration_mode == "forced":

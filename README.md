@@ -523,6 +523,8 @@ Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台�
   未配置时继续使用 SQLite 本地模式。多实例 Worker 通过 PostgreSQL `FOR UPDATE SKIP LOCKED` 抢占任务，
   通过带所有者校验的租约心跳、完成和失败更新避免旧 Worker 覆盖已经被接管的任务。
 - PostgreSQL 模式也会共享五层 Memory，并用按记忆键加锁的事务避免多个 Worker 同时追加经验时丢数据。
+  Project Memory 的身份由 `tenant_id + repository` 共同派生，同一路径被多个租户授权时也不会互相读取经验；
+  User Memory 使用认证主体作为 owner。
   跨主机执行仍要求所有实例能访问同一个任务工作区（例如共享 POSIX 卷）；当前 Compose 是单主机部署，尚未
   提供对象存储工作区适配器。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器

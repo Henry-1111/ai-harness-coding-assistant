@@ -190,6 +190,44 @@ def test_task_cancelled_at_approval_gate_cannot_be_revived(
     assert model.calls == []
 
 
+def test_project_memory_is_isolated_by_tenant_for_the_same_repository(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    model = ScriptedModel(
+        [successful_edit(), successful_edit(), successful_edit(), successful_edit()]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    tenant_a = orchestrator.run(
+        request_for(sample_repository),
+        control=ExecutionControl(
+            should_cancel=lambda: False,
+            tenant_id="tenant-a",
+            actor="alice",
+        ),
+    )
+    tenant_b = orchestrator.run(
+        request_for(sample_repository),
+        control=ExecutionControl(
+            should_cancel=lambda: False,
+            tenant_id="tenant-b",
+            actor="bob",
+        ),
+    )
+
+    project_a = orchestrator._project_id(str(sample_repository), "tenant-a")
+    project_b = orchestrator._project_id(str(sample_repository), "tenant-b")
+    assert project_a != project_b
+    experiences_a = orchestrator.memory.get(MemoryLayer.PROJECT, project_a, "experiences")
+    experiences_b = orchestrator.memory.get(MemoryLayer.PROJECT, project_b, "experiences")
+    assert [item["task_id"] for item in experiences_a] == [tenant_a.task_id]
+    assert [item["task_id"] for item in experiences_b] == [tenant_b.task_id]
+
+
 def test_rejected_task_never_invokes_model_or_changes_source(
     tmp_path: Path, sample_repository: Path
 ):
