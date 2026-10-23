@@ -37,6 +37,7 @@ from .jobs import (
 )
 from .models import TaskRequest, TaskResult, TaskState, TaskStatus
 from .orchestrator import ExecutionControl, HarnessOrchestrator
+from .quota_reconciliation import QuotaReconciler
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -59,6 +60,8 @@ def create_app(
     circuit_recovery_seconds: float = 30,
     authenticator: Optional[APIKeyAuthenticator] = None,
     governance_store: Optional[GovernanceStoreProtocol] = None,
+    quota_reconciler: Optional[QuotaReconciler] = None,
+    quota_reconciliation_interval_seconds: float = 30,
 ) -> FastAPI:
     authenticator = authenticator or APIKeyAuthenticator.disabled()
     governance_store = governance_store or GovernanceStore(
@@ -69,9 +72,9 @@ def create_app(
         max_outstanding_jobs=job_queue_capacity,
     )
 
-    def settle_job_quota(job: TaskJob) -> None:
+    def settle_job_quota(job: TaskJob) -> bool:
         if not authenticator.enabled:
-            return
+            return False
         actual_tokens = (
             0
             if job.status == JobStatus.CANCELLED and job.attempts == 0
@@ -89,6 +92,8 @@ def create_app(
                 outcome="accepted",
                 details={"actual_tokens": actual_tokens},
             )
+            return True
+        return False
 
     worker_pool = worker_pool or TaskWorkerPool(
         orchestrator,
@@ -101,13 +106,21 @@ def create_app(
         circuit_recovery_seconds=circuit_recovery_seconds,
         terminal_callback=settle_job_quota,
     )
+    quota_reconciler = quota_reconciler or QuotaReconciler(
+        governance_store,
+        job_store,
+        settle_job_quota,
+        interval_seconds=quota_reconciliation_interval_seconds,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         worker_pool.start()
+        quota_reconciler.start()
         try:
             yield
         finally:
+            quota_reconciler.stop()
             worker_pool.stop()
 
     app = FastAPI(title="AI Harness", version="0.1.0", lifespan=lifespan)
@@ -116,6 +129,7 @@ def create_app(
     app.state.worker_pool = worker_pool
     app.state.authenticator = authenticator
     app.state.governance_store = governance_store
+    app.state.quota_reconciler = quota_reconciler
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -284,6 +298,7 @@ def create_app(
     ) -> str:
         require_roles(principal, Role.OPERATOR, action="metrics.read")
         snapshot = worker_pool.runtime_snapshot()
+        reconciliation = quota_reconciler.snapshot()
         lines = [
             "# HELP ai_harness_ready Whether the worker runtime is ready.",
             "# TYPE ai_harness_ready gauge",
@@ -322,6 +337,13 @@ def create_app(
                 "# TYPE ai_harness_circuit_consecutive_failures gauge",
                 "ai_harness_circuit_consecutive_failures "
                 f"{snapshot.circuit.consecutive_failures}",
+                "# TYPE ai_harness_quota_reconciliation_runs counter",
+                f"ai_harness_quota_reconciliation_runs {reconciliation.runs}",
+                "# TYPE ai_harness_quota_reconciliation_settled counter",
+                "ai_harness_quota_reconciliation_settled "
+                f"{reconciliation.settled_reservations}",
+                "# TYPE ai_harness_quota_reconciliation_failures counter",
+                f"ai_harness_quota_reconciliation_failures {reconciliation.failures}",
             ]
         )
         return "\n".join(lines) + "\n"

@@ -816,7 +816,7 @@ class TaskWorkerPool:
         task_timeout_seconds: float = 1800,
         circuit_failure_threshold: int = 3,
         circuit_recovery_seconds: float = 30,
-        terminal_callback: Optional[Callable[[TaskJob], None]] = None,
+        terminal_callback: Optional[Callable[[TaskJob], object]] = None,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")

@@ -410,6 +410,8 @@ class GovernanceStoreProtocol(Protocol):
 
     def release_quota(self, job_id: str) -> bool: ...
 
+    def active_quota_job_ids(self, *, limit: int = 100) -> list[str]: ...
+
     def quota_snapshot(
         self,
         tenant_id: str,
@@ -609,6 +611,19 @@ class GovernanceStore:
             )
         return cursor.rowcount == 1
 
+    def active_quota_job_ids(self, *, limit: int = 100) -> list[str]:
+        if not 1 <= limit <= 10_000:
+            raise ValueError("active quota limit must be within 1..10000")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT job_id FROM tenant_quota_reservations
+                WHERE status = 'active' ORDER BY created_at LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [str(row["job_id"]) for row in rows]
+
     def quota_snapshot(
         self,
         tenant_id: str,
@@ -800,6 +815,7 @@ class GovernanceStore:
                     created_at,
                 ),
             )
+            assert cursor.lastrowid is not None
             sequence = int(cursor.lastrowid)
             connection.execute("COMMIT")
         return AuditEvent(

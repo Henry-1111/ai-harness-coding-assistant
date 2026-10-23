@@ -36,6 +36,7 @@ class Settings:
     job_timeout_seconds: float
     circuit_failure_threshold: int
     circuit_recovery_seconds: float
+    quota_reconciliation_interval_seconds: float
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -88,5 +89,8 @@ class Settings:
             ),
             circuit_recovery_seconds=float(
                 os.getenv("AI_HARNESS_CIRCUIT_RECOVERY_SECONDS", "30")
+            ),
+            quota_reconciliation_interval_seconds=float(
+                os.getenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "30")
             ),
         )

@@ -178,6 +178,19 @@ class PostgresGovernanceStore:
             )
             return cursor.rowcount == 1
 
+    def active_quota_job_ids(self, *, limit: int = 100) -> list[str]:
+        if not 1 <= limit <= 10_000:
+            raise ValueError("active quota limit must be within 1..10000")
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT job_id FROM tenant_quota_reservations
+                WHERE status = 'active' ORDER BY created_at LIMIT %s
+                """,
+                (limit,),
+            ).fetchall()
+        return [str(row["job_id"]) for row in rows]
+
     def quota_snapshot(
         self, tenant_id: str, policy: TenantQuotaPolicy
     ) -> TenantQuotaSnapshot:
@@ -665,14 +678,20 @@ class DistributedGovernanceStore:
             raise
 
     def settle_quota(self, job_id: str, actual_tokens: Optional[int]) -> bool:
-        durable = self.postgres.settle_quota(job_id, actual_tokens)
         operational = self.quota.settle_quota(job_id, actual_tokens)
+        # PostgreSQL is the reconciliation source of truth and must transition last.
+        # If Redis succeeds and this write fails, the active durable row remains
+        # discoverable; the inverse ordering could leave an invisible Redis leak.
+        durable = self.postgres.settle_quota(job_id, actual_tokens)
         return durable or operational
 
     def release_quota(self, job_id: str) -> bool:
-        durable = self.postgres.release_quota(job_id)
         operational = self.quota.release_quota(job_id)
+        durable = self.postgres.release_quota(job_id)
         return durable or operational
+
+    def active_quota_job_ids(self, *, limit: int = 100) -> list[str]:
+        return self.postgres.active_quota_job_ids(limit=limit)
 
     def quota_snapshot(
         self, tenant_id: str, policy: TenantQuotaPolicy

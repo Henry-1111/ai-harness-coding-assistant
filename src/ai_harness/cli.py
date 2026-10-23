@@ -376,6 +376,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 job_timeout_seconds=settings.job_timeout_seconds,
                 circuit_failure_threshold=settings.circuit_failure_threshold,
                 circuit_recovery_seconds=settings.circuit_recovery_seconds,
+                quota_reconciliation_interval_seconds=(
+                    settings.quota_reconciliation_interval_seconds
+                ),
             ),
             host=args.host,
             port=args.port,

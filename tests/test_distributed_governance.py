@@ -56,6 +56,42 @@ def test_postgres_failure_compensates_redis_reservation() -> None:
     assert store.quota.released == ["job-1"]
 
 
+def test_settlement_keeps_durable_reservation_active_until_redis_is_updated() -> None:
+    calls: list[str] = []
+
+    class FakeQuota:
+        attempts = 0
+
+        def settle_quota(self, job_id: str, actual_tokens: int) -> bool:
+            calls.append(f"redis:{job_id}:{actual_tokens}")
+            self.attempts += 1
+            return self.attempts == 1
+
+    class FlakyPostgres:
+        attempts = 0
+
+        def settle_quota(self, job_id: str, actual_tokens: int) -> bool:
+            calls.append(f"postgres:{job_id}:{actual_tokens}")
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("postgres unavailable")
+            return True
+
+    store = object.__new__(DistributedGovernanceStore)
+    store.quota = FakeQuota()
+    store.postgres = FlakyPostgres()
+
+    with pytest.raises(RuntimeError, match="postgres unavailable"):
+        store.settle_quota("job-1", 42)
+    assert store.settle_quota("job-1", 42) is True
+    assert calls == [
+        "redis:job-1:42",
+        "postgres:job-1:42",
+        "redis:job-1:42",
+        "postgres:job-1:42",
+    ]
+
+
 POSTGRES_URL = os.getenv("AI_HARNESS_TEST_POSTGRES_URL", "")
 REDIS_URL = os.getenv("AI_HARNESS_TEST_REDIS_URL", "")
 requires_services = pytest.mark.skipif(
@@ -107,6 +143,7 @@ def test_two_instances_share_atomic_quota_cache_and_audit_chain() -> None:
         for index, outcome in enumerate(outcomes)
         if outcome == "accepted"
     ]
+    assert set(second.active_quota_job_ids()) >= set(accepted_jobs)
     for job_id in accepted_jobs:
         first.settle_quota(job_id, 5)
     settled = second.quota_snapshot(tenant_id, policy)

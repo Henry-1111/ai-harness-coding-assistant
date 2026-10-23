@@ -19,8 +19,8 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
   -> 隔离工作区应用精确替换
   -> test / lint / type-check / build
   -> Reviewer 验收或有限 Replan
-  -> SQLite Checkpoint
-  -> SQLite Job Queue / 有界 Worker / 租约恢复
+  -> SQLite/PostgreSQL Checkpoint
+  -> SQLite/PostgreSQL Job Queue / 有界 Worker / 租约恢复
   -> 人工确认后 Promote 到源仓库
 ```
 
@@ -48,8 +48,8 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 本地持久化工作区，以及网络隔离、内存/CPU/PID 限制的 Docker Sandbox；
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
 - 结构化 Reviewer Finding、可审计 RepairPlan、重复失败指纹熔断与项目经验沉淀；
-- SQLite append-only Checkpoint，可查询和恢复任务；
-- SQLite 持久化任务队列、原子领取、Worker 最大并发、租约心跳、失败重试、容量保护与协作式取消；
+- 本地 SQLite、分布式 PostgreSQL append-only Checkpoint，可查询和恢复任务；
+- SQLite/PostgreSQL 持久化任务队列、原子领取、Worker 最大并发、租约心跳、失败重试、容量保护与协作式取消；
 - Worker 注册表、基础设施失败熔断、半开探测、Readiness 与 Prometheus 指标；
 - `Idempotency-Key` 防重复提交，以及与状态变更同事务写入的 Job 审计事件；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
@@ -161,6 +161,9 @@ Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `us
 `TaskResult.model_usage`，终态后用实际 Token 替换预留量并释放在途名额。若 Provider 没有返回 usage，
 系统保守地按预留量结算，避免缺失统计导致配额超发；排队取消按 0 Token 结算。高风险任务停在审批门时
 继续占用在途名额，审批完成或拒绝后再结算。`GET /v1/quota` 返回当前租户的实时额度快照。
+后台对账器会周期扫描仍为 active、但 Job 已进入终态的持久化预留，在结算回调遭遇短暂数据库或 Redis
+故障时自动重试；重复结算是幂等的。对账次数、成功数和失败数暴露为 Prometheus 指标，扫描间隔可通过
+`AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS` 配置。
 
 ## 安全模型
 
@@ -327,9 +330,10 @@ Idempotency-Key: client-request-123
 调用方可以为 `POST /v1/jobs` 提供最长 200 字符的 `Idempotency-Key`。相同 Key 与相同请求会返回
 第一次创建的 Job，不消耗第二份队列容量；相同 Key 携带不同请求时返回 HTTP 409，防止误把不同任务合并。
 `GET /v1/jobs/{job_id}/events` 按顺序返回 `queued`、`claimed`、`retry_scheduled`、取消和完成等事件。
-事件与对应 Job 状态在同一个 SQLite 事务中落库，因此问题排查不依赖易丢失的进程日志。
+事件与对应 Job 状态在同一个存储事务中落库，因此问题排查不依赖易丢失的进程日志。
 
-队列使用 SQLite 事务保证同一时刻只有一个 Worker 领取任务，并通过心跳续租。服务异常退出后，租约过期的
+本地队列使用 SQLite 事务，分布式队列使用 PostgreSQL 行锁与 `SKIP LOCKED`，保证同一任务只有一个
+Worker 领取，并通过心跳续租。服务异常退出后，租约过期的
 `running` Job 会在重试预算内重新领取，因此执行语义是 at-least-once；每次执行都在新的隔离工作区内，且
 不会自动 Promote 到源仓库，避免重试产生不可逆的重复副作用。
 
