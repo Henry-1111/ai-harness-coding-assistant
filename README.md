@@ -326,7 +326,8 @@ Idempotency-Key: client-request-123
 
 异步入口立即返回 `job_id` 和 `pending` 状态。Worker 在后台领取任务，客户端通过
 `GET /v1/jobs/{job_id}` 查询 `pending → running → needs_input/succeeded/failed`。高风险任务仍会
-停在人工审批门，审批结果会回写到原 Job。`pending` Job 会立即取消；`running` Job 会记录停止请求，
+停在人工审批门，审批结果会回写到原 Job。`pending` 和 `needs_input` Job 会立即取消；审批门取消会同时
+写入 Task Checkpoint，迟到的审批请求不能重新激活任务。`running` Job 会记录停止请求，
 并在 Agent 节点、模型返回、文件写入和验证命令之间的安全边界协作式停止，不会伪装成已立即终止。
 
 调用方可以为 `POST /v1/jobs` 提供最长 200 字符的 `Idempotency-Key`。相同 Key 与相同请求会返回

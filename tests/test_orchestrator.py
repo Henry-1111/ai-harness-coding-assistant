@@ -160,6 +160,36 @@ def test_high_risk_task_waits_for_explicit_approval_before_execution(
     assert len(model.calls) == 2
 
 
+def test_task_cancelled_at_approval_gate_cannot_be_revived(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    model = ScriptedModel([])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+    pending = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Modify production calculator behavior safely",
+        )
+    )
+
+    cancelled = orchestrator.cancel_waiting(pending.task_id, actor="request-owner")
+
+    assert cancelled.status == TaskStatus.CANCELLED
+    assert cancelled.error == "Task cancelled by request-owner while waiting for approval"
+    assert cancelled.trace[-1].details["decision"] == "cancelled"
+    with pytest.raises(RuntimeError, match="cancelled tasks"):
+        orchestrator.decide_approval(
+            pending.task_id,
+            approved=True,
+            actor="late-reviewer",
+        )
+    assert model.calls == []
+
+
 def test_rejected_task_never_invokes_model_or_changes_source(
     tmp_path: Path, sample_repository: Path
 ):

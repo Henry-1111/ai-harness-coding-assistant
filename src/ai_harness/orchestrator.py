@@ -208,6 +208,8 @@ class HarnessOrchestrator:
         state = self.checkpoints.load(task_id)
         if state is None:
             raise KeyError(f"task not found: {task_id}")
+        if state.status == TaskStatus.CANCELLED:
+            raise RuntimeError("cancelled tasks cannot be approved or rejected")
         if state.approval is None:
             raise RuntimeError("task does not require approval")
         decision = "approved" if approved else "rejected"
@@ -263,6 +265,38 @@ class HarnessOrchestrator:
             {"reason": "approval_rejected", "actor": actor},
         )
         self._record_experience(state, "failed", failure_type="approval_rejected")
+        self.checkpoints.save(state)
+        return self._result(state)
+
+    def cancel_waiting(self, task_id: str, *, actor: str) -> TaskResult:
+        """Cancel a task paused at its approval gate without executing more work."""
+        state = self.checkpoints.load(task_id)
+        if state is None:
+            raise KeyError(f"task not found: {task_id}")
+        if state.status == TaskStatus.CANCELLED:
+            return self._result(state)
+        if state.status != TaskStatus.NEEDS_INPUT:
+            raise RuntimeError("only tasks waiting for approval can be cancelled directly")
+        actor = actor.strip()
+        if not actor:
+            raise ValueError("cancellation actor is required")
+        state.status = TaskStatus.CANCELLED
+        state.current_node = "cancelled"
+        state.error = f"Task cancelled by {actor} while waiting for approval"
+        state.trace.append(
+            AgentTraceEvent(
+                node="approval",
+                outcome="failed",
+                details={"decision": "cancelled", "actor": actor},
+            )
+        )
+        self._record_milestone(
+            state,
+            "CP8",
+            "Final result accepted",
+            "failed",
+            {"reason": "approval_cancelled", "actor": actor},
+        )
         self.checkpoints.save(state)
         return self._result(state)
 

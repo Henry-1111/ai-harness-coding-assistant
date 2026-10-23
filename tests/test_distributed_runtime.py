@@ -51,10 +51,12 @@ def request(repository: Path, goal: str) -> TaskRequest:
     return TaskRequest(repository=str(repository), goal=goal)
 
 
-def result(task_id: str) -> TaskResult:
+def result(
+    task_id: str, status: TaskStatus = TaskStatus.SUCCEEDED
+) -> TaskResult:
     return TaskResult(
         task_id=task_id,
-        status=TaskStatus.SUCCEEDED,
+        status=status,
         changed_files=[],
         verification=[],
     )
@@ -135,6 +137,28 @@ def test_expired_lease_is_recovered_and_stale_worker_cannot_complete(
         "lease_recovered",
         "completed",
     ]
+
+
+@requires_postgres
+def test_cancelled_waiting_job_is_not_revived_by_approval_update(tmp_path: Path) -> None:
+    reset_runtime_tables()
+    store = PostgresTaskJobStore(POSTGRES_URL)
+    queued = store.enqueue(request(tmp_path, "cancel approval wait"))
+    assert store.claim("worker-a", lease_seconds=30) is not None
+    assert store.complete(
+        queued.job_id,
+        "worker-a",
+        result("task-waiting", TaskStatus.NEEDS_INPUT),
+    )
+
+    cancelled = store.cancel(queued.job_id)
+    assert cancelled is not None
+    assert cancelled.status == JobStatus.CANCELLED
+    store.update_for_task(result("task-waiting"))
+
+    persisted = store.get(queued.job_id)
+    assert persisted is not None
+    assert persisted.status == JobStatus.CANCELLED
 
 
 @requires_postgres

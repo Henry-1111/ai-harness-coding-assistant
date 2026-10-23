@@ -216,6 +216,34 @@ def test_only_pending_jobs_can_be_cancelled(tmp_path: Path):
     assert store.events(running.job_id)[-1].event_type == "cancellation_requested"
 
 
+def test_waiting_job_cancellation_cannot_be_overwritten_by_late_approval(
+    tmp_path: Path,
+) -> None:
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    queued = store.enqueue(request(tmp_path))
+    assert store.claim("worker", lease_seconds=30) is not None
+    assert store.complete(
+        queued.job_id,
+        "worker",
+        result("task-waiting", TaskStatus.NEEDS_INPUT),
+    )
+
+    cancelled = store.cancel(queued.job_id)
+    assert cancelled is not None
+    assert cancelled.status == JobStatus.CANCELLED
+    store.update_for_task(result("task-waiting", TaskStatus.SUCCEEDED))
+
+    persisted = store.get(queued.job_id)
+    assert persisted is not None
+    assert persisted.status == JobStatus.CANCELLED
+    assert [event.event_type for event in store.events(queued.job_id)] == [
+        "queued",
+        "claimed",
+        "completed",
+        "cancelled",
+    ]
+
+
 def test_queue_capacity_rejects_excess_outstanding_jobs(tmp_path: Path):
     store = TaskJobStore(tmp_path / "jobs.sqlite3", max_outstanding_jobs=1)
     first = store.enqueue(request(tmp_path))

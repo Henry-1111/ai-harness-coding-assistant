@@ -616,6 +616,8 @@ def create_app(
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
         if job.status == JobStatus.CANCELLED:
+            if existing.status == JobStatus.NEEDS_INPUT and job.task_id:
+                orchestrator.cancel_waiting(job.task_id, actor=principal.subject)
             settle_job_quota(job)
         return job
 

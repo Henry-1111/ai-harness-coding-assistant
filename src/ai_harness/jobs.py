@@ -619,11 +619,14 @@ class TaskJobStore:
             if row is None:
                 connection.execute("COMMIT")
                 return None
-            if row["status"] == JobStatus.PENDING.value:
+            if row["status"] in {
+                JobStatus.PENDING.value,
+                JobStatus.NEEDS_INPUT.value,
+            }:
                 connection.execute(
                     """
-                    UPDATE task_jobs
-                    SET status = ?, cancel_requested = 1, updated_at = ?
+                    UPDATE task_jobs SET status = ?, cancel_requested = 1,
+                        lease_owner = NULL, lease_expires_at = NULL, updated_at = ?
                     WHERE job_id = ?
                     """,
                     (JobStatus.CANCELLED.value, now, job_id),
@@ -708,14 +711,17 @@ class TaskJobStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
-                "SELECT job_id, status, result_json FROM task_jobs WHERE task_id = ?",
-                (result.task_id,),
+                """
+                SELECT job_id, status, result_json FROM task_jobs
+                WHERE task_id = ? AND status = ?
+                """,
+                (result.task_id, JobStatus.NEEDS_INPUT.value),
             ).fetchall()
             connection.execute(
                 """
                 UPDATE task_jobs
                 SET status = ?, result_json = ?, error = ?, updated_at = ?
-                WHERE task_id = ?
+                WHERE task_id = ? AND status = ?
                 """,
                 (
                     status.value,
@@ -723,6 +729,7 @@ class TaskJobStore:
                     result.error,
                     utc_now().isoformat(),
                     result.task_id,
+                    JobStatus.NEEDS_INPUT.value,
                 ),
             )
             for row in rows:

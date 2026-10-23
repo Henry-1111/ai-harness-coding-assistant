@@ -534,11 +534,14 @@ class PostgresTaskJobStore:
             ).fetchone()
             if row is None:
                 return None
-            if row["status"] == JobStatus.PENDING.value:
+            if row["status"] in {
+                JobStatus.PENDING.value,
+                JobStatus.NEEDS_INPUT.value,
+            }:
                 connection.execute(
                     """
-                    UPDATE task_jobs
-                    SET status = %s, cancel_requested = TRUE, updated_at = %s
+                    UPDATE task_jobs SET status = %s, cancel_requested = TRUE,
+                        lease_owner = NULL, lease_expires_at = NULL, updated_at = %s
                     WHERE job_id = %s
                     """,
                     (JobStatus.CANCELLED.value, now, job_id),
@@ -619,15 +622,15 @@ class PostgresTaskJobStore:
             rows = connection.execute(
                 """
                 SELECT job_id, status, result_json FROM task_jobs
-                WHERE task_id = %s FOR UPDATE
+                WHERE task_id = %s AND status = %s FOR UPDATE
                 """,
-                (result.task_id,),
+                (result.task_id, JobStatus.NEEDS_INPUT.value),
             ).fetchall()
             connection.execute(
                 """
                 UPDATE task_jobs
                 SET status = %s, result_json = %s, error = %s, updated_at = %s
-                WHERE task_id = %s
+                WHERE task_id = %s AND status = %s
                 """,
                 (
                     status.value,
@@ -635,6 +638,7 @@ class PostgresTaskJobStore:
                     result.error,
                     utc_now().isoformat(),
                     result.task_id,
+                    JobStatus.NEEDS_INPUT.value,
                 ),
             )
             for row in rows:

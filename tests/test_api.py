@@ -306,6 +306,48 @@ def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repositor
     assert updated.json()["result"]["approval"]["status"] == "approved"
 
 
+def test_api_cancels_waiting_job_and_its_checkpoint_state(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]),
+            tmp_path / "data",
+            runner_factory=LocalCommandSandbox,
+        ),
+        max_job_workers=1,
+        job_poll_interval_seconds=0.01,
+    )
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/jobs",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Modify production calculator behavior safely",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+        ).json()
+        deadline = time.monotonic() + 5
+        job = created
+        while job["status"] in {"pending", "running"} and time.monotonic() < deadline:
+            time.sleep(0.02)
+            job = client.get(f"/v1/jobs/{created['job_id']}").json()
+        assert job["status"] == "needs_input"
+
+        cancelled = client.post(f"/v1/jobs/{created['job_id']}/cancel")
+        task = client.get(f"/v1/tasks/{job['task_id']}")
+        late_approval = client.post(
+            f"/v1/tasks/{job['task_id']}/approval",
+            json={"approved": True, "actor": "reviewer"},
+        )
+
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    assert task.json()["status"] == "cancelled"
+    assert late_approval.status_code == 409
+
+
 def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
     tmp_path: Path, sample_repository: Path
 ):
