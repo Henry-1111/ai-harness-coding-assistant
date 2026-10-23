@@ -13,6 +13,7 @@ export interface PrincipalIdentity {
   subject: string;
   roles: string[];
   authentication_enabled: boolean;
+  authentication_method: "api_key" | "oidc" | "disabled";
 }
 
 export interface ModelUsage {

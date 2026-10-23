@@ -256,6 +256,7 @@ def create_app(
             "subject": principal.subject,
             "roles": sorted(role.value for role in principal.roles),
             "authentication_enabled": principal.authentication_enabled,
+            "authentication_method": principal.authentication_method,
         }
 
     @app.get("/ready")

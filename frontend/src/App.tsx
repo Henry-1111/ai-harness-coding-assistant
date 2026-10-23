@@ -285,7 +285,7 @@ export default function App() {
                 value={apiKey}
                 onChange={(event) => setApiKeyValue(event.target.value)}
                 onPressEnter={applyApiKey}
-                placeholder="Bearer API Key（仅保存在当前浏览器会话）"
+                placeholder="API Key 或 OIDC JWT（仅保存在当前浏览器会话）"
               />
               <Button onClick={applyApiKey}>应用身份</Button>
             </Space.Compact>
@@ -304,7 +304,7 @@ export default function App() {
                 )}
               </Space>
             ) : (
-              <Text type="secondary">认证开启时，请输入管理员签发的租户 API Key。</Text>
+              <Text type="secondary">认证开启时，请输入租户 API Key 或 OIDC JWT。</Text>
             )}
           </Col>
         </Row>

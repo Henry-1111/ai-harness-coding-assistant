@@ -28,6 +28,17 @@
       "enabled": true
     }
   ],
+  "oidc": {
+    "issuer": "https://identity.example.com",
+    "audience": "ai-harness",
+    "algorithms": ["RS256"],
+    "tenant_claim": "tenant_id",
+    "roles_claim": "roles",
+    "repository_roots_claim": "repository_roots",
+    "subject_claim": "sub",
+    "clock_skew_seconds": 30,
+    "jwks_cache_seconds": 300
+  },
   "tenant_quotas": [
     {
       "tenant_id": "tenant-a",

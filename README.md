@@ -60,7 +60,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 
 ## 请求身份、租户边界与 RBAC
 
-HTTP API 可启用基于 Bearer API Key 的请求级身份认证。配置文件只保存 Key 的 SHA-256，不保存明文；
+HTTP API 可启用 Bearer API Key 与 OIDC JWT 混合身份认证。配置文件只保存 Key 的 SHA-256，不保存明文；
 每个身份包含租户、主体、角色和允许访问的仓库根目录。Job 会把 `tenant_id` 与 `created_by` 持久化，
 Worker 再把可信租户身份传入 Agent 和 MCP 上下文，避免只在入口鉴权、执行阶段却串用默认租户。
 
@@ -95,6 +95,27 @@ Authorization: Bearer <tenant-api-key>
 长期 Key。`GET /v1/audit/events` 返回按租户隔离的 append-only 审计事件，每条事件包含前一条哈希，便于
 检测历史记录被改写；`GET /v1/audit/integrity` 会重新计算当前租户的完整哈希链。认证默认关闭，
 以兼容本地 CLI；部署环境应显式开启。
+
+生产部署可在同一个治理配置中增加 `oidc`，也可以将 `keys` 设为空、仅接受 JWT：
+
+```json
+{
+  "keys": [],
+  "oidc": {
+    "issuer": "https://identity.example.com",
+    "audience": "ai-harness",
+    "algorithms": ["RS256"],
+    "tenant_claim": "tenant_id",
+    "roles_claim": "roles",
+    "repository_roots_claim": "repository_roots"
+  }
+}
+```
+
+若不填写 `jwks_url`，服务会从 Issuer 的 OpenID Discovery 文档读取 `jwks_uri`。JWT 必须包含 `iss`、
+`aud`、`sub`、`iat`、`exp` 以及租户、角色、仓库范围 Claims；算法只接受服务端配置的 RSA 白名单。
+JWKS 会按 TTL 缓存，遇到未知 `kid` 时强制刷新一次，因此密钥轮换无需重启。API Key 和 JWT 使用相同的
+RBAC、租户隔离、配额与审计链，`GET /v1/auth/me` 的 `authentication_method` 可区分认证来源。
 
 ### 租户并发与每日额度
 

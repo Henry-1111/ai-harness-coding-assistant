@@ -4,12 +4,16 @@ import hashlib
 import hmac
 import json
 import sqlite3
+import threading
+import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
+import httpx
+import jwt
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .models import utc_now
@@ -73,12 +77,43 @@ class TenantQuotaPolicy(BaseModel):
             raise ValueError("token_reservation cannot exceed max_daily_tokens")
         return self
 
+
+class OIDCConfig(BaseModel):
+    issuer: str = Field(min_length=1)
+    audience: str = Field(min_length=1)
+    jwks_url: Optional[str] = None
+    algorithms: tuple[str, ...] = ("RS256",)
+    tenant_claim: str = "tenant_id"
+    roles_claim: str = "roles"
+    repository_roots_claim: str = "repository_roots"
+    subject_claim: str = "sub"
+    clock_skew_seconds: int = Field(default=30, ge=0, le=300)
+    jwks_cache_seconds: int = Field(default=300, ge=1, le=86_400)
+    request_timeout_seconds: float = Field(default=5, gt=0, le=30)
+
+    @field_validator("issuer")
+    @classmethod
+    def normalize_issuer(cls, value: str) -> str:
+        return value.rstrip("/")
+
+    @field_validator("algorithms")
+    @classmethod
+    def validate_algorithms(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        allowed = {"RS256", "RS384", "RS512"}
+        if not values or any(value not in allowed for value in values):
+            raise ValueError("OIDC algorithms must be one or more of RS256, RS384, RS512")
+        return values
+
+
 class GovernanceConfig(BaseModel):
-    keys: list[APIKeyDefinition] = Field(min_length=1)
+    keys: list[APIKeyDefinition] = Field(default_factory=list)
+    oidc: Optional[OIDCConfig] = None
     tenant_quotas: list[TenantQuotaPolicy] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> "GovernanceConfig":
+        if not self.keys and self.oidc is None:
+            raise ValueError("at least one API key or OIDC configuration is required")
         key_ids = [key.key_id for key in self.keys]
         secret_hashes = [key.secret_sha256 for key in self.keys]
         if len(key_ids) != len(set(key_ids)):
@@ -99,6 +134,7 @@ class Principal:
     roles: frozenset[Role]
     repository_roots: tuple[str, ...]
     authentication_enabled: bool = True
+    authentication_method: str = "api_key"
 
     def has_any_role(self, *roles: Role) -> bool:
         return Role.ADMIN in self.roles or bool(self.roles.intersection(roles))
@@ -114,11 +150,22 @@ class Principal:
 
 
 class APIKeyAuthenticator:
-    def __init__(self, *, enabled: bool, config: Optional[GovernanceConfig] = None) -> None:
+    def __init__(
+        self,
+        *,
+        enabled: bool,
+        config: Optional[GovernanceConfig] = None,
+        oidc_fetcher: Optional[Callable[[str], dict[str, Any]]] = None,
+    ) -> None:
         if enabled and config is None:
             raise ValueError("governance config is required when authentication is enabled")
         self.enabled = enabled
         self.config = config
+        self._oidc_validator = (
+            OIDCJWTValidator(config.oidc, fetcher=oidc_fetcher)
+            if enabled and config is not None and config.oidc is not None
+            else None
+        )
 
     @classmethod
     def disabled(cls) -> "APIKeyAuthenticator":
@@ -140,6 +187,7 @@ class APIKeyAuthenticator:
                 roles=frozenset(Role),
                 repository_roots=("*",),
                 authentication_enabled=False,
+                authentication_method="disabled",
             )
         if not authorization or not authorization.startswith("Bearer "):
             raise AuthenticationError("a Bearer API key is required")
@@ -157,6 +205,8 @@ class APIKeyAuthenticator:
                     roles=definition.roles,
                     repository_roots=tuple(definition.repository_roots),
                 )
+        if self._oidc_validator is not None and secret.count(".") == 2:
+            return self._oidc_validator.authenticate(secret)
         raise AuthenticationError("invalid API key")
 
     def quota_for(self, tenant_id: str) -> TenantQuotaPolicy:
@@ -165,6 +215,149 @@ class APIKeyAuthenticator:
                 if quota.tenant_id == tenant_id:
                     return quota
         return TenantQuotaPolicy(tenant_id=tenant_id)
+
+
+class OIDCJWTValidator:
+    """Validate asymmetric OIDC JWTs and cache discovery/JWKS documents."""
+
+    def __init__(
+        self,
+        config: OIDCConfig,
+        *,
+        fetcher: Optional[Callable[[str], dict[str, Any]]] = None,
+    ) -> None:
+        self.config = config
+        self._fetcher = fetcher or self._fetch_json
+        self._jwks_url = config.jwks_url
+        self._jwks: dict[str, Any] = {}
+        self._cache_expires_at = 0.0
+        self._lock = threading.Lock()
+
+    def _fetch_json(self, url: str) -> dict[str, Any]:
+        response = httpx.get(url, timeout=self.config.request_timeout_seconds)
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("OIDC endpoint returned a non-object response")
+        return payload
+
+    def _resolve_jwks_url(self) -> str:
+        if self._jwks_url:
+            return self._jwks_url
+        discovery = self._fetcher(
+            f"{self.config.issuer}/.well-known/openid-configuration"
+        )
+        if discovery.get("issuer", "").rstrip("/") != self.config.issuer:
+            raise AuthenticationError("OIDC discovery issuer mismatch")
+        jwks_url = discovery.get("jwks_uri")
+        if not isinstance(jwks_url, str) or not jwks_url:
+            raise AuthenticationError("OIDC discovery document has no jwks_uri")
+        self._jwks_url = jwks_url
+        return jwks_url
+
+    def _load_jwks(self, *, force: bool = False) -> dict[str, Any]:
+        with self._lock:
+            now = time.monotonic()
+            if not force and self._jwks and now < self._cache_expires_at:
+                return self._jwks
+            payload = self._fetcher(self._resolve_jwks_url())
+            keys = payload.get("keys")
+            if not isinstance(keys, list):
+                raise AuthenticationError("OIDC JWKS response has no keys array")
+            self._jwks = payload
+            self._cache_expires_at = now + self.config.jwks_cache_seconds
+            return payload
+
+    def _signing_key(self, kid: str, algorithm: str) -> Any:
+        for force in (False, True):
+            for key in self._load_jwks(force=force).get("keys", []):
+                if key.get("kid") == kid and key.get("kty") == "RSA":
+                    try:
+                        return jwt.PyJWK.from_dict(key, algorithm=algorithm).key
+                    except (jwt.PyJWTError, ValueError, TypeError) as exc:
+                        raise AuthenticationError("OIDC signing key is invalid") from exc
+        raise AuthenticationError("OIDC signing key was not found")
+
+    @staticmethod
+    def _string_set(value: Any, claim_name: str) -> frozenset[str]:
+        if isinstance(value, str):
+            values = value.split()
+        elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+            values = value
+        else:
+            raise AuthenticationError(f"OIDC {claim_name} claim must contain strings")
+        if not values:
+            raise AuthenticationError(f"OIDC {claim_name} claim cannot be empty")
+        return frozenset(values)
+
+    def authenticate(self, token: str) -> Principal:
+        try:
+            header = jwt.get_unverified_header(token)
+            algorithm = header.get("alg")
+            kid = header.get("kid")
+            if algorithm not in self.config.algorithms:
+                raise AuthenticationError("OIDC token uses a disallowed algorithm")
+            if not isinstance(kid, str) or not kid:
+                raise AuthenticationError("OIDC token has no key id")
+            claims = jwt.decode(
+                token,
+                self._signing_key(kid, algorithm),
+                algorithms=list(self.config.algorithms),
+                audience=self.config.audience,
+                issuer=self.config.issuer,
+                leeway=self.config.clock_skew_seconds,
+                options={
+                    "require": [
+                        "exp",
+                        "iat",
+                        "iss",
+                        "aud",
+                        self.config.subject_claim,
+                        self.config.tenant_claim,
+                        self.config.roles_claim,
+                        self.config.repository_roots_claim,
+                    ]
+                },
+            )
+        except AuthenticationError:
+            raise
+        except (jwt.PyJWTError, httpx.HTTPError, ValueError, TypeError) as exc:
+            raise AuthenticationError("invalid OIDC token") from exc
+
+        subject = claims.get(self.config.subject_claim)
+        tenant_id = claims.get(self.config.tenant_claim)
+        if not isinstance(subject, str) or not subject:
+            raise AuthenticationError("OIDC subject claim must be a non-empty string")
+        if not isinstance(tenant_id, str) or not tenant_id:
+            raise AuthenticationError("OIDC tenant claim must be a non-empty string")
+        try:
+            roles = frozenset(
+                Role(value)
+                for value in self._string_set(
+                    claims.get(self.config.roles_claim), self.config.roles_claim
+                )
+            )
+        except ValueError as exc:
+            raise AuthenticationError("OIDC token contains an unknown role") from exc
+        try:
+            repository_roots = APIKeyDefinition.validate_repository_roots(
+                list(
+                    self._string_set(
+                        claims.get(self.config.repository_roots_claim),
+                        self.config.repository_roots_claim,
+                    )
+                )
+            )
+        except ValueError as exc:
+            raise AuthenticationError("OIDC repository roots claim is invalid") from exc
+        return Principal(
+            key_id=f"oidc:{kid}",
+            tenant_id=tenant_id,
+            subject=subject,
+            roles=roles,
+            repository_roots=tuple(repository_roots),
+            authentication_method="oidc",
+        )
 
 
 class ResourceBinding(BaseModel):
