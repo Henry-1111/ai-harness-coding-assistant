@@ -276,6 +276,7 @@ class TaskJobStore:
         idempotency_key: Optional[str] = None,
         tenant_id: str = "local",
         created_by: str = "system",
+        job_id: Optional[str] = None,
     ) -> TaskJob:
         if not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be within 1..5")
@@ -291,7 +292,7 @@ class TaskJobStore:
         request_hash = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         now = utc_now().isoformat()
         job = TaskJob(
-            job_id=str(uuid.uuid4()),
+            job_id=job_id or str(uuid.uuid4()),
             request=request,
             max_attempts=max_attempts,
             created_at=now,
@@ -776,6 +777,7 @@ class TaskWorkerPool:
         task_timeout_seconds: float = 1800,
         circuit_failure_threshold: int = 3,
         circuit_recovery_seconds: float = 30,
+        terminal_callback: Optional[Callable[[TaskJob], None]] = None,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")
@@ -795,6 +797,7 @@ class TaskWorkerPool:
             failure_threshold=circuit_failure_threshold,
             recovery_seconds=circuit_recovery_seconds,
         )
+        self.terminal_callback = terminal_callback
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._workers: dict[str, WorkerSnapshot] = {}
@@ -883,6 +886,7 @@ class TaskWorkerPool:
                     if infrastructure_error:
                         self.circuit.record_failure()
                         self.store.fail(job.job_id, worker_id, infrastructure_error)
+                        self._notify_terminal(job.job_id)
                         self._update_worker(
                             worker_id,
                             failed_delta=1,
@@ -894,6 +898,7 @@ class TaskWorkerPool:
                         else:
                             self.circuit.record_success()
                         self.store.complete(job.job_id, worker_id, result)
+                        self._notify_terminal(job.job_id)
                         self._update_worker(
                             worker_id,
                             completed_delta=1,
@@ -904,6 +909,7 @@ class TaskWorkerPool:
                     error = f"{type(exc).__name__}: {exc}"
                     self.circuit.record_failure()
                     self.store.fail(job.job_id, worker_id, error)
+                    self._notify_terminal(job.job_id)
                     self._update_worker(
                         worker_id,
                         failed_delta=1,
@@ -915,6 +921,23 @@ class TaskWorkerPool:
                     self._update_worker(worker_id, state="idle", current_job_id=None)
         finally:
             self._update_worker(worker_id, state="stopped", current_job_id=None)
+
+    def _notify_terminal(self, job_id: str) -> None:
+        if self.terminal_callback is None:
+            return
+        job = self.store.get(job_id)
+        if job is None or job.status in {
+            JobStatus.PENDING,
+            JobStatus.RUNNING,
+            JobStatus.NEEDS_INPUT,
+        }:
+            return
+        try:
+            self.terminal_callback(job)
+        except Exception:
+            # The job result is already durable. Quota settlement is idempotent and can be
+            # reconciled later without turning a completed coding task into a provider failure.
+            return
 
     @staticmethod
     def _infrastructure_error(result: TaskResult) -> Optional[str]:

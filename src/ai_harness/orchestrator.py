@@ -12,7 +12,7 @@ from typing import Callable, Literal, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from .agents import AgentModel, CoderAgent, ReviewerAgent
+from .agents import AgentModel, CoderAgent, ReviewerAgent, capture_task_model_usage
 from .checkpoints import CheckpointStore
 from .collaboration import CollaborativeCoder
 from .embeddings import EmbeddingProvider
@@ -318,8 +318,10 @@ class HarnessOrchestrator:
     ) -> TaskResult:
         graph = self._build_graph()
         token = _EXECUTION_CONTROL.set(control)
+        usage = None
         try:
-            output = graph.invoke({"task": state})
+            with capture_task_model_usage() as usage:
+                output = graph.invoke({"task": state})
             final_state = output["task"]
         except ExecutionInterrupted as exc:
             failed_node = state.current_node
@@ -376,6 +378,34 @@ class HarnessOrchestrator:
             final_state = state
         finally:
             _EXECUTION_CONTROL.reset(token)
+        if usage is not None:
+            current = final_state.model_usage
+            captured = usage.snapshot()
+            prompt_tokens = (
+                current.prompt_tokens + captured.prompt_tokens
+                if current.prompt_tokens is not None and captured.prompt_tokens is not None
+                else None
+            )
+            completion_tokens = (
+                current.completion_tokens + captured.completion_tokens
+                if current.completion_tokens is not None
+                and captured.completion_tokens is not None
+                else None
+            )
+            final_state.model_usage = current.model_copy(
+                update={
+                    "calls": current.calls + captured.calls,
+                    "request_chars": current.request_chars + captured.request_chars,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": (
+                        prompt_tokens + completion_tokens
+                        if prompt_tokens is not None and completion_tokens is not None
+                        else None
+                    ),
+                }
+            )
+            self.checkpoints.save(final_state)
         return self._result(final_state)
 
     @staticmethod
@@ -995,6 +1025,7 @@ class HarnessOrchestrator:
             repair_history=state.repair_history,
             collaboration_history=state.collaboration_history,
             approval=state.approval,
+            model_usage=state.model_usage,
             retrieval_trace=state.retrieval_trace,
             trace=state.trace,
             error=state.error,

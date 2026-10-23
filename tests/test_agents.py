@@ -1,6 +1,6 @@
 import json
 
-from ai_harness.agents import OpenAICompatibleModel
+from ai_harness.agents import OpenAICompatibleModel, capture_task_model_usage
 
 
 class FakeResponse:
@@ -40,7 +40,8 @@ def test_openai_adapter_matches_llm_gateway_contract(monkeypatch):
         timeout_seconds=15,
     )
 
-    result = model.complete_json(system="return JSON", payload={"goal": "fix bug"})
+    with capture_task_model_usage() as task_usage:
+        result = model.complete_json(system="return JSON", payload={"goal": "fix bug"})
 
     assert captured["url"] == "http://127.0.0.1:8000/v1/chat/completions"
     assert captured["headers"]["Authorization"] == "Bearer llmgw-tenant-key"
@@ -54,3 +55,8 @@ def test_openai_adapter_matches_llm_gateway_contract(monkeypatch):
     assert usage.prompt_tokens == 12
     assert usage.completion_tokens == 4
     assert usage.total_tokens == 16
+    captured_usage = task_usage.snapshot()
+    assert captured_usage.calls == 1
+    assert captured_usage.prompt_tokens == 12
+    assert captured_usage.completion_tokens == 4
+    assert captured_usage.total_tokens == 16

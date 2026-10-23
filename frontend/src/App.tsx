@@ -33,6 +33,7 @@ import {
   getDiff,
   getJob,
   getJobEvents,
+  getQuota,
   getRuntime,
   promoteTask,
   setApiKey,
@@ -44,6 +45,7 @@ import type {
   RuntimeSnapshot,
   TaskJob,
   TaskResult,
+  TenantQuotaSnapshot,
 } from "./types";
 
 const { Text, Title, Paragraph } = Typography;
@@ -83,24 +85,28 @@ export default function App() {
   const [apiKey, setApiKeyValue] = useState(getStoredApiKey());
   const [authRevision, setAuthRevision] = useState(0);
   const [identity, setIdentity] = useState<PrincipalIdentity>();
+  const [quota, setQuota] = useState<TenantQuotaSnapshot>();
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const [snapshot, currentIdentity] = await Promise.all([
+        const [snapshot, currentIdentity, currentQuota] = await Promise.all([
           getRuntime().catch(() => undefined),
           getIdentity(),
+          getQuota(),
         ]);
         if (active) {
           setRuntime(snapshot);
           setIdentity(currentIdentity);
+          setQuota(currentQuota);
         }
       } catch {
         if (active) {
           setRuntime(undefined);
           setIdentity(undefined);
+          setQuota(undefined);
         }
       }
     };
@@ -289,6 +295,13 @@ export default function App() {
               <Space wrap>
                 <Text>{identity.subject}</Text>
                 {identity.roles.map((role) => <Tag key={role}>{role}</Tag>)}
+                {quota && (
+                  <Tag color="blue">
+                    在途 {quota.outstanding_jobs}/{quota.policy.max_outstanding_jobs} · 今日任务
+                    {" "}{quota.daily_jobs}/{quota.policy.max_daily_jobs} · Token
+                    {" "}{quota.charged_tokens}/{quota.policy.max_daily_tokens}
+                  </Tag>
+                )}
               </Space>
             ) : (
               <Text type="secondary">认证开启时，请输入管理员签发的租户 API Key。</Text>
@@ -590,6 +603,15 @@ export default function App() {
                     description={result.review.issues.join("；") || "验收证据完整，可以人工发布。"}
                   />
                 )}
+                <div className="routing-summary">
+                  <Text strong>模型用量</Text>
+                  <Space wrap>
+                    <Tag>调用 {result.model_usage.calls}</Tag>
+                    <Tag>Prompt {result.model_usage.prompt_tokens ?? "unknown"}</Tag>
+                    <Tag>Completion {result.model_usage.completion_tokens ?? "unknown"}</Tag>
+                    <Tag color="blue">Total {result.model_usage.total_tokens ?? "reserved"}</Tag>
+                  </Space>
+                </div>
                 {result.repair_history.length > 0 && (
                   <div className="routing-summary">
                     <Text strong>自愈记录</Text>

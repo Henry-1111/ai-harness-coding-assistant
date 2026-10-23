@@ -27,5 +27,14 @@
       "repository_roots": ["/repository"],
       "enabled": true
     }
+  ],
+  "tenant_quotas": [
+    {
+      "tenant_id": "tenant-a",
+      "max_outstanding_jobs": 4,
+      "max_daily_jobs": 100,
+      "max_daily_tokens": 1000000,
+      "token_reservation": 20000
+    }
   ]
 }

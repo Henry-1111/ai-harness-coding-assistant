@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
@@ -15,21 +16,24 @@ from .governance import (
     AuthorizationError,
     GovernanceStore,
     Principal,
+    QuotaExceededError,
     ResourceBinding,
     Role,
+    TenantQuotaSnapshot,
 )
 from .jobs import (
     CircuitState,
     IdempotencyConflictError,
     JobEvent,
     JobMetrics,
+    JobStatus,
     QueueFullError,
     RuntimeSnapshot,
     TaskJob,
     TaskJobStore,
     TaskWorkerPool,
 )
-from .models import TaskRequest, TaskResult, TaskState
+from .models import TaskRequest, TaskResult, TaskState, TaskStatus
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 
 
@@ -62,6 +66,28 @@ def create_app(
         orchestrator.data_directory / "jobs.sqlite3",
         max_outstanding_jobs=job_queue_capacity,
     )
+
+    def settle_job_quota(job: TaskJob) -> None:
+        if not authenticator.enabled:
+            return
+        actual_tokens = (
+            0
+            if job.status == JobStatus.CANCELLED and job.attempts == 0
+            else job.result.model_usage.total_tokens
+            if job.result
+            else None
+        )
+        if governance_store.settle_quota(job.job_id, actual_tokens):
+            governance_store.audit(
+                actor=job.created_by,
+                tenant_id=job.tenant_id,
+                action="job.quota.settle",
+                resource_type="job",
+                resource_id=job.job_id,
+                outcome="accepted",
+                details={"actual_tokens": actual_tokens},
+            )
+
     worker_pool = worker_pool or TaskWorkerPool(
         orchestrator,
         job_store,
@@ -71,6 +97,7 @@ def create_app(
         task_timeout_seconds=job_timeout_seconds,
         circuit_failure_threshold=circuit_failure_threshold,
         circuit_recovery_seconds=circuit_recovery_seconds,
+        terminal_callback=settle_job_quota,
     )
 
     @asynccontextmanager
@@ -303,14 +330,54 @@ def create_app(
     ) -> TaskResult:
         require_roles(principal, Role.SUBMITTER, action="task.create")
         authorize_repository(principal, request.repository, action="task.create")
-        result = orchestrator.run(
-            request,
-            control=ExecutionControl(
-                should_cancel=lambda: False,
-                tenant_id=principal.tenant_id,
+        reservation_id = f"sync-{uuid.uuid4()}"
+        if authenticator.enabled:
+            try:
+                governance_store.reserve_quota(
+                    job_id=reservation_id,
+                    tenant_id=principal.tenant_id,
+                    policy=authenticator.quota_for(principal.tenant_id),
+                )
+            except QuotaExceededError as exc:
+                raise HTTPException(status_code=429, detail=str(exc)) from exc
+            governance_store.audit(
                 actor=principal.subject,
-            ),
-        )
+                tenant_id=principal.tenant_id,
+                action="task.quota.reserve",
+                resource_type="quota_reservation",
+                resource_id=reservation_id,
+                outcome="accepted",
+                details={
+                    "reserved_tokens": authenticator.quota_for(
+                        principal.tenant_id
+                    ).token_reservation
+                },
+            )
+        try:
+            result = orchestrator.run(
+                request,
+                control=ExecutionControl(
+                    should_cancel=lambda: False,
+                    tenant_id=principal.tenant_id,
+                    actor=principal.subject,
+                ),
+            )
+        except Exception:
+            if authenticator.enabled:
+                governance_store.settle_quota(reservation_id, None)
+            raise
+        if authenticator.enabled:
+            actual_tokens = result.model_usage.total_tokens
+            governance_store.settle_quota(reservation_id, actual_tokens)
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.quota.settle",
+                resource_type="quota_reservation",
+                resource_id=reservation_id,
+                outcome="accepted",
+                details={"actual_tokens": actual_tokens},
+            )
         governance_store.bind(
             "task",
             result.task_id,
@@ -336,12 +403,54 @@ def create_app(
     ) -> TaskJob:
         require_roles(principal, Role.SUBMITTER, action="job.create")
         authorize_repository(principal, request.repository, action="job.create")
+        job_id = (
+            str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    f"ai-harness:{principal.tenant_id}:{idempotency_key}",
+                )
+            )
+            if idempotency_key
+            else str(uuid.uuid4())
+        )
+        if authenticator.enabled:
+            try:
+                governance_store.reserve_quota(
+                    job_id=job_id,
+                    tenant_id=principal.tenant_id,
+                    policy=authenticator.quota_for(principal.tenant_id),
+                )
+            except QuotaExceededError as exc:
+                governance_store.audit(
+                    actor=principal.subject,
+                    tenant_id=principal.tenant_id,
+                    action="job.quota.reserve",
+                    resource_type="job",
+                    resource_id=job_id,
+                    outcome="denied",
+                    details={"reason": str(exc)},
+                )
+                raise HTTPException(status_code=429, detail=str(exc)) from exc
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="job.quota.reserve",
+                resource_type="job",
+                resource_id=job_id,
+                outcome="accepted",
+                details={
+                    "reserved_tokens": authenticator.quota_for(
+                        principal.tenant_id
+                    ).token_reservation
+                },
+            )
         try:
             job = job_store.enqueue(
                 request,
                 idempotency_key=idempotency_key,
                 tenant_id=principal.tenant_id,
                 created_by=principal.subject,
+                job_id=job_id,
             )
             governance_store.bind(
                 "job",
@@ -360,10 +469,16 @@ def create_app(
             )
             return job
         except QueueFullError as exc:
+            if authenticator.enabled and job_store.get(job_id) is None:
+                governance_store.release_quota(job_id)
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         except IdempotencyConflictError as exc:
+            if authenticator.enabled and job_store.get(job_id) is None:
+                governance_store.release_quota(job_id)
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
+            if authenticator.enabled and job_store.get(job_id) is None:
+                governance_store.release_quota(job_id)
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.get("/v1/jobs/metrics", response_model=JobMetrics)
@@ -415,6 +530,8 @@ def create_app(
         job = job_store.cancel(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="job not found")
+        if job.status == JobStatus.CANCELLED:
+            settle_job_quota(job)
         return job
 
     @app.get("/v1/tasks/{task_id}", response_model=TaskState)
@@ -495,6 +612,13 @@ def create_app(
                 note=decision.note,
             )
             job_store.update_for_task(result)
+            job = job_store.get_by_task_id(result.task_id)
+            if job is not None and result.status not in {
+                TaskStatus.PENDING,
+                TaskStatus.RUNNING,
+                TaskStatus.NEEDS_INPUT,
+            }:
+                settle_job_quota(job_store.get(job.job_id) or job)
             governance_store.audit(
                 actor=principal.subject,
                 tenant_id=principal.tenant_id,
@@ -582,6 +706,15 @@ def create_app(
     ) -> list[AuditEvent]:
         require_roles(principal, Role.AUDITOR, Role.OPERATOR, action="audit.read")
         return governance_store.events(principal, limit=limit)
+
+    @app.get("/v1/quota", response_model=TenantQuotaSnapshot)
+    def tenant_quota(
+        principal: Principal = Depends(current_principal),  # noqa: B008
+    ) -> TenantQuotaSnapshot:
+        return governance_store.quota_snapshot(
+            principal.tenant_id,
+            authenticator.quota_for(principal.tenant_id),
+        )
 
     @app.get("/v1/audit/integrity")
     def audit_integrity(

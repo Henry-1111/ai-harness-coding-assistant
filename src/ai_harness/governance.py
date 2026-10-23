@@ -23,6 +23,10 @@ class AuthorizationError(RuntimeError):
     pass
 
 
+class QuotaExceededError(RuntimeError):
+    pass
+
+
 class Role(str, Enum):
     SUBMITTER = "submitter"
     REVIEWER = "reviewer"
@@ -56,8 +60,22 @@ class APIKeyDefinition(BaseModel):
         return normalized
 
 
+class TenantQuotaPolicy(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=100)
+    max_outstanding_jobs: int = Field(default=10, ge=1, le=100_000)
+    max_daily_jobs: int = Field(default=100, ge=1, le=1_000_000)
+    max_daily_tokens: int = Field(default=1_000_000, ge=1, le=10_000_000_000)
+    token_reservation: int = Field(default=20_000, ge=1, le=10_000_000_000)
+
+    @model_validator(mode="after")
+    def validate_token_reservation(self) -> "TenantQuotaPolicy":
+        if self.token_reservation > self.max_daily_tokens:
+            raise ValueError("token_reservation cannot exceed max_daily_tokens")
+        return self
+
 class GovernanceConfig(BaseModel):
     keys: list[APIKeyDefinition] = Field(min_length=1)
+    tenant_quotas: list[TenantQuotaPolicy] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_unique_keys(self) -> "GovernanceConfig":
@@ -67,6 +85,9 @@ class GovernanceConfig(BaseModel):
             raise ValueError("governance key_id values must be unique")
         if len(secret_hashes) != len(set(secret_hashes)):
             raise ValueError("governance API key hashes must be unique")
+        quota_tenants = [quota.tenant_id for quota in self.tenant_quotas]
+        if len(quota_tenants) != len(set(quota_tenants)):
+            raise ValueError("tenant quota policies must be unique")
         return self
 
 
@@ -138,6 +159,13 @@ class APIKeyAuthenticator:
                 )
         raise AuthenticationError("invalid API key")
 
+    def quota_for(self, tenant_id: str) -> TenantQuotaPolicy:
+        if self.config is not None:
+            for quota in self.config.tenant_quotas:
+                if quota.tenant_id == tenant_id:
+                    return quota
+        return TenantQuotaPolicy(tenant_id=tenant_id)
+
 
 class ResourceBinding(BaseModel):
     resource_type: str
@@ -161,6 +189,17 @@ class AuditEvent(BaseModel):
     previous_hash: str
     event_hash: str
     created_at: str
+
+
+class TenantQuotaSnapshot(BaseModel):
+    tenant_id: str
+    usage_date: str
+    outstanding_jobs: int
+    daily_jobs: int
+    charged_tokens: int
+    reserved_tokens: int
+    actual_tokens: int
+    policy: TenantQuotaPolicy
 
 
 class GovernanceStore:
@@ -206,8 +245,153 @@ class GovernanceStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_governance_audit_tenant_sequence
                     ON governance_audit_events(tenant_id, sequence);
+                CREATE TABLE IF NOT EXISTS tenant_quota_reservations (
+                    reservation_id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL UNIQUE,
+                    tenant_id TEXT NOT NULL,
+                    usage_date TEXT NOT NULL,
+                    reserved_tokens INTEGER NOT NULL,
+                    actual_tokens INTEGER,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    settled_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_tenant_quota_usage
+                    ON tenant_quota_reservations(tenant_id, usage_date, status);
                 """
             )
+
+    def reserve_quota(
+        self,
+        *,
+        job_id: str,
+        tenant_id: str,
+        policy: TenantQuotaPolicy,
+    ) -> TenantQuotaSnapshot:
+        now = utc_now()
+        usage_date = now.date().isoformat()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT reservation_id FROM tenant_quota_reservations WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
+            if existing is not None:
+                connection.execute("COMMIT")
+                return self.quota_snapshot(tenant_id, policy)
+            row = connection.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS outstanding,
+                    SUM(CASE WHEN status != 'released' THEN 1 ELSE 0 END) AS daily_jobs,
+                    SUM(
+                        CASE
+                            WHEN status = 'released' THEN 0
+                            WHEN status = 'settled' THEN COALESCE(actual_tokens, reserved_tokens)
+                            ELSE reserved_tokens
+                        END
+                    ) AS charged_tokens
+                FROM tenant_quota_reservations
+                WHERE tenant_id = ? AND usage_date = ?
+                """,
+                (tenant_id, usage_date),
+            ).fetchone()
+            outstanding = int(row["outstanding"] or 0)
+            daily_jobs = int(row["daily_jobs"] or 0)
+            charged_tokens = int(row["charged_tokens"] or 0)
+            if outstanding >= policy.max_outstanding_jobs:
+                connection.execute("ROLLBACK")
+                raise QuotaExceededError("tenant outstanding job limit has been reached")
+            if daily_jobs >= policy.max_daily_jobs:
+                connection.execute("ROLLBACK")
+                raise QuotaExceededError("tenant daily job quota has been exhausted")
+            if charged_tokens + policy.token_reservation > policy.max_daily_tokens:
+                connection.execute("ROLLBACK")
+                raise QuotaExceededError("tenant daily token quota has been exhausted")
+            connection.execute(
+                """
+                INSERT INTO tenant_quota_reservations (
+                    reservation_id, job_id, tenant_id, usage_date, reserved_tokens,
+                    actual_tokens, status, created_at, settled_at
+                ) VALUES (?, ?, ?, ?, ?, NULL, 'active', ?, NULL)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    job_id,
+                    tenant_id,
+                    usage_date,
+                    policy.token_reservation,
+                    now.isoformat(),
+                ),
+            )
+            connection.execute("COMMIT")
+        return self.quota_snapshot(tenant_id, policy)
+
+    def settle_quota(self, job_id: str, actual_tokens: Optional[int]) -> bool:
+        if actual_tokens is not None and actual_tokens < 0:
+            raise ValueError("actual_tokens cannot be negative")
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE tenant_quota_reservations
+                SET status = 'settled', actual_tokens = ?, settled_at = ?
+                WHERE job_id = ? AND status = 'active'
+                """,
+                (actual_tokens, utc_now().isoformat(), job_id),
+            )
+        return cursor.rowcount == 1
+
+    def release_quota(self, job_id: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE tenant_quota_reservations
+                SET status = 'released', settled_at = ?
+                WHERE job_id = ? AND status = 'active'
+                """,
+                (utc_now().isoformat(), job_id),
+            )
+        return cursor.rowcount == 1
+
+    def quota_snapshot(
+        self,
+        tenant_id: str,
+        policy: TenantQuotaPolicy,
+    ) -> TenantQuotaSnapshot:
+        usage_date = utc_now().date().isoformat()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS outstanding,
+                    SUM(CASE WHEN status != 'released' THEN 1 ELSE 0 END) AS daily_jobs,
+                    SUM(
+                        CASE
+                            WHEN status = 'released' THEN 0
+                            WHEN status = 'settled' THEN COALESCE(actual_tokens, reserved_tokens)
+                            ELSE reserved_tokens
+                        END
+                    ) AS charged_tokens,
+                    SUM(CASE WHEN status = 'active' THEN reserved_tokens ELSE 0 END)
+                        AS reserved_tokens,
+                    SUM(
+                        CASE WHEN status = 'settled' THEN COALESCE(actual_tokens, 0) ELSE 0 END
+                    ) AS actual_tokens
+                FROM tenant_quota_reservations
+                WHERE tenant_id = ? AND usage_date = ?
+                """,
+                (tenant_id, usage_date),
+            ).fetchone()
+        return TenantQuotaSnapshot(
+            tenant_id=tenant_id,
+            usage_date=usage_date,
+            outstanding_jobs=int(row["outstanding"] or 0),
+            daily_jobs=int(row["daily_jobs"] or 0),
+            charged_tokens=int(row["charged_tokens"] or 0),
+            reserved_tokens=int(row["reserved_tokens"] or 0),
+            actual_tokens=int(row["actual_tokens"] or 0),
+            policy=policy,
+        )
 
     def bind(
         self,

@@ -15,6 +15,30 @@ export interface PrincipalIdentity {
   authentication_enabled: boolean;
 }
 
+export interface ModelUsage {
+  calls: number;
+  request_chars: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
+export interface TenantQuotaSnapshot {
+  tenant_id: string;
+  usage_date: string;
+  outstanding_jobs: number;
+  daily_jobs: number;
+  charged_tokens: number;
+  reserved_tokens: number;
+  actual_tokens: number;
+  policy: {
+    max_outstanding_jobs: number;
+    max_daily_jobs: number;
+    max_daily_tokens: number;
+    token_reservation: number;
+  };
+}
+
 export interface CommandResult {
   command: string;
   exit_code: number;
@@ -131,6 +155,7 @@ export interface TaskResult {
   repair_history: RepairPlan[];
   collaboration_history: CollaborationTurn[];
   approval?: ApprovalRecord;
+  model_usage: ModelUsage;
   retrieval_trace?: RetrievalTrace;
   trace: AgentTraceEvent[];
   error?: string;

@@ -290,6 +290,14 @@ class ReviewDecision(BaseModel):
     findings: List[ReviewFinding] = Field(default_factory=list)
 
 
+class ModelUsage(BaseModel):
+    calls: int = 0
+    request_chars: int = 0
+    prompt_tokens: Optional[int] = 0
+    completion_tokens: Optional[int] = 0
+    total_tokens: Optional[int] = 0
+
+
 class TaskState(BaseModel):
     task_id: str
     request: TaskRequest
@@ -311,6 +319,7 @@ class TaskState(BaseModel):
     repair_history: List[RepairPlan] = Field(default_factory=list)
     collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
     approval: Optional[ApprovalRecord] = None
+    model_usage: ModelUsage = Field(default_factory=ModelUsage)
     error: Optional[str] = None
     scratchpad: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
@@ -329,6 +338,7 @@ class TaskResult(BaseModel):
     repair_history: List[RepairPlan] = Field(default_factory=list)
     collaboration_history: List[CollaborationTurn] = Field(default_factory=list)
     approval: Optional[ApprovalRecord] = None
+    model_usage: ModelUsage = Field(default_factory=ModelUsage)
     retrieval_trace: Optional[RetrievalTrace] = None
     trace: List[AgentTraceEvent] = Field(default_factory=list)
     error: Optional[str] = None

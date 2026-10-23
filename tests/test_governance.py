@@ -12,7 +12,9 @@ from ai_harness.governance import (
     GovernanceConfig,
     GovernanceStore,
     Principal,
+    QuotaExceededError,
     Role,
+    TenantQuotaPolicy,
 )
 
 
@@ -81,3 +83,38 @@ def test_resource_ownership_and_audit_hash_chain(tmp_path: Path) -> None:
     assert second.previous_hash == first.event_hash
     assert [event.action for event in store.events(principal)] == ["job.read", "job.create"]
     assert store.verify_integrity(principal) == (True, 2)
+
+
+def test_tenant_quota_atomically_reserves_settles_and_enforces_limits(
+    tmp_path: Path,
+) -> None:
+    store = GovernanceStore(tmp_path / "governance.sqlite3")
+    policy = TenantQuotaPolicy(
+        tenant_id="tenant-a",
+        max_outstanding_jobs=1,
+        max_daily_jobs=2,
+        max_daily_tokens=100,
+        token_reservation=60,
+    )
+
+    first = store.reserve_quota(job_id="job-1", tenant_id="tenant-a", policy=policy)
+    replay = store.reserve_quota(job_id="job-1", tenant_id="tenant-a", policy=policy)
+
+    assert first.outstanding_jobs == 1
+    assert replay.daily_jobs == 1
+    with pytest.raises(QuotaExceededError, match="outstanding"):
+        store.reserve_quota(job_id="job-2", tenant_id="tenant-a", policy=policy)
+
+    store.settle_quota("job-1", 20)
+    second = store.reserve_quota(job_id="job-2", tenant_id="tenant-a", policy=policy)
+    assert second.outstanding_jobs == 1
+    assert second.daily_jobs == 2
+    assert second.charged_tokens == 80
+
+    store.settle_quota("job-2", None)
+    settled = store.quota_snapshot("tenant-a", policy)
+    assert settled.outstanding_jobs == 0
+    assert settled.actual_tokens == 20
+    assert settled.charged_tokens == 80
+    with pytest.raises(QuotaExceededError, match="daily job"):
+        store.reserve_quota(job_id="job-3", tenant_id="tenant-a", policy=policy)

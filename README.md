@@ -96,6 +96,28 @@ Authorization: Bearer <tenant-api-key>
 检测历史记录被改写；`GET /v1/audit/integrity` 会重新计算当前租户的完整哈希链。认证默认关闭，
 以兼容本地 CLI；部署环境应显式开启。
 
+### 租户并发与每日额度
+
+治理配置中的 `tenant_quotas` 为每个租户设置最大在途任务、每日任务和每日 Token 上限。任务提交时会在
+SQLite `BEGIN IMMEDIATE` 事务内原子检查并预留 Token；达到任一上限返回 HTTP 429，任务不会进入队列。
+同一租户的相同 `Idempotency-Key` 使用确定性 Job ID，因此并发重放只占一份额度；不同租户可安全复用
+相同幂等键。
+
+```json
+{
+  "tenant_id": "tenant-a",
+  "max_outstanding_jobs": 4,
+  "max_daily_jobs": 100,
+  "max_daily_tokens": 1000000,
+  "token_reservation": 20000
+}
+```
+
+Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `usage.completion_tokens` 聚合到
+`TaskResult.model_usage`，终态后用实际 Token 替换预留量并释放在途名额。若 Provider 没有返回 usage，
+系统保守地按预留量结算，避免缺失统计导致配额超发；排队取消按 0 Token 结算。高风险任务停在审批门时
+继续占用在途名额，审批完成或拒绝后再结算。`GET /v1/quota` 返回当前租户的实时额度快照。
+
 ## 安全模型
 
 1. 模型不能直接执行命令，只能返回符合 Pydantic Schema 的 JSON。

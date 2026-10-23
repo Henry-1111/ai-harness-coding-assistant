@@ -12,6 +12,7 @@ from ai_harness.governance import (
     GovernanceConfig,
     GovernanceStore,
     Role,
+    TenantQuotaPolicy,
 )
 from ai_harness.jobs import TaskJobStore, TaskWorkerPool
 from ai_harness.orchestrator import HarnessOrchestrator
@@ -334,7 +335,23 @@ def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
                     "mallory",
                     Role.SUBMITTER,
                 ),
-            ]
+            ],
+            tenant_quotas=[
+                TenantQuotaPolicy(
+                    tenant_id="tenant-a",
+                    max_outstanding_jobs=1,
+                    max_daily_jobs=10,
+                    max_daily_tokens=1000,
+                    token_reservation=100,
+                ),
+                TenantQuotaPolicy(
+                    tenant_id="tenant-b",
+                    max_outstanding_jobs=1,
+                    max_daily_jobs=10,
+                    max_daily_tokens=1000,
+                    token_reservation=100,
+                ),
+            ],
         ),
     )
     governance = GovernanceStore(tmp_path / "data" / "governance.sqlite3")
@@ -372,9 +389,20 @@ def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
 
     with TestClient(app) as client:
         assert client.post("/v1/jobs", json=body).status_code == 401
-        created = client.post("/v1/jobs", json=body, headers=alice)
+        created = client.post(
+            "/v1/jobs",
+            json=body,
+            headers={**alice, "Idempotency-Key": "governance-task"},
+        )
         assert created.status_code == 202
         job_id = created.json()["job_id"]
+        replay = client.post(
+            "/v1/jobs",
+            json=body,
+            headers={**alice, "Idempotency-Key": "governance-task"},
+        )
+        assert replay.status_code == 202
+        assert replay.json()["job_id"] == job_id
         deadline = time.monotonic() + 5
         job = created.json()
         while job["status"] in {"pending", "running"} and time.monotonic() < deadline:
@@ -382,6 +410,15 @@ def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
             job = client.get(f"/v1/jobs/{job_id}", headers=alice).json()
 
         assert job["status"] == "needs_input"
+        waiting_quota = client.get("/v1/quota", headers=alice)
+        assert waiting_quota.json()["outstanding_jobs"] == 1
+        assert waiting_quota.json()["daily_jobs"] == 1
+        quota_rejected = client.post(
+            "/v1/jobs",
+            json={**body, "goal": "Modify another production calculator safely"},
+            headers={**alice, "Idempotency-Key": "second-task"},
+        )
+        assert quota_rejected.status_code == 429
         task_id = job["task_id"]
         assert client.get(f"/v1/jobs/{job_id}", headers=mallory).status_code == 403
         self_approval = client.post(
@@ -401,12 +438,16 @@ def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
         promoted = client.post(f"/v1/tasks/{task_id}/promote", headers=carol)
         audit = client.get("/v1/audit/events", headers=carol)
         integrity = client.get("/v1/audit/integrity", headers=carol)
+        settled_quota = client.get("/v1/quota", headers=alice)
 
     assert promoted.status_code == 200
     assert promoted.json()["promoted_files"] == ["calculator.py"]
     assert audit.status_code == 200
     assert integrity.status_code == 200
     assert integrity.json()["valid"] is True
+    assert settled_quota.json()["outstanding_jobs"] == 0
+    assert settled_quota.json()["daily_jobs"] == 1
+    assert settled_quota.json()["charged_tokens"] == 0
     actions = [event["action"] for event in audit.json()]
     assert "job.create" in actions
     assert "task.approval.decide" in actions

@@ -137,6 +137,7 @@ def test_full_http_gateway_job_flow_and_explicit_promotion(
             result = job["result"]
             assert isinstance(result, dict)
             assert result["changed_files"] == ["calculator.py"]
+            assert result["model_usage"]["total_tokens"] == 30
             assert "left - right" in (sample_repository / "calculator.py").read_text()
 
             promoted = client.post(f"/v1/tasks/{job['task_id']}/promote")

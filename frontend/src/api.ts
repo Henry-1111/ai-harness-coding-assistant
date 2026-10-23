@@ -3,6 +3,7 @@ import type {
   JobEvent,
   PrincipalIdentity,
   RuntimeSnapshot,
+  TenantQuotaSnapshot,
   TaskJob,
   TaskResult,
 } from "./types";
@@ -41,6 +42,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getIdentity(): Promise<PrincipalIdentity> {
   return request("/v1/auth/me");
+}
+
+export function getQuota(): Promise<TenantQuotaSnapshot> {
+  return request("/v1/quota");
 }
 
 export function createTask(input: CreateTaskInput): Promise<TaskResult> {

@@ -3,14 +3,17 @@ from __future__ import annotations
 import fnmatch
 import json
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, Iterator, List, Optional, Protocol
 
 import httpx
 
 from .models import (
     CodingDecision,
     CommandResult,
+    ModelUsage,
     RepairPlan,
     ReviewDecision,
     ReviewFinding,
@@ -30,6 +33,47 @@ class ModelUsageSnapshot:
     prompt_tokens: Optional[int]
     completion_tokens: Optional[int]
     total_tokens: Optional[int]
+
+
+@dataclass
+class TaskUsageAccumulator:
+    calls: int = 0
+    request_chars: int = 0
+    reported_calls: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    def snapshot(self) -> ModelUsage:
+        complete = self.calls == self.reported_calls
+        prompt_tokens = self.prompt_tokens if complete else None
+        completion_tokens = self.completion_tokens if complete else None
+        return ModelUsage(
+            calls=self.calls,
+            request_chars=self.request_chars,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=(
+                prompt_tokens + completion_tokens
+                if prompt_tokens is not None and completion_tokens is not None
+                else None
+            ),
+        )
+
+
+_TASK_USAGE: ContextVar[Optional[TaskUsageAccumulator]] = ContextVar(
+    "ai_harness_task_usage",
+    default=None,
+)
+
+
+@contextmanager
+def capture_task_model_usage() -> Iterator[TaskUsageAccumulator]:
+    accumulator = TaskUsageAccumulator()
+    token = _TASK_USAGE.set(accumulator)
+    try:
+        yield accumulator
+    finally:
+        _TASK_USAGE.reset(token)
 
 
 class OpenAICompatibleModel:
@@ -53,6 +97,10 @@ class OpenAICompatibleModel:
 
     def complete_json(self, *, system: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         encoded_payload = json.dumps(payload, ensure_ascii=False)
+        task_usage = _TASK_USAGE.get()
+        if task_usage is not None:
+            task_usage.calls += 1
+            task_usage.request_chars += len(system) + len(encoded_payload)
         with self._usage_lock:
             self._calls += 1
             self._request_chars += len(system) + len(encoded_payload)
@@ -77,6 +125,10 @@ class OpenAICompatibleModel:
             prompt_tokens = usage.get("prompt_tokens")
             completion_tokens = usage.get("completion_tokens")
             if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
+                if task_usage is not None:
+                    task_usage.reported_calls += 1
+                    task_usage.prompt_tokens += prompt_tokens
+                    task_usage.completion_tokens += completion_tokens
                 with self._usage_lock:
                     self._reported_usage += 1
                     self._prompt_tokens += prompt_tokens
