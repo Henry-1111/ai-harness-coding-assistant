@@ -5,6 +5,7 @@ from conftest import ScriptedModel
 from fastapi.testclient import TestClient
 
 from ai_harness.api import create_app
+from ai_harness.jobs import TaskJobStore, TaskWorkerPool
 from ai_harness.orchestrator import HarnessOrchestrator
 from ai_harness.sandbox import LocalCommandSandbox
 
@@ -69,6 +70,31 @@ def test_api_returns_404_for_unknown_task(tmp_path: Path):
     with TestClient(app) as client:
         response = client.get("/v1/tasks/missing")
     assert response.status_code == 404
+
+
+def test_readiness_fails_while_worker_circuit_is_open(tmp_path: Path):
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
+    store = TaskJobStore(tmp_path / "data" / "jobs.sqlite3")
+    pool = TaskWorkerPool(
+        orchestrator,
+        store,
+        max_workers=1,
+        poll_interval_seconds=0.01,
+        circuit_failure_threshold=1,
+        circuit_recovery_seconds=60,
+    )
+    pool.circuit.record_failure()
+    app = create_app(orchestrator, job_store=store, worker_pool=pool)
+
+    with TestClient(app) as client:
+        ready = client.get("/ready")
+        runtime = client.get("/v1/runtime")
+
+    assert ready.status_code == 503
+    assert runtime.json()["ready"] is False
+    assert runtime.json()["circuit"]["state"] == "open"
 
 
 def test_api_requires_and_records_human_approval(tmp_path: Path, sample_repository: Path):
@@ -157,6 +183,9 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
             time.sleep(0.02)
             body = client.get(f"/v1/jobs/{job_id}").json()
         metrics = client.get("/v1/jobs/metrics")
+        runtime = client.get("/v1/runtime")
+        ready = client.get("/ready")
+        prometheus = client.get("/metrics")
 
     assert body["status"] == "succeeded"
     assert body["attempts"] == 1
@@ -164,6 +193,14 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
     assert metrics.status_code == 200
     assert metrics.json()["counts"]["succeeded"] == 1
     assert metrics.json()["outstanding_jobs"] == 0
+    assert runtime.status_code == 200
+    assert runtime.json()["ready"] is True
+    assert runtime.json()["circuit"]["state"] == "closed"
+    assert len(runtime.json()["workers"]) == 1
+    assert ready.status_code == 200
+    assert prometheus.status_code == 200
+    assert 'ai_harness_jobs{status="succeeded"} 1' in prometheus.text
+    assert "ai_harness_circuit_state{state=\"closed\"} 1" in prometheus.text
 
 
 def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):

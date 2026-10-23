@@ -304,6 +304,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 job_lease_seconds=settings.job_lease_seconds,
                 job_queue_capacity=settings.job_queue_capacity,
                 job_timeout_seconds=settings.job_timeout_seconds,
+                circuit_failure_threshold=settings.circuit_failure_threshold,
+                circuit_recovery_seconds=settings.circuit_recovery_seconds,
             ),
             host=args.host,
             port=args.port,

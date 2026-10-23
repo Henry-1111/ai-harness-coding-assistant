@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircleFilled,
   CodeOutlined,
@@ -24,8 +24,16 @@ import {
   Typography,
   message,
 } from "antd";
-import { cancelJob, createJob, decideApproval, getDiff, getJob, promoteTask } from "./api";
-import type { CreateTaskInput, TaskJob, TaskResult } from "./types";
+import {
+  cancelJob,
+  createJob,
+  decideApproval,
+  getDiff,
+  getJob,
+  getRuntime,
+  promoteTask,
+} from "./api";
+import type { CreateTaskInput, RuntimeSnapshot, TaskJob, TaskResult } from "./types";
 
 const { Text, Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -59,7 +67,26 @@ export default function App() {
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalActor, setApprovalActor] = useState("");
   const [approvalNote, setApprovalNote] = useState("");
+  const [runtime, setRuntime] = useState<RuntimeSnapshot>();
   const [messageApi, contextHolder] = message.useMessage();
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const snapshot = await getRuntime();
+        if (active) setRuntime(snapshot);
+      } catch {
+        if (active) setRuntime(undefined);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 3000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const stepState = useMemo(() => {
     if (!result) return 0;
@@ -201,6 +228,59 @@ export default function App() {
           <SafetyCertificateOutlined /> Docker Sandbox · Checkpoint · Review Gate
         </Space>
       </header>
+
+      <Card
+        className="panel runtime-panel"
+        title="运行时监控"
+        extra={(
+          <Tag color={runtime?.ready ? "green" : "red"}>
+            {runtime?.ready ? "READY" : "NOT READY"}
+          </Tag>
+        )}
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={12} md={6}>
+            <Statistic
+              title="排队任务"
+              value={runtime?.queue.counts.pending ?? 0}
+              suffix={`/ ${runtime?.queue.queue_capacity ?? 0}`}
+            />
+          </Col>
+          <Col xs={12} md={6}>
+            <Statistic
+              title="运行任务"
+              value={runtime?.queue.counts.running ?? 0}
+            />
+          </Col>
+          <Col xs={12} md={6}>
+            <Statistic
+              title="活跃 Worker"
+              value={runtime?.workers.filter((worker) => worker.state === "running").length ?? 0}
+              suffix={`/ ${runtime?.workers.length ?? 0}`}
+            />
+          </Col>
+          <Col xs={12} md={6}>
+            <Statistic
+              title="执行熔断"
+              value={(runtime?.circuit.state ?? "unknown").toUpperCase()}
+              valueStyle={{
+                color: runtime?.circuit.state === "closed" ? "#52c41a" : "#ff4d4f",
+              }}
+            />
+          </Col>
+        </Row>
+        {runtime?.circuit.state === "open" && (
+          <Alert
+            className="result-alert"
+            type="error"
+            showIcon
+            message="任务执行熔断已打开"
+            description={`连续基础设施失败 ${runtime.circuit.consecutive_failures} 次，约 ${Math.ceil(
+              runtime.circuit.retry_after_seconds,
+            )} 秒后进行半开探测。`}
+          />
+        )}
+      </Card>
 
       <Row gutter={[20, 20]}>
         <Col xs={24} xl={9}>

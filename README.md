@@ -50,6 +50,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 结构化 Reviewer Finding、可审计 RepairPlan、重复失败指纹熔断与项目经验沉淀；
 - SQLite append-only Checkpoint，可查询和恢复任务；
 - SQLite 持久化任务队列、原子领取、Worker 最大并发、租约心跳、失败重试、容量保护与协作式取消；
+- Worker 注册表、基础设施失败熔断、半开探测、Readiness 与 Prometheus 指标；
 - 节点耗时、结果、检索阶段和 Checkpoint revision 的 Agent Trace；
 - 支持按 revision 加载，以及通过二分定位首个异常 Checkpoint；
 - Policy、Project、User、Session、Scratchpad 五层 SQLite Memory，Policy 注入 Coder Prompt，
@@ -229,6 +230,8 @@ export AI_HARNESS_JOB_POLL_INTERVAL_SECONDS=0.2
 export AI_HARNESS_JOB_LEASE_SECONDS=300
 export AI_HARNESS_JOB_QUEUE_CAPACITY=100
 export AI_HARNESS_JOB_TIMEOUT_SECONDS=1800
+export AI_HARNESS_CIRCUIT_FAILURE_THRESHOLD=3
+export AI_HARNESS_CIRCUIT_RECOVERY_SECONDS=30
 ```
 
 容量上限统计 `pending/running/needs_input` 三类未完成任务，达到上限时新建 Job 返回 HTTP 429，防止
@@ -236,11 +239,19 @@ export AI_HARNESS_JOB_TIMEOUT_SECONDS=1800
 仍保留各自更短的超时。`GET /v1/jobs/metrics` 返回各状态数量、重试任务数、取消请求数、最老排队时间和
 当前容量，用于控制台或监控系统采集。
 
+Worker 会区分业务验证失败与基础设施失败。测试不通过、Reviewer 拒绝等业务结果不会触发熔断；连接超时、
+Provider HTTP 错误、SQLite 运行错误和任务总超时会进入重试并累计连续失败。达到阈值后执行熔断打开，暂停
+领取新任务；恢复窗口结束后只允许一个 Worker 做半开探测，探测成功才恢复并发。`GET /ready` 在熔断打开
+时返回 HTTP 503，`GET /v1/runtime` 返回 Worker、队列和熔断快照，`GET /metrics` 输出 Prometheus 文本。
+
 原有同步 `POST /v1/tasks` 保留，便于 CLI、测试和兼容调用方使用。
 
 其他接口：
 
 - `GET /health`
+- `GET /ready`
+- `GET /metrics`
+- `GET /v1/runtime`
 - `POST /v1/jobs`
 - `GET /v1/jobs/{job_id}`
 - `GET /v1/jobs/metrics`
@@ -262,8 +273,8 @@ npm run dev
 ```
 
 浏览器访问 `http://127.0.0.1:5173`。控制台使用异步 Job API 创建任务，展示排队/执行状态、尝试次数，
-并允许取消尚未领取的任务；任务完成后可查看 Plan DAG、验证结果、Reviewer 结论和完整 diff，并且只有
-任务通过审核后才允许点击 Promote。
+并允许安全取消任务；顶部监控卡每 3 秒刷新队列、活跃 Worker、Readiness 和熔断状态。任务完成后可查看
+Plan DAG、验证结果、Reviewer 结论和完整 diff，并且只有任务通过审核后才允许点击 Promote。
 
 ## 检索评测
 

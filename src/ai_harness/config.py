@@ -27,6 +27,8 @@ class Settings:
     job_lease_seconds: float
     job_queue_capacity: int
     job_timeout_seconds: float
+    circuit_failure_threshold: int
+    circuit_recovery_seconds: float
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -60,4 +62,10 @@ class Settings:
             job_lease_seconds=float(os.getenv("AI_HARNESS_JOB_LEASE_SECONDS", "300")),
             job_queue_capacity=int(os.getenv("AI_HARNESS_JOB_QUEUE_CAPACITY", "100")),
             job_timeout_seconds=float(os.getenv("AI_HARNESS_JOB_TIMEOUT_SECONDS", "1800")),
+            circuit_failure_threshold=int(
+                os.getenv("AI_HARNESS_CIRCUIT_FAILURE_THRESHOLD", "3")
+            ),
+            circuit_recovery_seconds=float(
+                os.getenv("AI_HARNESS_CIRCUIT_RECOVERY_SECONDS", "30")
+            ),
         )

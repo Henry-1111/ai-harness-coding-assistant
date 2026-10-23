@@ -5,9 +5,18 @@ from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from .jobs import JobMetrics, QueueFullError, TaskJob, TaskJobStore, TaskWorkerPool
+from .jobs import (
+    CircuitState,
+    JobMetrics,
+    QueueFullError,
+    RuntimeSnapshot,
+    TaskJob,
+    TaskJobStore,
+    TaskWorkerPool,
+)
 from .models import TaskRequest, TaskResult, TaskState
 from .orchestrator import HarnessOrchestrator
 
@@ -28,6 +37,8 @@ def create_app(
     job_lease_seconds: float = 300,
     job_queue_capacity: int = 100,
     job_timeout_seconds: float = 1800,
+    circuit_failure_threshold: int = 3,
+    circuit_recovery_seconds: float = 30,
 ) -> FastAPI:
     job_store = job_store or TaskJobStore(
         orchestrator.data_directory / "jobs.sqlite3",
@@ -40,6 +51,8 @@ def create_app(
         poll_interval_seconds=job_poll_interval_seconds,
         lease_seconds=job_lease_seconds,
         task_timeout_seconds=job_timeout_seconds,
+        circuit_failure_threshold=circuit_failure_threshold,
+        circuit_recovery_seconds=circuit_recovery_seconds,
     )
 
     @asynccontextmanager
@@ -64,6 +77,65 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/ready")
+    def readiness() -> dict[str, str]:
+        runtime = worker_pool.runtime_snapshot()
+        if not runtime.ready:
+            raise HTTPException(
+                status_code=503,
+                detail=f"runtime not ready; circuit={runtime.circuit.state.value}",
+            )
+        return {"status": "ready"}
+
+    @app.get("/v1/runtime", response_model=RuntimeSnapshot)
+    def runtime() -> RuntimeSnapshot:
+        return worker_pool.runtime_snapshot()
+
+    @app.get("/metrics", response_class=PlainTextResponse)
+    def prometheus_metrics() -> str:
+        snapshot = worker_pool.runtime_snapshot()
+        lines = [
+            "# HELP ai_harness_ready Whether the worker runtime is ready.",
+            "# TYPE ai_harness_ready gauge",
+            f"ai_harness_ready {int(snapshot.ready)}",
+            "# HELP ai_harness_jobs Number of jobs by status.",
+            "# TYPE ai_harness_jobs gauge",
+        ]
+        lines.extend(
+            f'ai_harness_jobs{{status="{status}"}} {count}'
+            for status, count in sorted(snapshot.queue.counts.items())
+        )
+        lines.extend(
+            [
+                "# TYPE ai_harness_queue_outstanding gauge",
+                f"ai_harness_queue_outstanding {snapshot.queue.outstanding_jobs}",
+                "# TYPE ai_harness_queue_capacity gauge",
+                f"ai_harness_queue_capacity {snapshot.queue.queue_capacity}",
+                "# TYPE ai_harness_queue_oldest_pending_seconds gauge",
+                "ai_harness_queue_oldest_pending_seconds "
+                f"{snapshot.queue.oldest_pending_age_seconds}",
+                "# TYPE ai_harness_workers gauge",
+                f"ai_harness_workers {len(snapshot.workers)}",
+                "# TYPE ai_harness_workers_running gauge",
+                "ai_harness_workers_running "
+                f"{sum(worker.state == 'running' for worker in snapshot.workers)}",
+                "# TYPE ai_harness_circuit_state gauge",
+            ]
+        )
+        lines.extend(
+            f'ai_harness_circuit_state{{state="{state.value}"}} '
+            f"{int(snapshot.circuit.state == state)}"
+            for state in CircuitState
+        )
+        lines.extend(
+            [
+                "# TYPE ai_harness_circuit_consecutive_failures gauge",
+                "ai_harness_circuit_consecutive_failures "
+                f"{snapshot.circuit.consecutive_failures}",
+            ]
+        )
+        return "\n".join(lines) + "\n"
 
     @app.post("/v1/tasks", response_model=TaskResult)
     def create_task(request: TaskRequest) -> TaskResult:

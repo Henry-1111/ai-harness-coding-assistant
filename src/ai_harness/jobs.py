@@ -8,11 +8,11 @@ from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from pydantic import BaseModel, Field
 
-from .models import TaskRequest, TaskResult, utc_now
+from .models import TaskRequest, TaskResult, TaskStatus, utc_now
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 
 
@@ -52,6 +52,123 @@ class JobMetrics(BaseModel):
     retried_jobs: int
     cancellation_requests: int
     oldest_pending_age_seconds: float
+
+
+class CircuitState(str, Enum):
+    CLOSED = "closed"
+    OPEN = "open"
+    HALF_OPEN = "half_open"
+
+
+class CircuitSnapshot(BaseModel):
+    state: CircuitState
+    consecutive_failures: int
+    failure_threshold: int
+    recovery_seconds: float
+    retry_after_seconds: float
+
+
+class WorkerSnapshot(BaseModel):
+    worker_id: str
+    state: str
+    current_job_id: Optional[str] = None
+    completed_jobs: int = 0
+    failed_jobs: int = 0
+    last_error: Optional[str] = None
+    started_at: str
+    last_seen_at: str
+
+
+class RuntimeSnapshot(BaseModel):
+    ready: bool
+    queue: JobMetrics
+    circuit: CircuitSnapshot
+    workers: list[WorkerSnapshot]
+
+
+class FailureCircuitBreaker:
+    """Thread-safe closed/open/half-open breaker for worker infrastructure failures."""
+
+    def __init__(
+        self,
+        *,
+        failure_threshold: int = 3,
+        recovery_seconds: float = 30,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if not 1 <= failure_threshold <= 100:
+            raise ValueError("failure_threshold must be within 1..100")
+        if recovery_seconds <= 0:
+            raise ValueError("recovery_seconds must be positive")
+        self.failure_threshold = failure_threshold
+        self.recovery_seconds = recovery_seconds
+        self._clock = clock
+        self._state = CircuitState.CLOSED
+        self._consecutive_failures = 0
+        self._opened_at: Optional[float] = None
+        self._probe_in_flight = False
+        self._lock = threading.Lock()
+
+    def allow(self) -> bool:
+        with self._lock:
+            if self._state == CircuitState.CLOSED:
+                return True
+            if self._state == CircuitState.OPEN:
+                if self._opened_at is None:
+                    return False
+                if self._clock() - self._opened_at < self.recovery_seconds:
+                    return False
+                self._state = CircuitState.HALF_OPEN
+            if self._probe_in_flight:
+                return False
+            self._probe_in_flight = True
+            return True
+
+    def release_unused_probe(self) -> None:
+        with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                self._probe_in_flight = False
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._state = CircuitState.CLOSED
+            self._consecutive_failures = 0
+            self._opened_at = None
+            self._probe_in_flight = False
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._consecutive_failures += 1
+            if (
+                self._state == CircuitState.HALF_OPEN
+                or self._consecutive_failures >= self.failure_threshold
+            ):
+                self._state = CircuitState.OPEN
+                self._opened_at = self._clock()
+            self._probe_in_flight = False
+
+    def record_neutral(self) -> None:
+        with self._lock:
+            if self._state == CircuitState.HALF_OPEN:
+                self._state = CircuitState.OPEN
+                self._opened_at = self._clock()
+            self._probe_in_flight = False
+
+    def snapshot(self) -> CircuitSnapshot:
+        with self._lock:
+            retry_after = 0.0
+            if self._state == CircuitState.OPEN and self._opened_at is not None:
+                retry_after = max(
+                    0.0,
+                    self.recovery_seconds - (self._clock() - self._opened_at),
+                )
+            return CircuitSnapshot(
+                state=self._state,
+                consecutive_failures=self._consecutive_failures,
+                failure_threshold=self.failure_threshold,
+                recovery_seconds=self.recovery_seconds,
+                retry_after_seconds=round(retry_after, 3),
+            )
 
 
 class TaskJobStore:
@@ -405,6 +522,8 @@ class TaskWorkerPool:
         poll_interval_seconds: float = 0.2,
         lease_seconds: float = 300,
         task_timeout_seconds: float = 1800,
+        circuit_failure_threshold: int = 3,
+        circuit_recovery_seconds: float = 30,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")
@@ -420,17 +539,32 @@ class TaskWorkerPool:
         self.poll_interval_seconds = poll_interval_seconds
         self.lease_seconds = lease_seconds
         self.task_timeout_seconds = task_timeout_seconds
+        self.circuit = FailureCircuitBreaker(
+            failure_threshold=circuit_failure_threshold,
+            recovery_seconds=circuit_recovery_seconds,
+        )
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
+        self._workers: dict[str, WorkerSnapshot] = {}
+        self._worker_lock = threading.Lock()
 
     def start(self) -> None:
         if self._threads:
             return
         self._stop.clear()
         for index in range(self.max_workers):
+            worker_id = f"worker-{uuid.uuid4()}-{index}"
+            now = utc_now().isoformat()
+            with self._worker_lock:
+                self._workers[worker_id] = WorkerSnapshot(
+                    worker_id=worker_id,
+                    state="starting",
+                    started_at=now,
+                    last_seen_at=now,
+                )
             thread = threading.Thread(
                 target=self._work,
-                args=(f"worker-{uuid.uuid4()}-{index}",),
+                args=(worker_id,),
                 name=f"ai-harness-worker-{index}",
                 daemon=True,
             )
@@ -443,31 +577,132 @@ class TaskWorkerPool:
             thread.join(timeout=timeout_seconds)
         self._threads.clear()
 
+    def runtime_snapshot(self) -> RuntimeSnapshot:
+        circuit = self.circuit.snapshot()
+        with self._worker_lock:
+            workers = [
+                worker.model_copy(deep=True)
+                for worker in sorted(self._workers.values(), key=lambda item: item.worker_id)
+            ]
+        ready = bool(workers) and any(worker.state != "stopped" for worker in workers)
+        ready = ready and circuit.state != CircuitState.OPEN
+        return RuntimeSnapshot(
+            ready=ready,
+            queue=self.store.metrics(),
+            circuit=circuit,
+            workers=workers,
+        )
+
     def _work(self, worker_id: str) -> None:
-        while not self._stop.is_set():
-            job = self.store.claim(worker_id, lease_seconds=self.lease_seconds)
-            if job is None:
-                self._stop.wait(self.poll_interval_seconds)
-                continue
-            heartbeat_stop = threading.Event()
-            heartbeat = threading.Thread(
-                target=self._heartbeat,
-                args=(job.job_id, worker_id, heartbeat_stop),
-                daemon=True,
-            )
-            heartbeat.start()
-            try:
-                control = ExecutionControl(
-                    should_cancel=partial(self.store.is_cancel_requested, job.job_id),
-                    deadline=time.monotonic() + self.task_timeout_seconds,
+        self._update_worker(worker_id, state="idle")
+        try:
+            while not self._stop.is_set():
+                if not self.circuit.allow():
+                    self._update_worker(worker_id, state="circuit_open")
+                    self._stop.wait(self.poll_interval_seconds)
+                    continue
+                job = self.store.claim(worker_id, lease_seconds=self.lease_seconds)
+                if job is None:
+                    self.circuit.release_unused_probe()
+                    self._update_worker(worker_id, state="idle", current_job_id=None)
+                    self._stop.wait(self.poll_interval_seconds)
+                    continue
+                self._update_worker(
+                    worker_id,
+                    state="running",
+                    current_job_id=job.job_id,
                 )
-                result = self.orchestrator.run(job.request, control=control)
-                self.store.complete(job.job_id, worker_id, result)
-            except Exception as exc:
-                self.store.fail(job.job_id, worker_id, f"{type(exc).__name__}: {exc}")
-            finally:
-                heartbeat_stop.set()
-                heartbeat.join(timeout=1)
+                heartbeat_stop = threading.Event()
+                heartbeat = threading.Thread(
+                    target=self._heartbeat,
+                    args=(job.job_id, worker_id, heartbeat_stop),
+                    daemon=True,
+                )
+                heartbeat.start()
+                try:
+                    control = ExecutionControl(
+                        should_cancel=partial(self.store.is_cancel_requested, job.job_id),
+                        deadline=time.monotonic() + self.task_timeout_seconds,
+                    )
+                    result = self.orchestrator.run(job.request, control=control)
+                    infrastructure_error = self._infrastructure_error(result)
+                    if infrastructure_error:
+                        self.circuit.record_failure()
+                        self.store.fail(job.job_id, worker_id, infrastructure_error)
+                        self._update_worker(
+                            worker_id,
+                            failed_delta=1,
+                            last_error=infrastructure_error,
+                        )
+                    else:
+                        if result.status == TaskStatus.CANCELLED:
+                            self.circuit.record_neutral()
+                        else:
+                            self.circuit.record_success()
+                        self.store.complete(job.job_id, worker_id, result)
+                        self._update_worker(
+                            worker_id,
+                            completed_delta=1,
+                            failed_delta=int(result.status == TaskStatus.FAILED),
+                            last_error=result.error if result.status == TaskStatus.FAILED else None,
+                        )
+                except Exception as exc:
+                    error = f"{type(exc).__name__}: {exc}"
+                    self.circuit.record_failure()
+                    self.store.fail(job.job_id, worker_id, error)
+                    self._update_worker(
+                        worker_id,
+                        failed_delta=1,
+                        last_error=error,
+                    )
+                finally:
+                    heartbeat_stop.set()
+                    heartbeat.join(timeout=1)
+                    self._update_worker(worker_id, state="idle", current_job_id=None)
+        finally:
+            self._update_worker(worker_id, state="stopped", current_job_id=None)
+
+    @staticmethod
+    def _infrastructure_error(result: TaskResult) -> Optional[str]:
+        infrastructure_types = {
+            "ConnectError",
+            "ConnectTimeout",
+            "HTTPStatusError",
+            "OperationalError",
+            "ReadTimeout",
+            "RemoteProtocolError",
+            "task_timeout",
+        }
+        for event in reversed(result.trace):
+            if event.node != "workflow":
+                continue
+            error_type = str(event.details.get("error_type", ""))
+            if error_type in infrastructure_types:
+                return result.error or error_type
+            return None
+        return None
+
+    def _update_worker(
+        self,
+        worker_id: str,
+        *,
+        state: Optional[str] = None,
+        current_job_id: object = ...,
+        completed_delta: int = 0,
+        failed_delta: int = 0,
+        last_error: object = ...,
+    ) -> None:
+        with self._worker_lock:
+            worker = self._workers[worker_id]
+            if state is not None:
+                worker.state = state
+            if current_job_id is not ...:
+                worker.current_job_id = current_job_id  # type: ignore[assignment]
+            if last_error is not ...:
+                worker.last_error = last_error  # type: ignore[assignment]
+            worker.completed_jobs += completed_delta
+            worker.failed_jobs += failed_delta
+            worker.last_seen_at = utc_now().isoformat()
 
     def _heartbeat(
         self,

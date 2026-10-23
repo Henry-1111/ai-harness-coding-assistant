@@ -1,4 +1,4 @@
-import type { CreateTaskInput, TaskJob, TaskResult } from "./types";
+import type { CreateTaskInput, RuntimeSnapshot, TaskJob, TaskResult } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
@@ -28,6 +28,10 @@ export function getJob(jobId: string): Promise<TaskJob> {
 
 export function cancelJob(jobId: string): Promise<TaskJob> {
   return request(`/v1/jobs/${jobId}/cancel`, { method: "POST" });
+}
+
+export function getRuntime(): Promise<RuntimeSnapshot> {
+  return request("/v1/runtime");
 }
 
 export function getDiff(taskId: string): Promise<{ task_id: string; diff: string }> {

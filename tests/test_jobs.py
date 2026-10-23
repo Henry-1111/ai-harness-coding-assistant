@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from ai_harness.jobs import JobStatus, QueueFullError, TaskJobStore, TaskWorkerPool
+from ai_harness.jobs import (
+    CircuitState,
+    FailureCircuitBreaker,
+    JobStatus,
+    QueueFullError,
+    TaskJobStore,
+    TaskWorkerPool,
+)
 from ai_harness.models import TaskRequest, TaskResult, TaskStatus
 from ai_harness.orchestrator import ExecutionControl
 
@@ -33,6 +40,33 @@ def wait_until(predicate, timeout: float = 3) -> None:
             return
         time.sleep(0.01)
     raise AssertionError("condition did not become true before timeout")
+
+
+def test_circuit_breaker_opens_and_allows_single_half_open_probe():
+    current_time = [0.0]
+    breaker = FailureCircuitBreaker(
+        failure_threshold=2,
+        recovery_seconds=10,
+        clock=lambda: current_time[0],
+    )
+
+    assert breaker.allow() is True
+    breaker.record_failure()
+    assert breaker.snapshot().state == CircuitState.CLOSED
+    assert breaker.allow() is True
+    breaker.record_failure()
+    assert breaker.snapshot().state == CircuitState.OPEN
+    assert breaker.allow() is False
+
+    current_time[0] = 10
+    assert breaker.allow() is True
+    assert breaker.snapshot().state == CircuitState.HALF_OPEN
+    assert breaker.allow() is False
+    breaker.record_success()
+
+    snapshot = breaker.snapshot()
+    assert snapshot.state == CircuitState.CLOSED
+    assert snapshot.consecutive_failures == 0
 
 
 def test_store_persists_claims_and_recovers_an_expired_lease(tmp_path: Path):
@@ -141,6 +175,11 @@ def test_worker_pool_enforces_maximum_concurrency(tmp_path: Path):
         wait_until(
             lambda: all(store.get(job.job_id).status == JobStatus.SUCCEEDED for job in jobs)
         )
+        runtime = pool.runtime_snapshot()
+        assert runtime.ready is True
+        assert len(runtime.workers) == 2
+        assert sum(worker.completed_jobs for worker in runtime.workers) == 3
+        assert runtime.circuit.state == CircuitState.CLOSED
     finally:
         release.set()
         pool.stop()
@@ -176,6 +215,45 @@ def test_worker_retries_exception_then_records_success(tmp_path: Path):
     assert completed is not None
     assert completed.attempts == 2
     assert calls == 2
+
+
+def test_worker_circuit_opens_and_pauses_claiming_after_infrastructure_failure(
+    tmp_path: Path,
+):
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    calls = 0
+
+    class BrokenOrchestrator:
+        def run(self, _: TaskRequest, *, control: ExecutionControl) -> TaskResult:
+            nonlocal calls
+            calls += 1
+            raise ConnectionError("provider unavailable")
+
+    job = store.enqueue(request(tmp_path), max_attempts=2)
+    pool = TaskWorkerPool(
+        BrokenOrchestrator(),  # type: ignore[arg-type]
+        store,
+        max_workers=1,
+        poll_interval_seconds=0.01,
+        lease_seconds=1,
+        circuit_failure_threshold=1,
+        circuit_recovery_seconds=60,
+    )
+    pool.start()
+    try:
+        wait_until(lambda: pool.runtime_snapshot().circuit.state == CircuitState.OPEN)
+        time.sleep(0.05)
+        paused = store.get(job.job_id)
+        runtime = pool.runtime_snapshot()
+    finally:
+        pool.stop()
+
+    assert paused is not None
+    assert paused.status == JobStatus.PENDING
+    assert paused.attempts == 1
+    assert calls == 1
+    assert runtime.ready is False
+    assert runtime.workers[0].failed_jobs == 1
 
 
 def test_running_job_stops_cooperatively_after_cancellation(tmp_path: Path):

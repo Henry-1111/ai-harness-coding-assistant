@@ -152,3 +152,32 @@ export interface TaskJob {
   created_at: string;
   updated_at: string;
 }
+
+export interface RuntimeSnapshot {
+  ready: boolean;
+  queue: {
+    counts: Record<string, number>;
+    outstanding_jobs: number;
+    queue_capacity: number;
+    retried_jobs: number;
+    cancellation_requests: number;
+    oldest_pending_age_seconds: number;
+  };
+  circuit: {
+    state: "closed" | "open" | "half_open";
+    consecutive_failures: number;
+    failure_threshold: number;
+    recovery_seconds: number;
+    retry_after_seconds: number;
+  };
+  workers: Array<{
+    worker_id: string;
+    state: string;
+    current_job_id?: string;
+    completed_jobs: number;
+    failed_jobs: number;
+    last_error?: string;
+    started_at: string;
+    last_seen_at: string;
+  }>;
+}
