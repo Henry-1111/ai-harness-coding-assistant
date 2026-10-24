@@ -99,7 +99,10 @@ def build_orchestrator(
         else None
     )
     workspace_store = (
-        FilesystemWorkspaceSnapshotStore(Path(settings.workspace_snapshot_directory))
+        FilesystemWorkspaceSnapshotStore(
+            Path(settings.workspace_snapshot_directory),
+            max_bytes=settings.workspace_snapshot_max_bytes,
+        )
         if settings.workspace_snapshot_directory
         else None
     )
@@ -379,7 +382,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         )
         workspace_store = (
             FilesystemWorkspaceSnapshotStore(
-                Path(settings.workspace_snapshot_directory)
+                Path(settings.workspace_snapshot_directory),
+                max_bytes=settings.workspace_snapshot_max_bytes,
             )
             if settings.workspace_snapshot_directory
             else None

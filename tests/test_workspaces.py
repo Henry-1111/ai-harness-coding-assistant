@@ -2,7 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from ai_harness.workspaces import FilesystemWorkspaceSnapshotStore
+from ai_harness.workspaces import (
+    FilesystemWorkspaceSnapshotStore,
+    WorkspaceSnapshotCapacityError,
+)
 
 
 def test_workspace_snapshot_is_atomic_idempotent_and_excludes_heavy_paths(
@@ -71,3 +74,46 @@ def test_workspace_snapshot_rejects_storage_nested_inside_source(tmp_path: Path)
 
     with pytest.raises(ValueError, match="cannot be inside source"):
         store.stage("job-123", source)
+
+
+def test_workspace_snapshot_enforces_total_capacity_and_reports_usage(
+    tmp_path: Path,
+) -> None:
+    first = tmp_path / "first"
+    first.mkdir()
+    (first / "data.bin").write_bytes(b"a" * 6)
+    second = tmp_path / "second"
+    second.mkdir()
+    (second / "data.bin").write_bytes(b"b" * 5)
+    store = FilesystemWorkspaceSnapshotStore(tmp_path / "shared", max_bytes=10)
+
+    store.stage("first", first)
+
+    with pytest.raises(WorkspaceSnapshotCapacityError, match="4 bytes available"):
+        store.stage("second", second)
+
+    assert store.metrics().snapshot_count == 1
+    assert store.metrics().bytes_used == 6
+    assert store.metrics().max_bytes == 10
+
+
+def test_failed_capacity_checked_replace_preserves_existing_snapshot(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    tracked = source / "app.py"
+    tracked.write_text("small")
+    store = FilesystemWorkspaceSnapshotStore(tmp_path / "shared", max_bytes=8)
+    store.replace("task-123", source)
+    tracked.write_text("too large for configured capacity")
+
+    with pytest.raises(WorkspaceSnapshotCapacityError):
+        store.replace("task-123", source)
+
+    assert (store.source_path("task-123") / "app.py").read_text() == "small"
+
+
+def test_workspace_snapshot_capacity_must_be_positive(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="capacity must be positive"):
+        FilesystemWorkspaceSnapshotStore(tmp_path / "shared", max_bytes=0)

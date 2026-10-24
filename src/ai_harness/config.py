@@ -67,6 +67,7 @@ class Settings:
     quota_reconciliation_interval_seconds: float
     cors_allowed_origins: tuple[str, ...]
     workspace_snapshot_directory: str
+    workspace_snapshot_max_bytes: int
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -128,5 +129,8 @@ class Settings:
             ),
             workspace_snapshot_directory=os.getenv(
                 "AI_HARNESS_WORKSPACE_SNAPSHOT_DIR", ""
+            ),
+            workspace_snapshot_max_bytes=int(
+                os.getenv("AI_HARNESS_WORKSPACE_SNAPSHOT_MAX_BYTES", "10737418240")
             ),
         )

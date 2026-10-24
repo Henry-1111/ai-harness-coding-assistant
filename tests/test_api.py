@@ -327,10 +327,40 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
     assert "ai_harness_circuit_state{state=\"closed\"} 1" in prometheus.text
     assert "ai_harness_quota_reconciliation_runs" in prometheus.text
     assert 'ai_harness_dependency_ready{dependency="jobs"} 1' in prometheus.text
+    assert "ai_harness_workspace_snapshots 2" in prometheus.text
+    assert "ai_harness_workspace_snapshot_bytes" in prometheus.text
+    assert "ai_harness_workspace_snapshot_capacity_bytes 10737418240" in prometheus.text
     assert (
         'ai_harness_http_requests_total{method="GET",route="/ready",status="200"} 1'
         in prometheus.text
     )
+
+
+def test_api_rejects_job_when_workspace_snapshot_capacity_is_exhausted(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    snapshots = FilesystemWorkspaceSnapshotStore(
+        tmp_path / "shared-snapshots", max_bytes=1
+    )
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        workspace_store=snapshots,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/jobs",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Run a task that cannot fit in snapshot storage",
+            },
+        )
+
+    assert response.status_code == 413
+    assert "exceeds storage capacity" in response.json()["detail"]
+    assert snapshots.metrics().snapshot_count == 0
 
 
 def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repository: Path):

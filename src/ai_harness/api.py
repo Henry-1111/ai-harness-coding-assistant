@@ -42,7 +42,10 @@ from .models import TaskRequest, TaskResult, TaskState, TaskStatus
 from .observability import HTTPMetrics, format_http_access_log, normalize_request_id
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 from .quota_reconciliation import QuotaReconciler
-from .workspaces import FilesystemWorkspaceSnapshotStore
+from .workspaces import (
+    FilesystemWorkspaceSnapshotStore,
+    WorkspaceSnapshotCapacityError,
+)
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -463,6 +466,21 @@ def create_app(
             f'ai_harness_dependency_ready{{dependency="{name}"}} {int(healthy)}'
             for name, healthy in sorted(dependencies.items())
         )
+        if workspace_store is not None:
+            workspace_metrics = workspace_store.metrics()
+            lines.extend(
+                [
+                    "# TYPE ai_harness_workspace_snapshots gauge",
+                    "ai_harness_workspace_snapshots "
+                    f"{workspace_metrics.snapshot_count}",
+                    "# TYPE ai_harness_workspace_snapshot_bytes gauge",
+                    "ai_harness_workspace_snapshot_bytes "
+                    f"{workspace_metrics.bytes_used}",
+                    "# TYPE ai_harness_workspace_snapshot_capacity_bytes gauge",
+                    "ai_harness_workspace_snapshot_capacity_bytes "
+                    f"{workspace_metrics.max_bytes}",
+                ]
+            )
         lines.extend(http_metrics.render_prometheus())
         return "\n".join(lines) + "\n"
 
@@ -636,6 +654,12 @@ def create_app(
             if authenticator.enabled and job_store.get(job_id) is None:
                 governance_store.release_quota(job_id)
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except WorkspaceSnapshotCapacityError as exc:
+            if workspace_store is not None and snapshot_created:
+                workspace_store.remove(job_id)
+            if authenticator.enabled and job_store.get(job_id) is None:
+                governance_store.release_quota(job_id)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (FileNotFoundError, ValueError) as exc:
             if workspace_store is not None and snapshot_created:
                 workspace_store.remove(job_id)

@@ -102,6 +102,16 @@
       "targets": [{"expr": "ai_harness_dependency_ready", "legendFormat": "{{dependency}}", "refId": "A"}],
       "title": "Dependency health",
       "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 24, "x": 0, "y": 21},
+      "id": 11,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "ai_harness_workspace_snapshot_bytes / ai_harness_workspace_snapshot_capacity_bytes", "refId": "A"}],
+      "title": "Workspace snapshot capacity",
+      "type": "stat"
     }
   ],
   "refresh": "15s",

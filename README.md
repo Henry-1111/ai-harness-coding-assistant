@@ -548,6 +548,11 @@ Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台�
 工作区会以 `task-{task_id}` 原子更新到共享目录；其他实例处理审批恢复或 Diff 时会自动重建本地工作区。
 租约已经失效的 Worker 不会发布任务快照，避免迟到结果覆盖当前所有者的产物。
 
+共享快照总容量由 `AI_HARNESS_WORKSPACE_SNAPSHOT_MAX_BYTES` 控制（默认 10 GiB）。API 实例使用跨进程文件锁
+串行完成“统计、校验、原子发布”，不会因多个实例同时入队而超卖磁盘预算；超过上限的新任务返回 HTTP 413，
+更新任务快照失败时保留上一份可恢复版本。`/metrics` 暴露快照数量、已用字节和容量上限，Prometheus 在连续
+10 分钟超过 85% 时告警，Grafana 看板展示实时占用比例。
+
 ### Prometheus 与 Grafana
 
 监控栈使用可选 Compose profile，不会增加默认开发环境的启动负担：
@@ -558,8 +563,8 @@ docker compose --profile monitoring up --build
 
 Prometheus 位于 `http://127.0.0.1:9090`，Grafana 位于 `http://127.0.0.1:3000`。Grafana 会自动加载
 Prometheus 数据源和 `AI Harness Overview` 看板，展示 Readiness、依赖健康、队列积压、Worker、熔断状态、
-HTTP RPS/P95 延迟、任务状态与额度对账失败。Prometheus 同时预置依赖不可用、熔断打开、队列阻塞、无 Worker、
-额度对账失败和 HTTP 5xx 比例过高等告警规则。
+HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Prometheus 同时预置依赖不可用、熔断打开、队列阻塞、
+无 Worker、快照容量过高、额度对账失败和 HTTP 5xx 比例过高等告警规则。
 
 该 profile 默认采用只读匿名看板，适用于本机或受保护的内部网络；对外部署前应关闭 Grafana 匿名访问，接入
 统一身份认证，并为 Prometheus 抓取 `/metrics` 配置具有 `operator` 角色的凭据。
