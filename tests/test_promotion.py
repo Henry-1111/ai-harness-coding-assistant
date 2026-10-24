@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -67,6 +69,51 @@ def test_git_branch_publisher_never_overwrites_conflicting_remote_branch(
 
     checkout = tmp_path / "checkout"
     git("clone", "-q", "--branch", "ai-harness/task-123", str(remote), str(checkout))
+    assert (checkout / "app.py").read_text() == "reviewed\n"
+
+
+def test_concurrent_equivalent_publish_settles_as_idempotent_replay(
+    tmp_path: Path,
+) -> None:
+    remote, workspace = remote_and_workspace(tmp_path)
+    barrier = threading.Barrier(2)
+
+    class RacingPublisher(GitBranchPublisher):
+        def _remote_branch_commit(self, branch: str) -> str | None:
+            commit = super()._remote_branch_commit(branch)
+            if commit is None:
+                barrier.wait(timeout=5)
+            return commit
+
+    publishers = [
+        RacingPublisher(
+            str(remote),
+            tmp_path / f"staging-{index}",
+            author_name=f"Publisher {index}",
+        )
+        for index in range(2)
+    ]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        receipts = list(
+            executor.map(
+                lambda publisher: publisher.publish(
+                    "task-concurrent", workspace, ["app.py"]
+                ),
+                publishers,
+            )
+        )
+
+    assert sorted(receipt.created for receipt in receipts) == [False, True]
+    assert receipts[0].commit == receipts[1].commit
+    checkout = tmp_path / "concurrent-checkout"
+    git(
+        "clone",
+        "-q",
+        "--branch",
+        "ai-harness/task-concurrent",
+        str(remote),
+        str(checkout),
+    )
     assert (checkout / "app.py").read_text() == "reviewed\n"
 
 

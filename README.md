@@ -585,7 +585,8 @@ export AI_HARNESS_PROMOTION_GIT_BRANCH_PREFIX=ai-harness
 ```
 
 Publisher 只会创建 `ai-harness/{task_id}` 独立分支，不直接写主分支；凭据由 SSH Agent、Git Credential
-Helper 或运行环境提供，配置和日志不保存 Token。相同任务重复发布且内容一致时返回同一 Commit；若远程
+Helper 或运行环境提供，配置和日志不保存 Token。相同任务重复发布且内容一致时返回同一 Commit；多个
+API 实例并发发布同一结果时，先写入者创建分支，其他实例校验远程内容后按幂等重放成功处理；若远程
 分支已存在但内容不同则拒绝覆盖。使用 SSH 时还应以只读方式挂载预置的 `known_hosts`，不要关闭主机校验。
 API 与控制台会返回分支名和 Commit，后续可由 CI 或代码托管平台创建 PR。
 

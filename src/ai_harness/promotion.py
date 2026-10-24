@@ -130,6 +130,38 @@ class GitBranchPublisher:
         output = completed.stdout.strip()
         return output.split()[0] if output else None
 
+    def _existing_receipt(
+        self,
+        branch: str,
+        workspace: Repository,
+        changed_files: Sequence[str],
+        checkout_path: Path,
+    ) -> PromotionReceipt | None:
+        """Return an idempotent receipt when the immutable branch already exists."""
+        if self._remote_branch_commit(branch) is None:
+            return None
+        self._run(
+            "clone",
+            "--quiet",
+            "--branch",
+            branch,
+            "--single-branch",
+            self.remote_url,
+            str(checkout_path),
+        )
+        checkout = Repository(checkout_path)
+        if not self._matches_workspace(checkout, workspace, changed_files):
+            raise GitPublishError(
+                f"remote promotion branch already exists with different content: {branch}"
+            )
+        return PromotionReceipt(
+            mode="git_branch",
+            branch=branch,
+            commit=self._run("rev-parse", "HEAD", cwd=checkout_path),
+            remote=self.remote_label,
+            created=False,
+        )
+
     @staticmethod
     def _matches_workspace(
         checkout: Repository,
@@ -158,36 +190,29 @@ class GitBranchPublisher:
         workspace_repository = Repository(workspace)
         for relative_path in changed_files:
             workspace_repository.resolve(relative_path)
-        existing_commit = self._remote_branch_commit(branch)
         with tempfile.TemporaryDirectory(
             prefix=".git-promotion-", dir=self.staging_root
         ) as directory:
-            checkout_path = Path(directory) / "checkout"
-            checkout_ref = branch if existing_commit else self.base_ref
+            staging_directory = Path(directory)
+            existing = self._existing_receipt(
+                branch,
+                workspace_repository,
+                changed_files,
+                staging_directory / "existing",
+            )
+            if existing is not None:
+                return existing
+            checkout_path = staging_directory / "checkout"
             self._run(
                 "clone",
                 "--quiet",
                 "--branch",
-                checkout_ref,
+                self.base_ref,
                 "--single-branch",
                 self.remote_url,
                 str(checkout_path),
             )
             checkout = Repository(checkout_path)
-            if existing_commit:
-                if not self._matches_workspace(
-                    checkout, workspace_repository, changed_files
-                ):
-                    raise GitPublishError(
-                        f"remote promotion branch already exists with different content: {branch}"
-                    )
-                return PromotionReceipt(
-                    mode="git_branch",
-                    branch=branch,
-                    commit=existing_commit,
-                    remote=self.remote_label,
-                    created=False,
-                )
             self._run("checkout", "-q", "-b", branch, cwd=checkout_path)
             for relative_path in changed_files:
                 source = workspace_repository.resolve(relative_path)
@@ -208,13 +233,26 @@ class GitBranchPublisher:
                 cwd=checkout_path,
             )
             commit = self._run("rev-parse", "HEAD", cwd=checkout_path)
-            self._run(
-                "push",
-                "--porcelain",
-                "origin",
-                f"HEAD:refs/heads/{branch}",
-                cwd=checkout_path,
-            )
+            try:
+                self._run(
+                    "push",
+                    "--porcelain",
+                    "origin",
+                    f"HEAD:refs/heads/{branch}",
+                    cwd=checkout_path,
+                )
+            except GitPublishError as push_error:
+                # Another API instance may win between ls-remote and push. Re-read
+                # the immutable branch and settle an equivalent result as a replay.
+                raced = self._existing_receipt(
+                    branch,
+                    workspace_repository,
+                    changed_files,
+                    staging_directory / "raced",
+                )
+                if raced is not None:
+                    return raced
+                raise push_error
         return PromotionReceipt(
             mode="git_branch",
             branch=branch,
