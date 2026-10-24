@@ -600,8 +600,9 @@ docker compose --profile monitoring up --build
 
 Prometheus 位于 `http://127.0.0.1:9090`，Grafana 位于 `http://127.0.0.1:3000`。Grafana 会自动加载
 Prometheus 数据源和 `AI Harness Overview` 看板，展示 Readiness、依赖健康、队列积压、Worker、熔断状态、
-HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Prometheus 同时预置依赖不可用、熔断打开、队列阻塞、
-无 Worker、快照容量过高、额度对账失败和 HTTP 5xx 比例过高等告警规则。
+HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Promote 另外记录本地/远程模式、成功、幂等重放、
+冲突和系统错误，以及发布耗时直方图；失败尝试会进入审计链。Prometheus 同时预置依赖不可用、熔断打开、
+队列阻塞、无 Worker、快照容量过高、发布失败、额度对账失败和 HTTP 5xx 比例过高等告警规则。
 
 该 profile 默认采用只读匿名看板，适用于本机或受保护的内部网络；对外部署前应关闭 Grafana 匿名访问，接入
 统一身份认证，并为 Prometheus 抓取 `/metrics` 配置具有 `operator` 角色的凭据。

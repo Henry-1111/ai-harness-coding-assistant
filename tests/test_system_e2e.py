@@ -143,6 +143,11 @@ def test_full_http_gateway_job_flow_and_explicit_promotion(
             promoted = client.post(f"/v1/tasks/{job['task_id']}/promote")
             assert promoted.status_code == 200
             assert promoted.json()["promoted_files"] == ["calculator.py"]
+            metrics = client.get("/metrics")
+            assert (
+                'ai_harness_promotions_total{mode="local",outcome="success"} 1'
+                in metrics.text
+            )
 
     assert "left + right" in (sample_repository / "calculator.py").read_text()
     assert len(gateway.requests) == 1

@@ -19,6 +19,12 @@ class GitPublishError(RuntimeError):
     pass
 
 
+class PromotionConflictError(GitPublishError):
+    """The immutable remote branch exists with non-equivalent content."""
+
+    pass
+
+
 @dataclass(frozen=True)
 class PromotionReceipt:
     mode: str
@@ -151,7 +157,7 @@ class GitBranchPublisher:
         )
         checkout = Repository(checkout_path)
         if not self._matches_workspace(checkout, workspace, changed_files):
-            raise GitPublishError(
+            raise PromotionConflictError(
                 f"remote promotion branch already exists with different content: {branch}"
             )
         return PromotionReceipt(

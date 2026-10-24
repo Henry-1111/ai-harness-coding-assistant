@@ -2,6 +2,7 @@ import json
 
 from ai_harness.observability import (
     HTTPMetrics,
+    PromotionMetrics,
     format_http_access_log,
     format_worker_event,
     normalize_request_id,
@@ -47,6 +48,26 @@ def test_http_metrics_collapse_unknown_methods_to_bounded_label() -> None:
     assert 'method="OTHER",route="unmatched",status="404"} 2' in rendered
     assert "CUSTOM-ONE" not in rendered
     assert "CUSTOM-TWO" not in rendered
+
+
+def test_promotion_metrics_render_outcomes_and_bound_unknown_labels() -> None:
+    metrics = PromotionMetrics()
+    metrics.observe("git_branch", "success", 0.4)
+    metrics.observe("untrusted-mode", "untrusted-outcome", 2.0)
+
+    rendered = "\n".join(metrics.render_prometheus())
+
+    assert (
+        'ai_harness_promotions_total{mode="git_branch",outcome="success"} 1'
+        in rendered
+    )
+    assert (
+        'ai_harness_promotion_duration_seconds_bucket{mode="git_branch",'
+        'outcome="success",le="0.5"} 1'
+    ) in rendered
+    assert 'ai_harness_promotions_total{mode="other",outcome="error"} 1' in rendered
+    assert "untrusted-mode" not in rendered
+    assert "untrusted-outcome" not in rendered
 
 
 def test_request_ids_and_access_logs_are_safe_and_structured() -> None:

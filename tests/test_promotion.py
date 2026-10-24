@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from ai_harness.promotion import GitBranchPublisher, GitPublishError
+from ai_harness.promotion import (
+    GitBranchPublisher,
+    PromotionConflictError,
+)
 
 
 def git(*arguments: str, cwd: Path | None = None) -> str:
@@ -64,7 +67,7 @@ def test_git_branch_publisher_never_overwrites_conflicting_remote_branch(
     publisher.publish("task-123", workspace, ["app.py"])
     (workspace / "app.py").write_text("different result\n")
 
-    with pytest.raises(GitPublishError, match="different content"):
+    with pytest.raises(PromotionConflictError, match="different content"):
         publisher.publish("task-123", workspace, ["app.py"])
 
     checkout = tmp_path / "checkout"

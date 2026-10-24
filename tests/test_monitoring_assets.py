@@ -30,6 +30,7 @@ def test_prometheus_config_and_alerts_reference_runtime_metrics() -> None:
         "AIHarnessQueueStalled",
         "AIHarnessQuotaReconciliationFailure",
         "AIHarnessWorkspaceSnapshotCapacityHigh",
+        "AIHarnessPromotionFailure",
     }.issubset(names)
 
 
@@ -50,6 +51,8 @@ def test_grafana_dashboard_has_stable_uid_and_core_operational_panels() -> None:
         "Jobs by state",
         "Dependency health",
         "Workspace snapshot capacity",
+        "Promotion outcomes / 1h",
+        "Promotion P95 latency",
     }.issubset(titles)
     assert len({panel["id"] for panel in dashboard["panels"]}) == len(
         dashboard["panels"]

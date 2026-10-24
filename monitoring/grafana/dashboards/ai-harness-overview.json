@@ -112,6 +112,26 @@
       "targets": [{"expr": "ai_harness_workspace_snapshot_bytes / ai_harness_workspace_snapshot_capacity_bytes", "refId": "A"}],
       "title": "Workspace snapshot capacity",
       "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 27},
+      "id": 12,
+      "options": {"legend": {"calcs": [], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum by (mode, outcome) (increase(ai_harness_promotions_total[1h]))", "legendFormat": "{{mode}} {{outcome}}", "refId": "A"}],
+      "title": "Promotion outcomes / 1h",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 27},
+      "id": 13,
+      "options": {"legend": {"calcs": [], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, mode) (rate(ai_harness_promotion_duration_seconds_bucket[1h])))", "legendFormat": "{{mode}}", "refId": "A"}],
+      "title": "Promotion P95 latency",
+      "type": "timeseries"
     }
   ],
   "refresh": "15s",

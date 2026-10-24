@@ -79,3 +79,12 @@ groups:
         annotations:
           summary: AI Harness workspace snapshot capacity is high
           description: Shared workspace snapshots have used more than 85% of their configured capacity.
+
+      - alert: AIHarnessPromotionFailure
+        expr: >-
+          increase(ai_harness_promotions_total{outcome=~"conflict|error"}[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: AI Harness promotion failed
+          description: A reviewed task could not be promoted in the last ten minutes.

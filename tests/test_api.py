@@ -83,6 +83,58 @@ def test_api_returns_404_for_unknown_task(tmp_path: Path):
     assert response.status_code == 404
 
 
+def test_promotion_conflict_is_audited_and_counted(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    model = ScriptedModel(
+        [
+            {
+                "summary": "Fix add",
+                "edits": [
+                    {
+                        "path": "calculator.py",
+                        "old_text": "return left - right",
+                        "new_text": "return left + right",
+                    }
+                ],
+            }
+        ]
+    )
+    governance = GovernanceStore(tmp_path / "data" / "governance.sqlite3")
+    app = create_app(
+        HarnessOrchestrator(
+            model, tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        governance_store=governance,
+    )
+    with TestClient(app) as client:
+        created = client.post(
+            "/v1/tasks",
+            json={
+                "repository": str(sample_repository),
+                "goal": "Fix calculator addition behavior",
+                "file_scope": ["calculator.py"],
+                "verification_commands": ["python -m pytest -q"],
+            },
+        )
+        assert created.status_code == 200
+        task_id = created.json()["task_id"]
+        (sample_repository / "calculator.py").write_text(
+            "def add(left, right):\n    return 100\n", encoding="utf-8"
+        )
+
+        conflict = client.post(f"/v1/tasks/{task_id}/promote")
+        metrics = client.get("/metrics")
+        audit = client.get("/v1/audit/events")
+
+    assert conflict.status_code == 409
+    assert 'ai_harness_promotions_total{mode="local",outcome="conflict"} 1' in metrics.text
+    assert any(
+        event["action"] == "task.promote" and event["outcome"] == "denied"
+        for event in audit.json()
+    )
+
+
 def test_readiness_fails_while_worker_circuit_is_open(tmp_path: Path):
     orchestrator = HarnessOrchestrator(
         ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox

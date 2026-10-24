@@ -39,8 +39,14 @@ from .jobs import (
     TaskWorkerPool,
 )
 from .models import TaskRequest, TaskResult, TaskState, TaskStatus
-from .observability import HTTPMetrics, format_http_access_log, normalize_request_id
+from .observability import (
+    HTTPMetrics,
+    PromotionMetrics,
+    format_http_access_log,
+    normalize_request_id,
+)
 from .orchestrator import ExecutionControl, HarnessOrchestrator
+from .promotion import GitPublishError, PromotionConflictError
 from .quota_reconciliation import QuotaReconciler
 from .workspaces import (
     WorkspaceSnapshotCapacityError,
@@ -140,6 +146,7 @@ def create_app(
         interval_seconds=quota_reconciliation_interval_seconds,
     )
     http_metrics = HTTPMetrics()
+    promotion_metrics = PromotionMetrics()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -159,6 +166,7 @@ def create_app(
     app.state.governance_store = governance_store
     app.state.quota_reconciler = quota_reconciler
     app.state.http_metrics = http_metrics
+    app.state.promotion_metrics = promotion_metrics
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(cors_allowed_origins),
@@ -482,6 +490,7 @@ def create_app(
                 ]
             )
         lines.extend(http_metrics.render_prometheus())
+        lines.extend(promotion_metrics.render_prometheus())
         return "\n".join(lines) + "\n"
 
     @app.post("/v1/tasks", response_model=TaskResult)
@@ -878,14 +887,60 @@ def create_app(
             resource_id=task_id,
         )
         authorize_task(principal, task_id, action="task.promote")
+        mode = "git_branch" if orchestrator.promotion_publisher is not None else "local"
+        started_at = time.perf_counter()
         try:
             files = orchestrator.promote(task_id)
         except KeyError as exc:
+            promotion_metrics.observe(mode, "not_found", time.perf_counter() - started_at)
             raise HTTPException(status_code=404, detail="task not found") from exc
-        except RuntimeError as exc:
+        except PromotionConflictError as exc:
+            promotion_metrics.observe(mode, "conflict", time.perf_counter() - started_at)
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.promote",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="denied",
+                details={"reason": str(exc), "promotion_mode": mode},
+            )
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except GitPublishError as exc:
+            promotion_metrics.observe(mode, "error", time.perf_counter() - started_at)
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.promote",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="failed",
+                details={"reason": str(exc), "promotion_mode": mode},
+            )
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            promotion_metrics.observe(mode, "conflict", time.perf_counter() - started_at)
+            governance_store.audit(
+                actor=principal.subject,
+                tenant_id=principal.tenant_id,
+                action="task.promote",
+                resource_type="task",
+                resource_id=task_id,
+                outcome="denied",
+                details={"reason": str(exc), "promotion_mode": mode},
+            )
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception:
+            promotion_metrics.observe(mode, "error", time.perf_counter() - started_at)
+            raise
         promoted_task = orchestrator.get(task_id)
         promotion = promoted_task.scratchpad.get("promotion") if promoted_task else None
+        outcome = (
+            "replay"
+            if isinstance(promotion, dict) and promotion.get("created") is False
+            else "success"
+        )
+        promotion_metrics.observe(mode, outcome, time.perf_counter() - started_at)
         governance_store.audit(
             actor=principal.subject,
             tenant_id=principal.tenant_id,
