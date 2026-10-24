@@ -17,6 +17,7 @@ from .repository import Repository
 
 BRANCH_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9._/-]{1,120}$")
 GITHUB_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+GITLAB_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 
 class GitPublishError(RuntimeError):
@@ -30,6 +31,10 @@ class PromotionConflictError(GitPublishError):
 
 
 class GitHubPullRequestError(GitPublishError):
+    pass
+
+
+class GitLabMergeRequestError(GitPublishError):
     pass
 
 
@@ -285,6 +290,234 @@ class GitHubPullRequestPublisher:
             pull_request_url=pull_request.url,
             pull_request_number=pull_request.number,
             pull_request_created=pull_request.created,
+        )
+
+
+class GitLabMergeRequestClient:
+    """Create or reuse one GitLab merge request for an immutable task branch."""
+
+    def __init__(
+        self,
+        project: str,
+        token: str,
+        *,
+        api_url: str = "https://gitlab.com/api/v4",
+        timeout_seconds: float = 30,
+        max_attempts: int = 3,
+        retry_backoff_seconds: float = 0.25,
+        max_retry_after_seconds: float = 5,
+        draft: bool = True,
+        client: httpx.Client | None = None,
+        sleeper: Callable[[float], None] = time.sleep,
+    ) -> None:
+        components = project.split("/")
+        if not components or any(
+            component in {"", ".", ".."}
+            or not re.fullmatch(r"[A-Za-z0-9_.-]+", component)
+            for component in components
+        ):
+            raise ValueError("invalid GitLab project; expected numeric ID or group/project")
+        if not token.strip():
+            raise ValueError("GitLab merge request token is required")
+        parsed = urlsplit(api_url.rstrip("/"))
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("invalid GitLab API URL")
+        if timeout_seconds <= 0:
+            raise ValueError("GitLab API timeout must be positive")
+        if max_attempts <= 0:
+            raise ValueError("GitLab API max attempts must be positive")
+        if retry_backoff_seconds < 0:
+            raise ValueError("GitLab API retry backoff must not be negative")
+        if max_retry_after_seconds < 0:
+            raise ValueError("GitLab API max retry-after must not be negative")
+        self.project = project
+        self.token = token.strip()
+        self.api_url = api_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.max_attempts = max_attempts
+        self.retry_backoff_seconds = retry_backoff_seconds
+        self.max_retry_after_seconds = max_retry_after_seconds
+        self.draft = draft
+        self.client = client
+        self.sleeper = sleeper
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Accept": "application/json",
+            "PRIVATE-TOKEN": self.token,
+            "User-Agent": "ai-harness",
+        }
+
+    def _merge_requests_url(self) -> str:
+        return f"{self.api_url}/projects/{quote(self.project, safe='')}/merge_requests"
+
+    def _request(self, method: str, **kwargs: Any) -> httpx.Response:
+        last_error: httpx.HTTPError | None = None
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                if self.client is not None:
+                    response = self.client.request(
+                        method, self._merge_requests_url(), **kwargs
+                    )
+                else:
+                    with httpx.Client(timeout=self.timeout_seconds) as client:
+                        response = client.request(
+                            method, self._merge_requests_url(), **kwargs
+                        )
+            except httpx.HTTPError as exc:
+                last_error = exc
+                if attempt == self.max_attempts:
+                    break
+                self.sleeper(self._retry_delay(attempt))
+                continue
+            if (
+                response.status_code not in GITLAB_RETRYABLE_STATUS_CODES
+                or attempt == self.max_attempts
+            ):
+                return response
+            self.sleeper(self._retry_delay(attempt, response))
+        assert last_error is not None
+        raise GitLabMergeRequestError(
+            f"GitLab merge request API request failed: {last_error}"
+        ) from last_error
+
+    def _retry_delay(
+        self, attempt: int, response: httpx.Response | None = None
+    ) -> float:
+        if response is not None:
+            retry_after = response.headers.get("Retry-After")
+            if retry_after is not None:
+                try:
+                    return min(
+                        max(float(retry_after), 0), self.max_retry_after_seconds
+                    )
+                except ValueError:
+                    pass
+        return min(
+            self.retry_backoff_seconds * (2 ** (attempt - 1)),
+            self.max_retry_after_seconds,
+        )
+
+    def _error(self, response: httpx.Response) -> GitLabMergeRequestError:
+        message = response.text.strip().replace(self.token, "[REDACTED]")
+        if len(message) > 500:
+            message = message[:500] + "..."
+        return GitLabMergeRequestError(
+            f"GitLab merge request API returned {response.status_code}: "
+            f"{message or response.reason_phrase}"
+        )
+
+    @staticmethod
+    def _receipt(payload: object, *, created: bool) -> PullRequestReceipt:
+        if not isinstance(payload, dict):
+            raise GitLabMergeRequestError("GitLab merge request API returned invalid JSON")
+        url = payload.get("web_url")
+        number = payload.get("iid")
+        if (
+            not isinstance(url, str)
+            or not url
+            or not isinstance(number, int)
+            or isinstance(number, bool)
+        ):
+            raise GitLabMergeRequestError(
+                "GitLab merge request API response is incomplete"
+            )
+        return PullRequestReceipt(url=url, number=number, created=created)
+
+    def _find_existing(self, branch: str, base_ref: str) -> PullRequestReceipt | None:
+        response = self._request(
+            "GET",
+            headers=self._headers(),
+            params={
+                "state": "opened",
+                "source_branch": branch,
+                "target_branch": base_ref,
+                "per_page": 100,
+            },
+        )
+        if response.status_code != 200:
+            raise self._error(response)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise GitLabMergeRequestError(
+                "GitLab merge request API returned invalid JSON"
+            ) from exc
+        if not isinstance(payload, list):
+            raise GitLabMergeRequestError("GitLab merge request API returned invalid JSON")
+        return self._receipt(payload[0], created=False) if payload else None
+
+    def ensure(self, task_id: str, branch: str, base_ref: str) -> PullRequestReceipt:
+        existing = self._find_existing(branch, base_ref)
+        if existing is not None:
+            return existing
+        title = f"AI Harness task {task_id}"
+        response = self._request(
+            "POST",
+            headers=self._headers(),
+            json={
+                "source_branch": branch,
+                "target_branch": base_ref,
+                "title": f"Draft: {title}" if self.draft else title,
+                "description": (
+                    "Automated branch produced by AI Harness after verification "
+                    "and reviewer approval."
+                ),
+                "remove_source_branch": False,
+            },
+        )
+        if response.status_code == 201:
+            try:
+                return self._receipt(response.json(), created=True)
+            except ValueError as exc:
+                raise GitLabMergeRequestError(
+                    "GitLab merge request API returned invalid JSON"
+                ) from exc
+        if response.status_code in {400, 409}:
+            # A concurrent instance or a retried request may have created the MR.
+            raced = self._find_existing(branch, base_ref)
+            if raced is not None:
+                return raced
+        raise self._error(response)
+
+
+class GitLabMergeRequestPublisher:
+    """Publish a branch, then create or reuse its GitLab merge request."""
+
+    def __init__(
+        self,
+        branch_publisher: GitBranchPublisher,
+        merge_requests: GitLabMergeRequestClient,
+    ) -> None:
+        self.branch_publisher = branch_publisher
+        self.merge_requests = merge_requests
+
+    def publish(
+        self,
+        task_id: str,
+        workspace: Path,
+        changed_files: Sequence[str],
+    ) -> PromotionReceipt:
+        branch = self.branch_publisher.publish(task_id, workspace, changed_files)
+        merge_request = self.merge_requests.ensure(
+            task_id, branch.branch, self.branch_publisher.base_ref
+        )
+        return PromotionReceipt(
+            mode=branch.mode,
+            branch=branch.branch,
+            commit=branch.commit,
+            remote=branch.remote,
+            created=branch.created,
+            pull_request_url=merge_request.url,
+            pull_request_number=merge_request.number,
+            pull_request_created=merge_request.created,
         )
 
 

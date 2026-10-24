@@ -88,6 +88,13 @@ class Settings:
     promotion_github_max_attempts: int
     promotion_github_retry_backoff_seconds: float
     promotion_github_draft: bool
+    promotion_gitlab_project: str
+    promotion_gitlab_token: str
+    promotion_gitlab_api_url: str
+    promotion_gitlab_timeout_seconds: float
+    promotion_gitlab_max_attempts: int
+    promotion_gitlab_retry_backoff_seconds: float
+    promotion_gitlab_draft: bool
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -208,6 +215,26 @@ class Settings:
             ),
             promotion_github_draft=(
                 os.getenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "true").lower()
+                in {"1", "true", "yes", "on"}
+            ),
+            promotion_gitlab_project=os.getenv(
+                "AI_HARNESS_PROMOTION_GITLAB_PROJECT", ""
+            ),
+            promotion_gitlab_token=os.getenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", ""),
+            promotion_gitlab_api_url=os.getenv(
+                "AI_HARNESS_PROMOTION_GITLAB_API_URL", "https://gitlab.com/api/v4"
+            ),
+            promotion_gitlab_timeout_seconds=float(
+                os.getenv("AI_HARNESS_PROMOTION_GITLAB_TIMEOUT_SECONDS", "30")
+            ),
+            promotion_gitlab_max_attempts=int(
+                os.getenv("AI_HARNESS_PROMOTION_GITLAB_MAX_ATTEMPTS", "3")
+            ),
+            promotion_gitlab_retry_backoff_seconds=float(
+                os.getenv("AI_HARNESS_PROMOTION_GITLAB_RETRY_BACKOFF_SECONDS", "0.25")
+            ),
+            promotion_gitlab_draft=(
+                os.getenv("AI_HARNESS_PROMOTION_GITLAB_DRAFT", "true").lower()
                 in {"1", "true", "yes", "on"}
             ),
         )

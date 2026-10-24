@@ -35,6 +35,8 @@ from .promotion import (
     GitBranchPublisher,
     GitHubPullRequestClient,
     GitHubPullRequestPublisher,
+    GitLabMergeRequestClient,
+    GitLabMergeRequestPublisher,
     PromotionPublisher,
 )
 from .repository import DefinitionProvider, Repository
@@ -88,24 +90,47 @@ def build_promotion_publisher(settings: Settings) -> Optional[PromotionPublisher
     github_configured = bool(
         settings.promotion_github_repository or settings.promotion_github_token
     )
-    if not github_configured:
+    gitlab_configured = bool(
+        settings.promotion_gitlab_project or settings.promotion_gitlab_token
+    )
+    if github_configured and gitlab_configured:
+        raise SystemExit("configure only one of GitHub or GitLab promotion")
+    if not github_configured and not gitlab_configured:
         return branch_publisher
-    if not settings.promotion_github_repository or not settings.promotion_github_token:
-        raise SystemExit(
-            "AI_HARNESS_PROMOTION_GITHUB_REPOSITORY and "
-            "AI_HARNESS_PROMOTION_GITHUB_TOKEN must be configured together"
+    if github_configured:
+        if not settings.promotion_github_repository or not settings.promotion_github_token:
+            raise SystemExit(
+                "AI_HARNESS_PROMOTION_GITHUB_REPOSITORY and "
+                "AI_HARNESS_PROMOTION_GITHUB_TOKEN must be configured together"
+            )
+        return GitHubPullRequestPublisher(
+            branch_publisher,
+            GitHubPullRequestClient(
+                settings.promotion_github_repository,
+                settings.promotion_github_token,
+                api_url=settings.promotion_github_api_url,
+                api_version=settings.promotion_github_api_version,
+                timeout_seconds=settings.promotion_github_timeout_seconds,
+                max_attempts=settings.promotion_github_max_attempts,
+                retry_backoff_seconds=settings.promotion_github_retry_backoff_seconds,
+                draft=settings.promotion_github_draft,
+            ),
         )
-    return GitHubPullRequestPublisher(
+    if not settings.promotion_gitlab_project or not settings.promotion_gitlab_token:
+        raise SystemExit(
+            "AI_HARNESS_PROMOTION_GITLAB_PROJECT and "
+            "AI_HARNESS_PROMOTION_GITLAB_TOKEN must be configured together"
+        )
+    return GitLabMergeRequestPublisher(
         branch_publisher,
-        GitHubPullRequestClient(
-            settings.promotion_github_repository,
-            settings.promotion_github_token,
-            api_url=settings.promotion_github_api_url,
-            api_version=settings.promotion_github_api_version,
-            timeout_seconds=settings.promotion_github_timeout_seconds,
-            max_attempts=settings.promotion_github_max_attempts,
-            retry_backoff_seconds=settings.promotion_github_retry_backoff_seconds,
-            draft=settings.promotion_github_draft,
+        GitLabMergeRequestClient(
+            settings.promotion_gitlab_project,
+            settings.promotion_gitlab_token,
+            api_url=settings.promotion_gitlab_api_url,
+            timeout_seconds=settings.promotion_gitlab_timeout_seconds,
+            max_attempts=settings.promotion_gitlab_max_attempts,
+            retry_backoff_seconds=settings.promotion_gitlab_retry_backoff_seconds,
+            draft=settings.promotion_gitlab_draft,
         ),
     )
 

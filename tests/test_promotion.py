@@ -15,6 +15,9 @@ from ai_harness.promotion import (
     GitHubPullRequestClient,
     GitHubPullRequestError,
     GitHubPullRequestPublisher,
+    GitLabMergeRequestClient,
+    GitLabMergeRequestError,
+    GitLabMergeRequestPublisher,
     PromotionConflictError,
 )
 
@@ -311,3 +314,122 @@ def test_github_pull_request_error_redacts_token() -> None:
     assert "super-secret" not in str(captured.value)
     assert "[REDACTED]" in str(captured.value)
     assert len(requests) == 1
+
+
+def test_gitlab_publisher_creates_then_reuses_merge_request(tmp_path: Path) -> None:
+    remote, workspace = remote_and_workspace(tmp_path)
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET" and len(requests) == 1:
+            return httpx.Response(200, json=[])
+        if request.method == "POST":
+            payload = json.loads(request.content)
+            assert payload == {
+                "source_branch": "ai-harness/task-123",
+                "target_branch": "main",
+                "title": "Draft: AI Harness task task-123",
+                "description": (
+                    "Automated branch produced by AI Harness after verification "
+                    "and reviewer approval."
+                ),
+                "remove_source_branch": False,
+            }
+            return httpx.Response(
+                201,
+                json={"web_url": "https://gitlab.com/acme/project/-/merge_requests/7", "iid": 7},
+            )
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "web_url": "https://gitlab.com/acme/project/-/merge_requests/7",
+                    "iid": 7,
+                }
+            ],
+        )
+
+    gitlab = GitLabMergeRequestClient(
+        "acme/platform/project",
+        "secret-token",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    publisher = GitLabMergeRequestPublisher(
+        GitBranchPublisher(str(remote), tmp_path / "staging"), gitlab
+    )
+
+    created = publisher.publish("task-123", workspace, ["app.py"])
+    replay = publisher.publish("task-123", workspace, ["app.py"])
+
+    assert created.pull_request_url.endswith("/-/merge_requests/7")
+    assert created.pull_request_number == 7
+    assert created.pull_request_created is True
+    assert replay.pull_request_created is False
+    assert replay.commit == created.commit
+    assert len(requests) == 3
+    assert requests[0].headers["PRIVATE-TOKEN"] == "secret-token"
+    assert requests[0].url.raw_path.split(b"?", 1)[0].endswith(
+        b"/projects/acme%2Fplatform%2Fproject/merge_requests"
+    )
+    assert requests[0].url.params["source_branch"] == "ai-harness/task-123"
+    assert requests[0].url.params["target_branch"] == "main"
+    assert "secret-token" not in repr(created)
+
+
+def test_gitlab_merge_request_creation_race_reuses_winner() -> None:
+    responses = iter(
+        [
+            httpx.Response(200, json=[]),
+            httpx.Response(409, json={"message": "already exists"}),
+            httpx.Response(
+                200,
+                json=[
+                    {
+                        "web_url": "https://gitlab.com/acme/project/-/merge_requests/9",
+                        "iid": 9,
+                    }
+                ],
+            ),
+        ]
+    )
+    gitlab = GitLabMergeRequestClient(
+        "acme/project",
+        "secret-token",
+        client=httpx.Client(transport=httpx.MockTransport(lambda _: next(responses))),
+    )
+
+    receipt = gitlab.ensure("task-123", "ai-harness/task-123", "main")
+
+    assert receipt.number == 9
+    assert receipt.created is False
+
+
+def test_gitlab_merge_request_retries_rate_limit_and_redacts_token() -> None:
+    responses = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "60"}),
+            httpx.Response(403, text="credential super-secret is forbidden"),
+        ]
+    )
+    sleeps: list[float] = []
+    gitlab = GitLabMergeRequestClient(
+        "acme/project",
+        "super-secret",
+        max_retry_after_seconds=2,
+        client=httpx.Client(transport=httpx.MockTransport(lambda _: next(responses))),
+        sleeper=sleeps.append,
+    )
+
+    with pytest.raises(GitLabMergeRequestError) as captured:
+        gitlab.ensure("task-123", "ai-harness/task-123", "main")
+
+    assert sleeps == [2]
+    assert "super-secret" not in str(captured.value)
+    assert "[REDACTED]" in str(captured.value)
+
+
+@pytest.mark.parametrize("project", ["", "../project", "group//project", "group/a b"])
+def test_gitlab_merge_request_rejects_unsafe_project(project: str) -> None:
+    with pytest.raises(ValueError, match="invalid GitLab project"):
+        GitLabMergeRequestClient(project, "secret-token")

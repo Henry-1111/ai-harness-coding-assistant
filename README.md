@@ -593,18 +593,34 @@ export AI_HARNESS_PROMOTION_GITHUB_MAX_ATTEMPTS=3
 export AI_HARNESS_PROMOTION_GITHUB_RETRY_BACKOFF_SECONDS=0.25
 ```
 
+GitLab.com 或自建 GitLab 可以改用 Merge Request 集成；GitHub 与 GitLab 配置互斥：
+
+```bash
+export AI_HARNESS_PROMOTION_GITLAB_PROJECT=example/platform/project
+export AI_HARNESS_PROMOTION_GITLAB_TOKEN='<project-or-personal-access-token>'
+# 自建 GitLab 时替换为 https://gitlab.example.com/api/v4
+export AI_HARNESS_PROMOTION_GITLAB_API_URL=https://gitlab.com/api/v4
+export AI_HARNESS_PROMOTION_GITLAB_DRAFT=true
+export AI_HARNESS_PROMOTION_GITLAB_TIMEOUT_SECONDS=30
+export AI_HARNESS_PROMOTION_GITLAB_MAX_ATTEMPTS=3
+export AI_HARNESS_PROMOTION_GITLAB_RETRY_BACKOFF_SECONDS=0.25
+```
+
 Publisher 只会创建 `ai-harness/{task_id}` 独立分支，不直接写主分支；凭据由 SSH Agent、Git Credential
 Helper 或运行环境提供，配置和日志不保存 Token。相同任务重复发布且内容一致时返回同一 Commit；多个
 API 实例并发发布同一结果时，先写入者创建分支，其他实例校验远程内容后按幂等重放成功处理；若远程
 分支已存在但内容不同则拒绝覆盖。使用 SSH 时还应以只读方式挂载预置的 `known_hosts`，不要关闭主机校验。
-API 与控制台会返回分支名、Commit 和 Pull Request 信息。启用 GitHub 集成后，Publisher 会先查询同一
+API 与控制台会返回分支名、Commit 和代码评审请求信息。启用 GitHub 集成后，Publisher 会先查询同一
 `head + base` 的开放 PR：存在则幂等复用，不存在才创建；并发创建返回 422 时会再次查询并接纳胜出者。
 请求使用版本化 GitHub REST API，Token 只进入 Authorization Header，不写入任务状态、回执或错误日志。
 网络异常、429 与暂时性 5xx 会在有界次数内指数退避重试；服务端返回 `Retry-After` 时优先采用并限制单次等待，
 避免代码托管平台短暂抖动直接使已完成任务发布失败。即使创建 PR 的响应丢失，重试得到 422 后也会再次查询并
 复用已经创建的 PR，保持调用幂等。
 推荐使用仅具有目标仓库 Pull requests 读写权限的 GitHub App Installation Token 或
-Fine-grained Token。未配置 GitHub 变量时仍保持纯分支发布，可由 CI 或其他代码托管平台创建 PR。
+Fine-grained Token。未配置任何代码托管 API 变量时仍保持纯分支发布，可由 CI 创建评审请求。
+GitLab 集成采用 URL 编码后的项目路径调用 v4 Merge Requests API，使用 `PRIVATE-TOKEN` Header；它同样会
+先按 source/target branch 查询开放 MR，创建冲突或响应丢失时再次查询复用，并对网络异常、429 和暂时性
+5xx 执行有界重试。建议使用只具有目标项目 API 权限的 Project Access Token。
 
 ### Prometheus 与 Grafana
 
@@ -638,8 +654,8 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Promote
   User Memory 使用认证主体作为 owner。
   异步任务可通过共享 POSIX 快照目录跨主机启动，审批恢复和 Diff 可从任务快照自动恢复。原始仓库路径只继续
   用于授权和项目记忆身份。共享 POSIX Git 仓库可通过文件锁协调原地 Promote；不能挂载原仓库的 Worker
-  可发布到远程 Git 独立分支并选择性创建 GitHub Pull Request。任务快照已支持 S3/MinIO，但当前 Compose
-  编排仍是单主机；GitLab Merge Request 等其他代码托管平台尚未接入。
+  可发布到远程 Git 独立分支，并选择性创建 GitHub Pull Request 或 GitLab Merge Request。任务快照已支持
+  S3/MinIO，但当前 Compose 编排仍是单主机。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。

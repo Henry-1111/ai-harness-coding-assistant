@@ -2,7 +2,7 @@ import pytest
 
 from ai_harness.cli import build_promotion_publisher
 from ai_harness.config import Settings, parse_cors_origins
-from ai_harness.promotion import GitHubPullRequestPublisher
+from ai_harness.promotion import GitHubPullRequestPublisher, GitLabMergeRequestPublisher
 
 
 def test_embedding_endpoint_defaults_to_model_gateway(monkeypatch):
@@ -68,6 +68,11 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_MAX_ATTEMPTS", "4")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_RETRY_BACKOFF_SECONDS", "0.5")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "false")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_API_URL", "https://gitlab.example/api/v4")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_TIMEOUT_SECONDS", "20")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_MAX_ATTEMPTS", "5")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_RETRY_BACKOFF_SECONDS", "0.75")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_DRAFT", "false")
 
     settings = Settings.from_environment()
 
@@ -99,6 +104,11 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.promotion_github_max_attempts == 4
     assert settings.promotion_github_retry_backoff_seconds == 0.5
     assert settings.promotion_github_draft is False
+    assert settings.promotion_gitlab_api_url == "https://gitlab.example/api/v4"
+    assert settings.promotion_gitlab_timeout_seconds == 20
+    assert settings.promotion_gitlab_max_attempts == 5
+    assert settings.promotion_gitlab_retry_backoff_seconds == 0.75
+    assert settings.promotion_gitlab_draft is False
 
 
 def test_request_authentication_settings_are_configurable(monkeypatch):
@@ -127,6 +137,37 @@ def test_github_pull_request_publisher_requires_complete_configuration(
     publisher = build_promotion_publisher(Settings.from_environment())
 
     assert isinstance(publisher, GitHubPullRequestPublisher)
+
+
+def test_gitlab_merge_request_publisher_requires_complete_configuration(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("AI_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_MODE", "git_branch")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_REMOTE_URL", "git@example.com:repo.git")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_PROJECT", "acme/project")
+    monkeypatch.delenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", raising=False)
+
+    with pytest.raises(SystemExit, match="must be configured together"):
+        build_promotion_publisher(Settings.from_environment())
+
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", "gitlab-token")
+    publisher = build_promotion_publisher(Settings.from_environment())
+
+    assert isinstance(publisher, GitLabMergeRequestPublisher)
+
+
+def test_github_and_gitlab_promotion_are_mutually_exclusive(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("AI_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_MODE", "git_branch")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_REMOTE_URL", "git@example.com:repo.git")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_REPOSITORY", "acme/project")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_PROJECT", "acme/project")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", "gitlab-token")
+
+    with pytest.raises(SystemExit, match="only one"):
+        build_promotion_publisher(Settings.from_environment())
 
 
 def test_distributed_governance_settings_are_configurable(monkeypatch):
