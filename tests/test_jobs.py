@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 import sqlite3
 import threading
 import time
@@ -341,6 +343,48 @@ def test_worker_pool_enforces_maximum_concurrency(tmp_path: Path):
     finally:
         release.set()
         pool.stop()
+
+
+def test_worker_rejects_stale_settlement_without_counting_completion(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+):
+    class RejectingCompletionStore(TaskJobStore):
+        def complete(self, job_id: str, worker_id: str, result: TaskResult) -> bool:
+            return False
+
+    class SuccessfulOrchestrator:
+        def run(self, _: TaskRequest, *, control: ExecutionControl) -> TaskResult:
+            return result("stale-task")
+
+    store = RejectingCompletionStore(tmp_path / "jobs.sqlite3")
+    job = store.enqueue(request(tmp_path), request_id="trace-stale")
+    pool = TaskWorkerPool(
+        SuccessfulOrchestrator(),  # type: ignore[arg-type]
+        store,
+        max_workers=1,
+        poll_interval_seconds=0.01,
+        lease_seconds=30,
+    )
+    caplog.set_level(logging.INFO, logger="ai_harness.worker")
+    pool.start()
+    try:
+        wait_until(
+            lambda: pool.runtime_snapshot().workers[0].last_error
+            == "lease ownership lost before settlement"
+        )
+        runtime = pool.runtime_snapshot()
+    finally:
+        pool.stop()
+
+    assert runtime.workers[0].completed_jobs == 0
+    assert store.get(job.job_id).status == JobStatus.RUNNING
+    events = [json.loads(record.message) for record in caplog.records]
+    assert [event["event"] for event in events] == [
+        "job_started",
+        "job_settlement_rejected",
+    ]
+    assert events[-1]["request_id"] == "trace-stale"
+    assert events[-1]["status"] == "stale_lease"
 
 
 def test_worker_retries_exception_then_records_success(tmp_path: Path):

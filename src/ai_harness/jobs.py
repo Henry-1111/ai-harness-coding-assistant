@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -15,7 +16,10 @@ from typing import Callable, Optional, Protocol
 from pydantic import BaseModel, Field
 
 from .models import TaskRequest, TaskResult, TaskStatus, utc_now
+from .observability import format_worker_event
 from .orchestrator import ExecutionControl, HarnessOrchestrator
+
+worker_logger = logging.getLogger("ai_harness.worker")
 
 
 class QueueFullError(RuntimeError):
@@ -932,6 +936,16 @@ class TaskWorkerPool:
                     state="running",
                     current_job_id=job.job_id,
                 )
+                worker_logger.info(
+                    format_worker_event(
+                        event="job_started",
+                        request_id=job.request_id,
+                        job_id=job.job_id,
+                        worker_id=worker_id,
+                        status=JobStatus.RUNNING.value,
+                        attempt=job.attempts,
+                    )
+                )
                 heartbeat_stop = threading.Event()
                 heartbeat = threading.Thread(
                     target=self._heartbeat,
@@ -950,35 +964,53 @@ class TaskWorkerPool:
                     infrastructure_error = self._infrastructure_error(result)
                     if infrastructure_error:
                         self.circuit.record_failure()
-                        self.store.fail(job.job_id, worker_id, infrastructure_error)
-                        self._notify_terminal(job.job_id)
-                        self._update_worker(
+                        accepted = self.store.fail(
+                            job.job_id, worker_id, infrastructure_error
+                        )
+                        self._record_settlement(
+                            job,
                             worker_id,
-                            failed_delta=1,
-                            last_error=infrastructure_error,
+                            accepted=accepted,
+                            status=(
+                                JobStatus.PENDING.value
+                                if job.attempts < job.max_attempts
+                                else JobStatus.FAILED.value
+                            ),
+                            failed=accepted,
+                            error=infrastructure_error,
                         )
                     else:
                         if result.status == TaskStatus.CANCELLED:
                             self.circuit.record_neutral()
                         else:
                             self.circuit.record_success()
-                        self.store.complete(job.job_id, worker_id, result)
-                        self._notify_terminal(job.job_id)
-                        self._update_worker(
+                        accepted = self.store.complete(job.job_id, worker_id, result)
+                        self._record_settlement(
+                            job,
                             worker_id,
-                            completed_delta=1,
-                            failed_delta=int(result.status == TaskStatus.FAILED),
-                            last_error=result.error if result.status == TaskStatus.FAILED else None,
+                            accepted=accepted,
+                            status=result.status.value,
+                            completed=accepted,
+                            failed=accepted and result.status == TaskStatus.FAILED,
+                            error=(
+                                result.error if result.status == TaskStatus.FAILED else None
+                            ),
                         )
                 except Exception as exc:
                     error = f"{type(exc).__name__}: {exc}"
                     self.circuit.record_failure()
-                    self.store.fail(job.job_id, worker_id, error)
-                    self._notify_terminal(job.job_id)
-                    self._update_worker(
+                    accepted = self.store.fail(job.job_id, worker_id, error)
+                    self._record_settlement(
+                        job,
                         worker_id,
-                        failed_delta=1,
-                        last_error=error,
+                        accepted=accepted,
+                        status=(
+                            JobStatus.PENDING.value
+                            if job.attempts < job.max_attempts
+                            else JobStatus.FAILED.value
+                        ),
+                        failed=accepted,
+                        error=error,
                     )
                 finally:
                     heartbeat_stop.set()
@@ -986,6 +1018,43 @@ class TaskWorkerPool:
                     self._update_worker(worker_id, state="idle", current_job_id=None)
         finally:
             self._update_worker(worker_id, state="stopped", current_job_id=None)
+
+    def _record_settlement(
+        self,
+        job: TaskJob,
+        worker_id: str,
+        *,
+        accepted: bool,
+        status: str,
+        completed: bool = False,
+        failed: bool = False,
+        error: Optional[str] = None,
+    ) -> None:
+        event = "job_settled" if accepted else "job_settlement_rejected"
+        log = worker_logger.info if accepted else worker_logger.warning
+        log(
+            format_worker_event(
+                event=event,
+                request_id=job.request_id,
+                job_id=job.job_id,
+                worker_id=worker_id,
+                status=status if accepted else "stale_lease",
+                attempt=job.attempts,
+            )
+        )
+        if not accepted:
+            self._update_worker(
+                worker_id,
+                last_error="lease ownership lost before settlement",
+            )
+            return
+        self._notify_terminal(job.job_id)
+        self._update_worker(
+            worker_id,
+            completed_delta=int(completed),
+            failed_delta=int(failed),
+            last_error=error,
+        )
 
     def _notify_terminal(self, job_id: str) -> None:
         if self.terminal_callback is None:

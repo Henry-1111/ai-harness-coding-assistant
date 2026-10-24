@@ -44,6 +44,29 @@ def format_http_access_log(
     )
 
 
+def format_worker_event(
+    *,
+    event: str,
+    request_id: str | None,
+    job_id: str,
+    worker_id: str,
+    status: str,
+    attempt: int,
+) -> str:
+    return json.dumps(
+        {
+            "attempt": attempt,
+            "event": event,
+            "job_id": job_id,
+            "request_id": request_id,
+            "status": status,
+            "worker_id": worker_id,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
 @dataclass
 class _HTTPSeries:
     count: int = 0

@@ -388,7 +388,9 @@ ready gauge。HTTP 指标按方法、路由模板和状态码统计请求数及�
 请求正文、Authorization 或 API Key 的 JSON 访问日志。非法或缺失的 ID 会替换为随机值，未知 HTTP Method
 统一聚合为 `OTHER`，避免日志注入和 Prometheus 标签基数被恶意请求放大。异步任务还会把规范化后的
 `request_id` 持久化到 Job 及首个 `queued` 事件中，使入口日志、任务状态和 Worker 事件可跨进程关联；
-幂等重放始终返回首次创建任务的关联 ID，不覆盖原始审计链路。
+幂等重放始终返回首次创建任务的关联 ID，不覆盖原始审计链路。Worker 在领取和结算任务时也会输出带
+`request_id/job_id/worker_id` 的 JSON 日志；若租约已被其他 Worker 接管，迟到的结算会记录为
+`job_settlement_rejected`，且不计入当前 Worker 的完成统计。
 API 响应默认携带 `nosniff`、禁止嵌入、禁止 Referrer 和 `no-store` 安全头。生产控制台域名必须通过
 `AI_HARNESS_CORS_ALLOWED_ORIGINS` 以逗号分隔显式配置；通配符、带用户信息或带路径的 Origin 会在启动时
 被拒绝，避免误把带 Bearer Token 的跨域 API 暴露给任意站点。

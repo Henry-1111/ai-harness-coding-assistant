@@ -3,6 +3,7 @@ import json
 from ai_harness.observability import (
     HTTPMetrics,
     format_http_access_log,
+    format_worker_event,
     normalize_request_id,
 )
 
@@ -70,4 +71,26 @@ def test_request_ids_and_access_logs_are_safe_and_structured() -> None:
         "request_id": generated,
         "route": "unmatched",
         "status_code": 404,
+    }
+
+
+def test_worker_events_are_structured_and_correlation_safe() -> None:
+    payload = json.loads(
+        format_worker_event(
+            event="job_started",
+            request_id="trace-123",
+            job_id="job-456",
+            worker_id="worker-789",
+            status="running",
+            attempt=2,
+        )
+    )
+
+    assert payload == {
+        "attempt": 2,
+        "event": "job_started",
+        "job_id": "job-456",
+        "request_id": "trace-123",
+        "status": "running",
+        "worker_id": "worker-789",
     }
