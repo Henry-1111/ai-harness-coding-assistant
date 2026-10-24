@@ -68,6 +68,12 @@ class Settings:
     cors_allowed_origins: tuple[str, ...]
     workspace_snapshot_directory: str
     workspace_snapshot_max_bytes: int
+    workspace_snapshot_s3_bucket: str
+    workspace_snapshot_s3_prefix: str
+    workspace_snapshot_s3_endpoint: str
+    workspace_snapshot_s3_region: str
+    workspace_snapshot_s3_access_key_id: str
+    workspace_snapshot_s3_secret_access_key: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -132,5 +138,23 @@ class Settings:
             ),
             workspace_snapshot_max_bytes=int(
                 os.getenv("AI_HARNESS_WORKSPACE_SNAPSHOT_MAX_BYTES", "10737418240")
+            ),
+            workspace_snapshot_s3_bucket=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_BUCKET", ""
+            ),
+            workspace_snapshot_s3_prefix=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_PREFIX", "ai-harness/workspaces"
+            ),
+            workspace_snapshot_s3_endpoint=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ENDPOINT", ""
+            ),
+            workspace_snapshot_s3_region=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_REGION", ""
+            ),
+            workspace_snapshot_s3_access_key_id=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID", ""
+            ),
+            workspace_snapshot_s3_secret_access_key=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY", ""
             ),
         )

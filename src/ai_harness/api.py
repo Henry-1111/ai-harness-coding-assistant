@@ -43,8 +43,8 @@ from .observability import HTTPMetrics, format_http_access_log, normalize_reques
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 from .quota_reconciliation import QuotaReconciler
 from .workspaces import (
-    FilesystemWorkspaceSnapshotStore,
     WorkspaceSnapshotCapacityError,
+    WorkspaceSnapshotStore,
 )
 
 
@@ -74,15 +74,15 @@ def create_app(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ),
-    workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
+    workspace_store: Optional[WorkspaceSnapshotStore] = None,
 ) -> FastAPI:
     # Uvicorn configures this logger in both CLI and container entry points.
     request_logger = logging.getLogger("uvicorn.error")
     if workspace_store is not None:
         if orchestrator.workspace_store is None:
             orchestrator.workspace_store = workspace_store
-        elif orchestrator.workspace_store.root != workspace_store.root:
-            raise ValueError("orchestrator and API workspace stores must share one root")
+        elif orchestrator.workspace_store.storage_identity != workspace_store.storage_identity:
+            raise ValueError("orchestrator and API workspace stores must share one backend")
     authenticator = authenticator or APIKeyAuthenticator.disabled()
     governance_store = governance_store or GovernanceStore(
         orchestrator.data_directory / "governance.sqlite3"

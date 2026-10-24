@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from .models import TaskRequest, TaskResult, TaskStatus, utc_now
 from .observability import format_worker_event
 from .orchestrator import ExecutionControl, HarnessOrchestrator
-from .workspaces import FilesystemWorkspaceSnapshotStore, validate_snapshot_id
+from .workspaces import WorkspaceSnapshotStore, validate_snapshot_id
 
 worker_logger = logging.getLogger("ai_harness.worker")
 
@@ -861,7 +861,7 @@ class TaskWorkerPool:
         circuit_failure_threshold: int = 3,
         circuit_recovery_seconds: float = 30,
         terminal_callback: Optional[Callable[[TaskJob], object]] = None,
-        workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
+        workspace_store: Optional[WorkspaceSnapshotStore] = None,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")

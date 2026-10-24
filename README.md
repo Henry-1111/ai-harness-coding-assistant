@@ -553,6 +553,23 @@ Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台�
 更新任务快照失败时保留上一份可恢复版本。`/metrics` 暴露快照数量、已用字节和容量上限，Prometheus 在连续
 10 分钟超过 85% 时告警，Grafana 看板展示实时占用比例。
 
+多主机不具备共享 POSIX 文件系统时，可把同一接口切换到 S3 或 MinIO：
+
+```bash
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_BUCKET=ai-harness-snapshots
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_PREFIX=production/workspaces
+# MinIO 等 S3-compatible 服务才需要自定义 endpoint；AWS S3 留空。
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ENDPOINT=http://minio:9000
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_REGION=us-east-1
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID='<access-key>'
+export AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY='<secret-key>'
+```
+
+配置 Bucket 后，对象存储成为权威副本，`AI_HARNESS_WORKSPACE_SNAPSHOT_DIR` 变为每个实例的有界本地缓存；
+未显式配置访问密钥时使用 AWS SDK 默认凭据链，生产环境优先采用实例角色或 Workload Identity。上传使用
+条件写避免同一 Job 快照被覆盖，更新后的 ETag 会使其他主机自动刷新缓存；下载校验对象元数据中的 SHA-256，
+并采用拒绝路径穿越、设备文件及硬链接的安全解包流程。对象存储的生命周期与版本策略仍应在 Bucket 侧配置。
+
 Promote 会为每个首次修改的文件持久化 SHA-256 基线。正式写回前先检查全部目标文件：源文件仍等于基线才
 允许发布，已经等于任务结果则按幂等成功处理，其他情况返回冲突且不写入任何文件，避免覆盖任务执行期间的
 人工或其他 Agent 修改。写回使用同目录临时文件与原子替换，进程中断后可安全重试；共享 Git 仓库还通过
@@ -589,8 +606,8 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Prometh
   User Memory 使用认证主体作为 owner。
   异步任务可通过共享 POSIX 快照目录跨主机启动，审批恢复和 Diff 可从任务快照自动恢复。原始仓库路径只继续
   用于授权、项目记忆身份和显式 Promote；Promote 仍必须在能访问原仓库的实例执行。共享 POSIX Git 仓库
-  可通过文件锁协调多实例写回，但当前 Compose 仍是单主机部署，尚未提供 S3/对象存储适配器或远程 Git
-  服务端发布适配器。
+  可通过文件锁协调多实例写回；任务快照已支持 S3/MinIO，但当前 Compose 编排仍是单主机，且尚未提供远程
+  Git 服务端发布适配器。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。

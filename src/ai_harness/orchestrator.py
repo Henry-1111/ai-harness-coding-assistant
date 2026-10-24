@@ -53,7 +53,7 @@ from .repository import (
 from .sandbox import CommandRunner, DockerSandbox
 from .self_healing import SelfHealingPlanner
 from .tools import ToolContext, default_registry
-from .workspaces import IGNORED_WORKSPACE_NAMES, FilesystemWorkspaceSnapshotStore
+from .workspaces import IGNORED_WORKSPACE_NAMES, WorkspaceSnapshotStore
 
 
 class WorkflowState(TypedDict):
@@ -97,7 +97,7 @@ class HarnessOrchestrator:
         mcp_tool_catalog: Optional[MCPToolCatalog] = None,
         tenant_id: str = "local",
         collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
-        workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
+        workspace_store: Optional[WorkspaceSnapshotStore] = None,
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()

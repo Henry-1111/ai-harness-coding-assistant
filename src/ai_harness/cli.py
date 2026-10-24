@@ -29,11 +29,37 @@ from .governance import APIKeyAuthenticator, GovernanceStore
 from .lsp import LSPDefinitionEnricher
 from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
+from .object_workspaces import S3WorkspaceSnapshotStore
 from .orchestrator import HarnessOrchestrator
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
-from .workspaces import FilesystemWorkspaceSnapshotStore
+from .workspaces import FilesystemWorkspaceSnapshotStore, WorkspaceSnapshotStore
+
+
+def build_workspace_store(settings: Settings) -> Optional[WorkspaceSnapshotStore]:
+    if settings.workspace_snapshot_s3_bucket:
+        cache_root = (
+            Path(settings.workspace_snapshot_directory)
+            if settings.workspace_snapshot_directory
+            else settings.data_directory / "workspace-snapshot-cache"
+        )
+        return S3WorkspaceSnapshotStore(
+            cache_root,
+            bucket=settings.workspace_snapshot_s3_bucket,
+            prefix=settings.workspace_snapshot_s3_prefix,
+            endpoint_url=settings.workspace_snapshot_s3_endpoint,
+            region=settings.workspace_snapshot_s3_region,
+            access_key_id=settings.workspace_snapshot_s3_access_key_id,
+            secret_access_key=settings.workspace_snapshot_s3_secret_access_key,
+            max_bytes=settings.workspace_snapshot_max_bytes,
+        )
+    if settings.workspace_snapshot_directory:
+        return FilesystemWorkspaceSnapshotStore(
+            Path(settings.workspace_snapshot_directory),
+            max_bytes=settings.workspace_snapshot_max_bytes,
+        )
+    return None
 
 
 def build_orchestrator(
@@ -98,14 +124,7 @@ def build_orchestrator(
         if settings.governance_database_url
         else None
     )
-    workspace_store = (
-        FilesystemWorkspaceSnapshotStore(
-            Path(settings.workspace_snapshot_directory),
-            max_bytes=settings.workspace_snapshot_max_bytes,
-        )
-        if settings.workspace_snapshot_directory
-        else None
-    )
+    workspace_store = build_workspace_store(settings)
     return HarnessOrchestrator(
         model,
         data_directory or settings.data_directory,
@@ -380,14 +399,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if settings.governance_database_url
             else None
         )
-        workspace_store = (
-            FilesystemWorkspaceSnapshotStore(
-                Path(settings.workspace_snapshot_directory),
-                max_bytes=settings.workspace_snapshot_max_bytes,
-            )
-            if settings.workspace_snapshot_directory
-            else None
-        )
+        workspace_store = build_workspace_store(settings)
         uvicorn.run(
             create_app(
                 orchestrator,

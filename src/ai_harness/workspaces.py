@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from fcntl import LOCK_EX, LOCK_UN, flock
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Protocol
 
 SNAPSHOT_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 IGNORED_WORKSPACE_NAMES = (
@@ -33,6 +33,25 @@ class WorkspaceSnapshotMetrics:
     max_bytes: int
 
 
+class WorkspaceSnapshotStore(Protocol):
+    @property
+    def storage_identity(self) -> str: ...
+
+    def stage(self, snapshot_id: str, source: Path) -> bool: ...
+
+    def replace(self, snapshot_id: str, source: Path) -> None: ...
+
+    def restore(self, snapshot_id: str, destination: Path) -> Path: ...
+
+    def healthcheck(self) -> bool: ...
+
+    def metrics(self) -> WorkspaceSnapshotMetrics: ...
+
+    def source_path(self, snapshot_id: str) -> Path: ...
+
+    def remove(self, snapshot_id: str) -> None: ...
+
+
 def validate_snapshot_id(snapshot_id: str) -> str:
     if not SNAPSHOT_ID_PATTERN.fullmatch(snapshot_id):
         raise ValueError("invalid workspace snapshot id")
@@ -53,6 +72,10 @@ class FilesystemWorkspaceSnapshotStore:
         self.root = root.resolve()
         self.max_bytes = max_bytes
         self.root.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def storage_identity(self) -> str:
+        return f"filesystem:{self.root}"
 
     @contextmanager
     def _capacity_lock(self) -> Iterator[None]:

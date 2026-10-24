@@ -48,6 +48,12 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "15")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_DIR", "/shared/snapshots")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_MAX_BYTES", "1048576")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_BUCKET", "workspace-snapshots")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_PREFIX", "production/harness")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ENDPOINT", "http://minio:9000")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_REGION", "us-east-1")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID", "access")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY", "secret")
 
     settings = Settings.from_environment()
 
@@ -61,6 +67,12 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.quota_reconciliation_interval_seconds == 15
     assert settings.workspace_snapshot_directory == "/shared/snapshots"
     assert settings.workspace_snapshot_max_bytes == 1048576
+    assert settings.workspace_snapshot_s3_bucket == "workspace-snapshots"
+    assert settings.workspace_snapshot_s3_prefix == "production/harness"
+    assert settings.workspace_snapshot_s3_endpoint == "http://minio:9000"
+    assert settings.workspace_snapshot_s3_region == "us-east-1"
+    assert settings.workspace_snapshot_s3_access_key_id == "access"
+    assert settings.workspace_snapshot_s3_secret_access_key == "secret"
 
 
 def test_request_authentication_settings_are_configurable(monkeypatch):
