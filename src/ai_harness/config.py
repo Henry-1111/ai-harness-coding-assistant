@@ -89,6 +89,7 @@ class Settings:
     circuit_failure_threshold: int
     circuit_recovery_seconds: float
     quota_reconciliation_interval_seconds: float
+    api_max_request_body_bytes: int
     cors_allowed_origins: tuple[str, ...]
     workspace_snapshot_directory: str
     workspace_snapshot_max_bytes: int
@@ -178,6 +179,9 @@ class Settings:
             ),
             quota_reconciliation_interval_seconds=float(
                 os.getenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "30")
+            ),
+            api_max_request_body_bytes=int(
+                os.getenv("AI_HARNESS_API_MAX_REQUEST_BODY_BYTES", "1048576")
             ),
             cors_allowed_origins=parse_cors_origins(
                 os.getenv("AI_HARNESS_CORS_ALLOWED_ORIGINS")

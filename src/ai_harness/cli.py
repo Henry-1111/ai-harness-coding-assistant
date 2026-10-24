@@ -491,6 +491,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 quota_reconciliation_interval_seconds=(
                     settings.quota_reconciliation_interval_seconds
                 ),
+                max_request_body_bytes=settings.api_max_request_body_bytes,
                 cors_allowed_origins=settings.cors_allowed_origins,
                 workspace_store=workspace_store,
             ),

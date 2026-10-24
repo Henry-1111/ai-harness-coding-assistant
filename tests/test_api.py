@@ -3,6 +3,7 @@ import shutil
 import time
 from pathlib import Path
 
+import pytest
 from conftest import ScriptedModel
 from fastapi.testclient import TestClient
 
@@ -81,6 +82,80 @@ def test_api_returns_404_for_unknown_task(tmp_path: Path):
     with TestClient(app) as client:
         response = client.get("/v1/tasks/missing")
     assert response.status_code == 404
+
+
+def test_api_rejects_declared_request_body_over_limit(tmp_path: Path) -> None:
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        max_request_body_bytes=64,
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tasks",
+            content=b'{' + b'"goal":"' + b"x" * 100 + b'"}',
+            headers={"Content-Type": "application/json", "X-Request-ID": "large-body"},
+        )
+        metrics = client.get("/metrics")
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "request body is too large"}
+    assert response.headers["X-Request-ID"] == "large-body"
+    assert (
+        'ai_harness_http_requests_total{method="POST",route="unmatched",status="413"} 1'
+        in metrics.text
+    )
+
+
+def test_api_rejects_chunked_request_body_over_limit(tmp_path: Path) -> None:
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        max_request_body_bytes=16,
+    )
+
+    def chunks():
+        yield b'{"goal":"'
+        yield b"x" * 32
+        yield b'"}'
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tasks",
+            content=chunks(),
+            headers={"Content-Type": "application/json"},
+        )
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "request body is too large"}
+
+
+def test_api_rejects_invalid_content_length(tmp_path: Path) -> None:
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        )
+    )
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/tasks",
+            content=b"{}",
+            headers={"Content-Type": "application/json", "Content-Length": "invalid"},
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "invalid Content-Length header"}
+
+
+def test_api_rejects_invalid_request_body_limit(tmp_path: Path) -> None:
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
+
+    with pytest.raises(ValueError, match="max_request_body_bytes"):
+        create_app(orchestrator, max_request_body_bytes=0)
 
 
 def test_promotion_conflict_is_audited_and_counted(

@@ -388,12 +388,18 @@ export AI_HARNESS_JOB_QUEUE_CAPACITY=100
 export AI_HARNESS_JOB_TIMEOUT_SECONDS=1800
 export AI_HARNESS_CIRCUIT_FAILURE_THRESHOLD=3
 export AI_HARNESS_CIRCUIT_RECOVERY_SECONDS=30
+export AI_HARNESS_API_MAX_REQUEST_BODY_BYTES=1048576
 ```
 
 容量上限统计 `pending/running/needs_input` 三类未完成任务，达到上限时新建 Job 返回 HTTP 429，防止
 模型调用和本地执行资源被无限排队拖垮。总执行时限覆盖完整 Agent 流程；单次模型请求和 Sandbox 命令
 仍保留各自更短的超时。`GET /v1/jobs/metrics` 返回各状态数量、重试任务数、取消请求数、最老排队时间和
 当前容量，用于控制台或监控系统采集。
+
+API 请求体默认限制为 1 MiB，可通过 `AI_HARNESS_API_MAX_REQUEST_BODY_BYTES` 调整，最大允许配置为 64 MiB。
+服务会先拒绝超限的 `Content-Length`，并在没有长度头的分块请求中逐块累计，超过上限立即返回 HTTP 413，
+避免攻击者通过省略长度头绕过保护。非法或负数 `Content-Length` 返回 HTTP 400；拒绝结果同样携带请求关联 ID、
+安全响应头并进入按状态码聚合的 HTTP 指标。
 
 Worker 会区分业务验证失败与基础设施失败。测试不通过、Reviewer 拒绝等业务结果不会触发熔断；连接超时、
 Provider HTTP 错误、SQLite 运行错误和任务总超时会进入重试并累计连续失败。达到阈值后执行熔断打开，暂停

@@ -5,11 +5,11 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Optional, Sequence
+from typing import AsyncIterator, Awaitable, Callable, Optional, Sequence
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from .governance import (
@@ -60,6 +60,23 @@ class ApprovalDecisionRequest(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+async def _call_with_bounded_body(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+    max_request_body_bytes: int,
+) -> Response:
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_request_body_bytes:
+            return JSONResponse(
+                status_code=413,
+                content={"detail": "request body is too large"},
+            )
+    request._body = bytes(body)  # Starlette replays this cache to the downstream app.
+    return await call_next(request)
+
+
 def create_app(
     orchestrator: HarnessOrchestrator,
     *,
@@ -76,6 +93,7 @@ def create_app(
     governance_store: Optional[GovernanceStoreProtocol] = None,
     quota_reconciler: Optional[QuotaReconciler] = None,
     quota_reconciliation_interval_seconds: float = 30,
+    max_request_body_bytes: int = 1024 * 1024,
     cors_allowed_origins: Sequence[str] = (
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -84,6 +102,8 @@ def create_app(
 ) -> FastAPI:
     # Uvicorn configures this logger in both CLI and container entry points.
     request_logger = logging.getLogger("uvicorn.error")
+    if not 1 <= max_request_body_bytes <= 64 * 1024 * 1024:
+        raise ValueError("max_request_body_bytes must be within 1..67108864")
     if workspace_store is not None:
         if orchestrator.workspace_store is None:
             orchestrator.workspace_store = workspace_store
@@ -186,7 +206,34 @@ def create_app(
         request.state.request_id = request_id
         started_at = time.perf_counter()
         try:
-            response = await call_next(request)
+            content_length = request.headers.get("Content-Length")
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                except ValueError:
+                    response = JSONResponse(
+                        status_code=400,
+                        content={"detail": "invalid Content-Length header"},
+                    )
+                else:
+                    if declared_size < 0:
+                        response = JSONResponse(
+                            status_code=400,
+                            content={"detail": "invalid Content-Length header"},
+                        )
+                    elif declared_size > max_request_body_bytes:
+                        response = JSONResponse(
+                            status_code=413,
+                            content={"detail": "request body is too large"},
+                        )
+                    else:
+                        response = await _call_with_bounded_body(
+                            request, call_next, max_request_body_bytes
+                        )
+            else:
+                response = await _call_with_bounded_body(
+                    request, call_next, max_request_body_bytes
+                )
         except Exception:
             route_object = request.scope.get("route")
             route = str(getattr(route_object, "path", "unmatched"))

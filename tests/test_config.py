@@ -99,6 +99,7 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_CIRCUIT_FAILURE_THRESHOLD", "5")
     monkeypatch.setenv("AI_HARNESS_CIRCUIT_RECOVERY_SECONDS", "45")
     monkeypatch.setenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "15")
+    monkeypatch.setenv("AI_HARNESS_API_MAX_REQUEST_BODY_BYTES", "2097152")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_DIR", "/shared/snapshots")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_MAX_BYTES", "1048576")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_BUCKET", "workspace-snapshots")
@@ -135,6 +136,7 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.circuit_failure_threshold == 5
     assert settings.circuit_recovery_seconds == 45
     assert settings.quota_reconciliation_interval_seconds == 15
+    assert settings.api_max_request_body_bytes == 2097152
     assert settings.workspace_snapshot_directory == "/shared/snapshots"
     assert settings.workspace_snapshot_max_bytes == 1048576
     assert settings.workspace_snapshot_s3_bucket == "workspace-snapshots"
