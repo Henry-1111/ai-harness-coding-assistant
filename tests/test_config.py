@@ -1,7 +1,7 @@
 import pytest
 
 from ai_harness.cli import build_promotion_publisher
-from ai_harness.config import Settings, parse_cors_origins
+from ai_harness.config import Settings, parse_cors_origins, secret_from_environment
 from ai_harness.promotion import GitHubPullRequestPublisher, GitLabMergeRequestPublisher
 
 
@@ -27,6 +27,57 @@ def test_embedding_endpoint_can_use_separate_gateway_credentials(monkeypatch):
 
     assert settings.embedding_base_url == "http://embedding-gateway/v1"
     assert settings.embedding_api_key == "embedding-key"
+
+
+def test_secrets_can_be_loaded_from_files(monkeypatch, tmp_path) -> None:
+    model_key = tmp_path / "model-key"
+    model_key.write_text("model-secret\n")
+    gitlab_token = tmp_path / "gitlab-token"
+    gitlab_token.write_text("gitlab-secret\n")
+    database_url = tmp_path / "database-url"
+    database_url.write_text("postgresql://harness:secret@postgres/ai_harness\n")
+    monkeypatch.delenv("AI_HARNESS_MODEL_API_KEY", raising=False)
+    monkeypatch.delenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", raising=False)
+    monkeypatch.delenv("AI_HARNESS_GOVERNANCE_DATABASE_URL", raising=False)
+    monkeypatch.setenv("AI_HARNESS_MODEL_API_KEY_FILE", str(model_key))
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN_FILE", str(gitlab_token))
+    monkeypatch.setenv("AI_HARNESS_GOVERNANCE_DATABASE_URL_FILE", str(database_url))
+
+    settings = Settings.from_environment()
+
+    assert settings.model_api_key == "model-secret"
+    assert settings.embedding_api_key == "model-secret"
+    assert settings.promotion_gitlab_token == "gitlab-secret"
+    assert settings.governance_database_url.endswith("@postgres/ai_harness")
+
+
+def test_secret_file_rejects_ambiguous_or_unreadable_configuration(
+    monkeypatch, tmp_path
+) -> None:
+    secret_file = tmp_path / "secret"
+    secret_file.write_text("from-file")
+    monkeypatch.setenv("EXAMPLE_SECRET", "inline")
+    monkeypatch.setenv("EXAMPLE_SECRET_FILE", str(secret_file))
+
+    with pytest.raises(ValueError, match="configure only one"):
+        secret_from_environment("EXAMPLE_SECRET")
+
+    monkeypatch.delenv("EXAMPLE_SECRET")
+    monkeypatch.setenv("EXAMPLE_SECRET_FILE", str(tmp_path / "missing"))
+    with pytest.raises(ValueError, match="cannot read"):
+        secret_from_environment("EXAMPLE_SECRET")
+
+
+def test_secret_file_rejects_empty_and_oversized_values(monkeypatch, tmp_path) -> None:
+    secret_file = tmp_path / "secret"
+    secret_file.write_text(" \n")
+    monkeypatch.setenv("EXAMPLE_SECRET_FILE", str(secret_file))
+    with pytest.raises(ValueError, match="is empty"):
+        secret_from_environment("EXAMPLE_SECRET")
+
+    secret_file.write_bytes(b"x" * (64 * 1024 + 1))
+    with pytest.raises(ValueError, match="exceeds"):
+        secret_from_environment("EXAMPLE_SECRET")
 
 
 def test_mcp_catalog_and_tenant_are_loaded_from_trusted_environment(monkeypatch):

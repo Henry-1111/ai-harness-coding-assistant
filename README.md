@@ -205,6 +205,24 @@ pytest -ra
 cd frontend && npm ci && npm run build
 ```
 
+## 密钥文件与 Secret 挂载
+
+敏感配置既可以使用原有环境变量，也可以使用同名的 `_FILE` 变量读取 Docker/Kubernetes Secret 挂载文件。
+两种方式不能同时提供，Secret 文件必须非空且不超过 64 KiB，读取失败时服务会直接拒绝启动。例如：
+
+```bash
+export AI_HARNESS_MODEL_API_KEY_FILE=/run/secrets/model-api-key
+export AI_HARNESS_GOVERNANCE_DATABASE_URL_FILE=/run/secrets/postgres-url
+export AI_HARNESS_REDIS_URL_FILE=/run/secrets/redis-url
+export AI_HARNESS_PROMOTION_GITHUB_TOKEN_FILE=/run/secrets/github-token
+```
+
+同样支持 Embedding API Key、S3 Access Key ID/Secret Access Key、Git 远程 URL 和 GitLab Token。
+Compose 已透传上述敏感配置的 `_FILE` 变量；部署时仍需通过 Compose override、
+Docker Secret、Kubernetes Secret 或平台密钥管理器把对应只读文件挂载到容器。未设置模型 Key 或 Key 文件时，
+应用会在启动阶段失败，不会带空凭据运行。生产环境优先使用短期身份、Workload Identity 或 Secret 挂载，
+避免把凭据写入 Compose 文件、镜像层和命令行。
+
 ## 任务规范化、动态路由与进度账本
 
 任务进入执行图前会先规范化为任务类型、复杂度、风险等级、派生验收条件、澄清问题和

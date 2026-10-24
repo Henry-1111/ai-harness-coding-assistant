@@ -6,6 +6,30 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+MAX_SECRET_FILE_BYTES = 64 * 1024
+
+
+def secret_from_environment(name: str, fallback: str = "") -> str:
+    """Load a secret from NAME or NAME_FILE without exposing its contents."""
+
+    direct = os.getenv(name, "")
+    file_name = os.getenv(f"{name}_FILE", "")
+    if direct and file_name:
+        raise ValueError(f"configure only one of {name} or {name}_FILE")
+    if not file_name:
+        return direct or fallback
+    path = Path(file_name)
+    try:
+        if path.stat().st_size > MAX_SECRET_FILE_BYTES:
+            raise ValueError(f"{name}_FILE exceeds {MAX_SECRET_FILE_BYTES} bytes")
+        value = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise ValueError(f"cannot read {name}_FILE") from exc
+    if not value:
+        raise ValueError(f"{name}_FILE is empty")
+    if "\x00" in value:
+        raise ValueError(f"{name}_FILE contains invalid data")
+    return value
 
 
 def parse_cors_origins(value: str | None) -> tuple[str, ...]:
@@ -99,7 +123,7 @@ class Settings:
     @classmethod
     def from_environment(cls) -> "Settings":
         model_base_url = os.getenv("AI_HARNESS_MODEL_BASE_URL", "https://api.openai.com/v1")
-        model_api_key = os.getenv("AI_HARNESS_MODEL_API_KEY", "")
+        model_api_key = secret_from_environment("AI_HARNESS_MODEL_API_KEY")
         return cls(
             data_directory=Path(os.getenv("AI_HARNESS_DATA_DIR", ".ai-harness")),
             model_base_url=model_base_url,
@@ -107,7 +131,9 @@ class Settings:
             model_name=os.getenv("AI_HARNESS_MODEL", "gpt-4.1-mini"),
             model_timeout_seconds=float(os.getenv("AI_HARNESS_MODEL_TIMEOUT", "60")),
             embedding_base_url=(os.getenv("AI_HARNESS_EMBEDDING_BASE_URL") or model_base_url),
-            embedding_api_key=(os.getenv("AI_HARNESS_EMBEDDING_API_KEY") or model_api_key),
+            embedding_api_key=(
+                secret_from_environment("AI_HARNESS_EMBEDDING_API_KEY") or model_api_key
+            ),
             embedding_model=os.getenv("AI_HARNESS_EMBEDDING_MODEL", ""),
             lsp_command=os.getenv("AI_HARNESS_LSP_COMMAND", ""),
             sandbox_mode=os.getenv("AI_HARNESS_SANDBOX_MODE", "docker"),
@@ -126,8 +152,10 @@ class Settings:
                 in {"1", "true", "yes", "on"}
             ),
             auth_config_path=os.getenv("AI_HARNESS_AUTH_CONFIG_PATH", ""),
-            governance_database_url=os.getenv("AI_HARNESS_GOVERNANCE_DATABASE_URL", ""),
-            redis_url=os.getenv("AI_HARNESS_REDIS_URL", ""),
+            governance_database_url=secret_from_environment(
+                "AI_HARNESS_GOVERNANCE_DATABASE_URL"
+            ),
+            redis_url=secret_from_environment("AI_HARNESS_REDIS_URL"),
             redis_key_prefix=os.getenv("AI_HARNESS_REDIS_KEY_PREFIX", "ai-harness"),
             redis_quota_ttl_seconds=int(
                 os.getenv("AI_HARNESS_REDIS_QUOTA_TTL_SECONDS", "259200")
@@ -172,15 +200,15 @@ class Settings:
             workspace_snapshot_s3_region=os.getenv(
                 "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_REGION", ""
             ),
-            workspace_snapshot_s3_access_key_id=os.getenv(
-                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID", ""
+            workspace_snapshot_s3_access_key_id=secret_from_environment(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID"
             ),
-            workspace_snapshot_s3_secret_access_key=os.getenv(
-                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY", ""
+            workspace_snapshot_s3_secret_access_key=secret_from_environment(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY"
             ),
             promotion_mode=os.getenv("AI_HARNESS_PROMOTION_MODE", "local"),
-            promotion_git_remote_url=os.getenv(
-                "AI_HARNESS_PROMOTION_GIT_REMOTE_URL", ""
+            promotion_git_remote_url=secret_from_environment(
+                "AI_HARNESS_PROMOTION_GIT_REMOTE_URL"
             ),
             promotion_git_base_ref=os.getenv(
                 "AI_HARNESS_PROMOTION_GIT_BASE_REF", "main"
@@ -197,7 +225,9 @@ class Settings:
             promotion_github_repository=os.getenv(
                 "AI_HARNESS_PROMOTION_GITHUB_REPOSITORY", ""
             ),
-            promotion_github_token=os.getenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", ""),
+            promotion_github_token=secret_from_environment(
+                "AI_HARNESS_PROMOTION_GITHUB_TOKEN"
+            ),
             promotion_github_api_url=os.getenv(
                 "AI_HARNESS_PROMOTION_GITHUB_API_URL", "https://api.github.com"
             ),
@@ -220,7 +250,9 @@ class Settings:
             promotion_gitlab_project=os.getenv(
                 "AI_HARNESS_PROMOTION_GITLAB_PROJECT", ""
             ),
-            promotion_gitlab_token=os.getenv("AI_HARNESS_PROMOTION_GITLAB_TOKEN", ""),
+            promotion_gitlab_token=secret_from_environment(
+                "AI_HARNESS_PROMOTION_GITLAB_TOKEN"
+            ),
             promotion_gitlab_api_url=os.getenv(
                 "AI_HARNESS_PROMOTION_GITLAB_API_URL", "https://gitlab.com/api/v4"
             ),
