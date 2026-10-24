@@ -43,6 +43,7 @@ from .models import (
     utc_now,
 )
 from .planner import TaskRouter
+from .promotion import PromotionPublisher
 from .repository import (
     DefinitionProvider,
     ProgressiveRetriever,
@@ -98,6 +99,7 @@ class HarnessOrchestrator:
         tenant_id: str = "local",
         collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
         workspace_store: Optional[WorkspaceSnapshotStore] = None,
+        promotion_publisher: Optional[PromotionPublisher] = None,
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -120,6 +122,7 @@ class HarnessOrchestrator:
             raise ValueError("collaboration_mode must be auto, disabled or forced")
         self.collaboration_mode = collaboration_mode
         self.workspace_store = workspace_store
+        self.promotion_publisher = promotion_publisher
         self.memory = memory_store or LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -326,8 +329,25 @@ class HarnessOrchestrator:
             raise KeyError(f"task not found: {task_id}")
         if state.status != TaskStatus.SUCCEEDED or not state.review or not state.review.approved:
             raise RuntimeError("only approved tasks can be promoted")
-        source = Repository(Path(state.request.repository))
         workspace = self._workspace_repository(state)
+        if self.promotion_publisher is not None:
+            receipt = self.promotion_publisher.publish(
+                task_id,
+                workspace.root,
+                state.changed_files,
+            )
+            state.scratchpad["promotion"] = {
+                "mode": receipt.mode,
+                "branch": receipt.branch,
+                "commit": receipt.commit,
+                "remote": receipt.remote,
+                "created": receipt.created,
+            }
+            state.scratchpad["promoted_files"] = list(state.changed_files)
+            state.scratchpad["promoted_at"] = utc_now().isoformat()
+            self.checkpoints.save(state)
+            return list(state.changed_files)
+        source = Repository(Path(state.request.repository))
         baselines = state.scratchpad.get("promotion_baselines")
         if not isinstance(baselines, dict):
             raise RuntimeError("promotion baseline is unavailable; rerun the task")

@@ -54,6 +54,10 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_REGION", "us-east-1")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_ACCESS_KEY_ID", "access")
     monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_MODE", "git_branch")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_REMOTE_URL", "git@example.com:repo.git")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_BASE_REF", "develop")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_BRANCH_PREFIX", "review/harness")
 
     settings = Settings.from_environment()
 
@@ -73,6 +77,10 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.workspace_snapshot_s3_region == "us-east-1"
     assert settings.workspace_snapshot_s3_access_key_id == "access"
     assert settings.workspace_snapshot_s3_secret_access_key == "secret"
+    assert settings.promotion_mode == "git_branch"
+    assert settings.promotion_git_remote_url == "git@example.com:repo.git"
+    assert settings.promotion_git_base_ref == "develop"
+    assert settings.promotion_git_branch_prefix == "review/harness"
 
 
 def test_request_authentication_settings_are_configurable(monkeypatch):

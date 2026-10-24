@@ -884,6 +884,8 @@ def create_app(
             raise HTTPException(status_code=404, detail="task not found") from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        promoted_task = orchestrator.get(task_id)
+        promotion = promoted_task.scratchpad.get("promotion") if promoted_task else None
         governance_store.audit(
             actor=principal.subject,
             tenant_id=principal.tenant_id,
@@ -891,9 +893,16 @@ def create_app(
             resource_type="task",
             resource_id=task_id,
             outcome="accepted",
-            details={"promoted_files": files},
+            details={
+                "promoted_files": files,
+                "promotion": promotion,
+            },
         )
-        return {"task_id": task_id, "promoted_files": files}
+        return {
+            "task_id": task_id,
+            "promoted_files": files,
+            "promotion": promotion,
+        }
 
     @app.get("/v1/audit/events", response_model=list[AuditEvent])
     def audit_events(

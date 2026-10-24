@@ -74,6 +74,12 @@ class Settings:
     workspace_snapshot_s3_region: str
     workspace_snapshot_s3_access_key_id: str
     workspace_snapshot_s3_secret_access_key: str
+    promotion_mode: str
+    promotion_git_remote_url: str
+    promotion_git_base_ref: str
+    promotion_git_branch_prefix: str
+    promotion_git_author_name: str
+    promotion_git_author_email: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -156,5 +162,21 @@ class Settings:
             ),
             workspace_snapshot_s3_secret_access_key=os.getenv(
                 "AI_HARNESS_WORKSPACE_SNAPSHOT_S3_SECRET_ACCESS_KEY", ""
+            ),
+            promotion_mode=os.getenv("AI_HARNESS_PROMOTION_MODE", "local"),
+            promotion_git_remote_url=os.getenv(
+                "AI_HARNESS_PROMOTION_GIT_REMOTE_URL", ""
+            ),
+            promotion_git_base_ref=os.getenv(
+                "AI_HARNESS_PROMOTION_GIT_BASE_REF", "main"
+            ),
+            promotion_git_branch_prefix=os.getenv(
+                "AI_HARNESS_PROMOTION_GIT_BRANCH_PREFIX", "ai-harness"
+            ),
+            promotion_git_author_name=os.getenv(
+                "AI_HARNESS_PROMOTION_GIT_AUTHOR_NAME", "AI Harness"
+            ),
+            promotion_git_author_email=os.getenv(
+                "AI_HARNESS_PROMOTION_GIT_AUTHOR_EMAIL", "ai-harness@localhost"
             ),
         )

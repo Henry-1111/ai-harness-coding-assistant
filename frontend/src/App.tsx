@@ -220,7 +220,11 @@ export default function App() {
     try {
       const response = await promoteTask(result.task_id);
       setPromoted(true);
-      messageApi.success(`已发布 ${response.promoted_files.length} 个文件`);
+      messageApi.success(
+        response.promotion
+          ? `已发布 ${response.promoted_files.length} 个文件到分支 ${response.promotion.branch}`
+          : `已发布 ${response.promoted_files.length} 个文件`,
+      );
     } catch (caught) {
       messageApi.error(caught instanceof Error ? caught.message : "发布失败");
     }
@@ -649,7 +653,7 @@ export default function App() {
                     disabled={result.status !== "succeeded" || promoted}
                     onClick={promote}
                   >
-                    {promoted ? "已发布" : "确认并发布到源仓库"}
+                    {promoted ? "已发布" : "确认并发布"}
                   </Button>
                 </div>
                 <div className="editor-frame">

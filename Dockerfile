@@ -3,6 +3,10 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates git openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system harness && useradd --system --gid harness --home-dir /app harness
 RUN mkdir -p /data && chown harness:harness /data
 

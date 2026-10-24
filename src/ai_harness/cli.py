@@ -31,6 +31,7 @@ from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .object_workspaces import S3WorkspaceSnapshotStore
 from .orchestrator import HarnessOrchestrator
+from .promotion import GitBranchPublisher, PromotionPublisher
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
@@ -60,6 +61,25 @@ def build_workspace_store(settings: Settings) -> Optional[WorkspaceSnapshotStore
             max_bytes=settings.workspace_snapshot_max_bytes,
         )
     return None
+
+
+def build_promotion_publisher(settings: Settings) -> Optional[PromotionPublisher]:
+    if settings.promotion_mode == "local":
+        return None
+    if settings.promotion_mode != "git_branch":
+        raise SystemExit("AI_HARNESS_PROMOTION_MODE must be 'local' or 'git_branch'")
+    if not settings.promotion_git_remote_url:
+        raise SystemExit(
+            "AI_HARNESS_PROMOTION_GIT_REMOTE_URL is required for git_branch promotion"
+        )
+    return GitBranchPublisher(
+        settings.promotion_git_remote_url,
+        settings.data_directory / "promotion-staging",
+        base_ref=settings.promotion_git_base_ref,
+        branch_prefix=settings.promotion_git_branch_prefix,
+        author_name=settings.promotion_git_author_name,
+        author_email=settings.promotion_git_author_email,
+    )
 
 
 def build_orchestrator(
@@ -125,6 +145,7 @@ def build_orchestrator(
         else None
     )
     workspace_store = build_workspace_store(settings)
+    promotion_publisher = build_promotion_publisher(settings)
     return HarnessOrchestrator(
         model,
         data_directory or settings.data_directory,
@@ -139,6 +160,7 @@ def build_orchestrator(
         tenant_id=settings.tenant_id,
         collaboration_mode=collaboration_mode,
         workspace_store=workspace_store,
+        promotion_publisher=promotion_publisher,
     )
 
 

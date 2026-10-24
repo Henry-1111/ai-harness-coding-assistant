@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from ai_harness.mcp import MCPToolCatalog, MCPToolCatalogConfig
 from ai_harness.memory import MemoryLayer
 from ai_harness.models import TaskRequest, TaskStatus
 from ai_harness.orchestrator import ExecutionControl, HarnessOrchestrator
+from ai_harness.promotion import PromotionReceipt
 from ai_harness.sandbox import LocalCommandSandbox
 
 
@@ -174,6 +176,40 @@ def test_promote_preflights_every_file_before_writing_any_source_change(
         orchestrator.promote(result.task_id)
 
     assert not (sample_repository / "notes.txt").exists()
+
+
+def test_remote_promotion_does_not_require_original_repository_after_execution(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    calls: list[tuple[str, Path, list[str]]] = []
+
+    class Publisher:
+        def publish(
+            self, task_id: str, workspace: Path, changed_files: list[str]
+        ) -> PromotionReceipt:
+            calls.append((task_id, workspace, list(changed_files)))
+            return PromotionReceipt(
+                mode="git_branch",
+                branch=f"ai-harness/{task_id}",
+                commit="a" * 40,
+                remote="git@example.com:project.git",
+                created=True,
+            )
+
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([successful_edit()]),
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+        promotion_publisher=Publisher(),
+    )
+    result = orchestrator.run(request_for(sample_repository))
+    shutil.rmtree(sample_repository)
+
+    assert orchestrator.promote(result.task_id) == ["calculator.py"]
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    assert state.scratchpad["promotion"]["branch"] == f"ai-harness/{result.task_id}"
+    assert calls[0][0] == result.task_id
 
 
 def test_high_risk_task_waits_for_explicit_approval_before_execution(

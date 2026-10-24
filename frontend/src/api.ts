@@ -80,7 +80,17 @@ export function getDiff(taskId: string): Promise<{ task_id: string; diff: string
   return request(`/v1/tasks/${taskId}/diff`);
 }
 
-export function promoteTask(taskId: string): Promise<{ promoted_files: string[] }> {
+export interface PromotionReceipt {
+  mode: "git_branch";
+  branch: string;
+  commit: string;
+  remote: string;
+  created: boolean;
+}
+
+export function promoteTask(
+  taskId: string,
+): Promise<{ promoted_files: string[]; promotion: PromotionReceipt | null }> {
   return request(`/v1/tasks/${taskId}/promote`, { method: "POST" });
 }
 
