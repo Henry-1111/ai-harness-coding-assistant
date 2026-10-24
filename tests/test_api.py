@@ -1,4 +1,5 @@
 import hashlib
+import shutil
 import time
 from pathlib import Path
 
@@ -241,8 +242,11 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         ]
     )
     snapshots = FilesystemWorkspaceSnapshotStore(tmp_path / "shared-snapshots")
+    orchestrator = HarnessOrchestrator(
+        model, tmp_path / "data", runner_factory=LocalCommandSandbox
+    )
     app = create_app(
-        HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox),
+        orchestrator,
         max_job_workers=1,
         job_poll_interval_seconds=0.01,
         workspace_store=snapshots,
@@ -289,6 +293,12 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         prometheus = client.get("/metrics")
         events = client.get(f"/v1/jobs/{job_id}/events")
 
+        task = orchestrator.get(body["task_id"])
+        assert task is not None
+        shutil.rmtree(Path(task.scratchpad["workspace"]))
+        sample_repository.rename(tmp_path / "source-moved-after-run")
+        restored_diff = client.get(f"/v1/tasks/{body['task_id']}/diff")
+
     assert body["status"] == "succeeded"
     assert body["attempts"] == 1
     assert body["result"]["changed_files"] == ["calculator.py"]
@@ -302,6 +312,8 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         "completed",
     ]
     assert events.json()[0]["details"]["request_id"] == "job-trace-123"
+    assert restored_diff.status_code == 200
+    assert "+    return left + right" in restored_diff.json()["diff"]
     assert metrics.status_code == 200
     assert metrics.json()["counts"]["succeeded"] == 1
     assert metrics.json()["outstanding_jobs"] == 0
@@ -332,14 +344,17 @@ def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repositor
             }
         ],
     }
+    snapshots = FilesystemWorkspaceSnapshotStore(tmp_path / "shared-snapshots")
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([edit, edit]),
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
     app = create_app(
-        HarnessOrchestrator(
-            ScriptedModel([edit, edit]),
-            tmp_path / "data",
-            runner_factory=LocalCommandSandbox,
-        ),
+        orchestrator,
         max_job_workers=1,
         job_poll_interval_seconds=0.01,
+        workspace_store=snapshots,
     )
     with TestClient(app) as client:
         created = client.post(
@@ -357,6 +372,10 @@ def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repositor
             time.sleep(0.02)
             job = client.get(f"/v1/jobs/{created['job_id']}").json()
         assert job["status"] == "needs_input"
+
+        waiting = orchestrator.get(job["task_id"])
+        assert waiting is not None
+        shutil.rmtree(Path(waiting.scratchpad["workspace"]))
 
         approved = client.post(
             f"/v1/tasks/{job['task_id']}/approval",

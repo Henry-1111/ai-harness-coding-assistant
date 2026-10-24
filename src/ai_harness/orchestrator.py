@@ -50,7 +50,7 @@ from .repository import (
 from .sandbox import CommandRunner, DockerSandbox
 from .self_healing import SelfHealingPlanner
 from .tools import ToolContext, default_registry
-from .workspaces import IGNORED_WORKSPACE_NAMES
+from .workspaces import IGNORED_WORKSPACE_NAMES, FilesystemWorkspaceSnapshotStore
 
 
 class WorkflowState(TypedDict):
@@ -94,6 +94,7 @@ class HarnessOrchestrator:
         mcp_tool_catalog: Optional[MCPToolCatalog] = None,
         tenant_id: str = "local",
         collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
+        workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
     ) -> None:
         self.model = model
         self.data_directory = data_directory.resolve()
@@ -115,6 +116,7 @@ class HarnessOrchestrator:
         if collaboration_mode not in {"auto", "disabled", "forced"}:
             raise ValueError("collaboration_mode must be auto, disabled or forced")
         self.collaboration_mode = collaboration_mode
+        self.workspace_store = workspace_store
         self.memory = memory_store or LayeredMemoryStore(self.data_directory / "memory.sqlite3")
         if self.memory.get(MemoryLayer.POLICY, "default", "instructions") is None:
             self.memory.put(
@@ -136,6 +138,7 @@ class HarnessOrchestrator:
         *,
         control: Optional[ExecutionControl] = None,
         workspace_source: Optional[Path] = None,
+        workspace_snapshot_id: Optional[str] = None,
     ) -> TaskResult:
         task_id = str(uuid.uuid4())
         workspace = self._create_workspace(
@@ -161,6 +164,8 @@ class HarnessOrchestrator:
                 "workspace": str(workspace),
                 "tenant_id": (control.tenant_id if control else None) or self.tenant_id,
                 "requested_by": (control.actor if control else None) or "system",
+                "source_snapshot_id": workspace_snapshot_id,
+                "task_workspace_snapshot_id": f"task-{task_id}",
             },
         )
         self._record_milestone(
@@ -186,6 +191,7 @@ class HarnessOrchestrator:
             )
         self.checkpoints.save(state)
         if state.status == TaskStatus.NEEDS_INPUT:
+            self.publish_workspace(state.task_id)
             return self._result(state)
         return self._invoke(state, control=control)
 
@@ -197,12 +203,12 @@ class HarnessOrchestrator:
             return self._result(state)
         if state.approval and state.approval.status == "pending":
             raise RuntimeError("task requires an explicit approval decision before resume")
-        workspace = Path(str(state.scratchpad.get("workspace", "")))
-        if not workspace.is_dir():
-            raise FileNotFoundError("task workspace is unavailable")
+        self._ensure_workspace(state)
         state.status = TaskStatus.RUNNING
         state.error = None
-        return self._invoke(state)
+        result = self._invoke(state)
+        self.publish_workspace(task_id)
+        return result
 
     def decide_approval(
         self,
@@ -318,7 +324,7 @@ class HarnessOrchestrator:
         if state.status != TaskStatus.SUCCEEDED or not state.review or not state.review.approved:
             raise RuntimeError("only approved tasks can be promoted")
         source = Repository(Path(state.request.repository))
-        workspace = Repository(Path(str(state.scratchpad["workspace"])))
+        workspace = self._workspace_repository(state)
         promoted = []
         for relative_path in state.changed_files:
             source_path = workspace.resolve(relative_path)
@@ -332,8 +338,8 @@ class HarnessOrchestrator:
         state = self.checkpoints.load(task_id)
         if state is None:
             raise KeyError(f"task not found: {task_id}")
-        source = Repository(Path(state.request.repository))
-        workspace = Repository(Path(str(state.scratchpad["workspace"])))
+        source = self._source_repository(state)
+        workspace = self._workspace_repository(state)
         chunks = []
         for relative_path in state.changed_files:
             try:
@@ -1021,7 +1027,40 @@ class HarnessOrchestrator:
         task.scratchpad["experience_recorded"] = True
 
     def _workspace_repository(self, task: TaskState) -> Repository:
-        return Repository(Path(str(task.scratchpad["workspace"])))
+        return Repository(self._ensure_workspace(task))
+
+    def _source_repository(self, task: TaskState) -> Repository:
+        source = Path(task.request.repository)
+        if source.is_dir():
+            return Repository(source)
+        snapshot_id = task.scratchpad.get("source_snapshot_id")
+        if self.workspace_store is None or not isinstance(snapshot_id, str):
+            raise FileNotFoundError("source repository and snapshot are unavailable")
+        return Repository(self.workspace_store.source_path(snapshot_id))
+
+    def _ensure_workspace(self, task: TaskState) -> Path:
+        workspace = Path(str(task.scratchpad.get("workspace", "")))
+        if workspace.is_dir():
+            return workspace
+        snapshot_id = task.scratchpad.get("task_workspace_snapshot_id")
+        if self.workspace_store is None or not isinstance(snapshot_id, str):
+            raise FileNotFoundError("task workspace is unavailable")
+        destination = self.data_directory / "workspaces" / task.task_id
+        restored = self.workspace_store.restore(snapshot_id, destination)
+        task.scratchpad["workspace"] = str(restored)
+        return restored
+
+    def publish_workspace(self, task_id: str) -> None:
+        if self.workspace_store is None:
+            return
+        state = self.checkpoints.load(task_id)
+        if state is None:
+            raise KeyError(f"task not found: {task_id}")
+        snapshot_id = state.scratchpad.get("task_workspace_snapshot_id")
+        if not isinstance(snapshot_id, str):
+            raise RuntimeError("task workspace snapshot id is unavailable")
+        workspace = self._ensure_workspace(state)
+        self.workspace_store.replace(snapshot_id, workspace)
 
     def _create_workspace(self, task_id: str, source: Path) -> Path:
         source = source.resolve()

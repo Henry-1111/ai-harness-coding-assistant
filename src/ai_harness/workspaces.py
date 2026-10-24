@@ -57,6 +57,53 @@ class FilesystemWorkspaceSnapshotStore:
             if temporary.exists():
                 shutil.rmtree(temporary)
 
+    def replace(self, snapshot_id: str, source: Path) -> None:
+        snapshot_id = validate_snapshot_id(snapshot_id)
+        source = source.resolve()
+        if not source.is_dir():
+            raise FileNotFoundError(source)
+        destination = self.root / snapshot_id
+        temporary = self.root / f".{snapshot_id}.{uuid.uuid4().hex}.tmp"
+        backup = self.root / f".{snapshot_id}.{uuid.uuid4().hex}.backup"
+        try:
+            shutil.copytree(
+                source,
+                temporary,
+                symlinks=True,
+                ignore=shutil.ignore_patterns(*IGNORED_WORKSPACE_NAMES),
+            )
+            if destination.exists():
+                os.rename(destination, backup)
+            try:
+                os.rename(temporary, destination)
+            except Exception:
+                if backup.exists() and not destination.exists():
+                    os.rename(backup, destination)
+                raise
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
+            if backup.exists():
+                shutil.rmtree(backup)
+
+    def restore(self, snapshot_id: str, destination: Path) -> Path:
+        source = self.source_path(snapshot_id)
+        destination = destination.resolve()
+        if destination.is_dir():
+            return destination
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.tmp"
+        try:
+            shutil.copytree(source, temporary, symlinks=True)
+            try:
+                os.rename(temporary, destination)
+            except FileExistsError:
+                pass
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
+        return destination
+
     def healthcheck(self) -> bool:
         return self.root.is_dir() and os.access(self.root, os.W_OK | os.X_OK)
 

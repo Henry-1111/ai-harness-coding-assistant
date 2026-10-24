@@ -988,6 +988,7 @@ class TaskWorkerPool:
                             job.request,
                             control=control,
                             workspace_source=workspace_source,
+                            workspace_snapshot_id=job.workspace_snapshot_id,
                         )
                     infrastructure_error = self._infrastructure_error(result)
                     if infrastructure_error:
@@ -1023,6 +1024,7 @@ class TaskWorkerPool:
                             error=(
                                 result.error if result.status == TaskStatus.FAILED else None
                             ),
+                            task_id=result.task_id,
                         )
                 except Exception as exc:
                     error = f"{type(exc).__name__}: {exc}"
@@ -1057,6 +1059,7 @@ class TaskWorkerPool:
         completed: bool = False,
         failed: bool = False,
         error: Optional[str] = None,
+        task_id: Optional[str] = None,
     ) -> None:
         event = "job_settled" if accepted else "job_settlement_rejected"
         log = worker_logger.info if accepted else worker_logger.warning
@@ -1076,6 +1079,20 @@ class TaskWorkerPool:
                 last_error="lease ownership lost before settlement",
             )
             return
+        if task_id and self.workspace_store is not None:
+            try:
+                self.orchestrator.publish_workspace(task_id)
+            except (FileNotFoundError, OSError, RuntimeError):
+                worker_logger.warning(
+                    format_worker_event(
+                        event="workspace_publish_failed",
+                        request_id=job.request_id,
+                        job_id=job.job_id,
+                        worker_id=worker_id,
+                        status=status,
+                        attempt=job.attempts,
+                    )
+                )
         self._notify_terminal(job.job_id)
         self._update_worker(
             worker_id,

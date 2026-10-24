@@ -412,9 +412,11 @@ def test_worker_uses_shared_snapshot_when_original_repository_is_unavailable(
             *,
             control: ExecutionControl,
             workspace_source: Path,
+            workspace_snapshot_id: str,
         ) -> TaskResult:
             captured.append(workspace_source)
             assert (workspace_source / "app.py").read_text() == "original\n"
+            assert workspace_snapshot_id == "snapshot-1"
             return result("snapshot-task")
 
     store = TaskJobStore(tmp_path / "jobs.sqlite3")

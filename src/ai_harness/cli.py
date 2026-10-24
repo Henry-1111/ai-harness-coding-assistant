@@ -98,6 +98,11 @@ def build_orchestrator(
         if settings.governance_database_url
         else None
     )
+    workspace_store = (
+        FilesystemWorkspaceSnapshotStore(Path(settings.workspace_snapshot_directory))
+        if settings.workspace_snapshot_directory
+        else None
+    )
     return HarnessOrchestrator(
         model,
         data_directory or settings.data_directory,
@@ -111,6 +116,7 @@ def build_orchestrator(
         mcp_tool_catalog=mcp_tool_catalog,
         tenant_id=settings.tenant_id,
         collaboration_mode=collaboration_mode,
+        workspace_store=workspace_store,
     )
 
 

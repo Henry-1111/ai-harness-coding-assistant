@@ -75,6 +75,11 @@ def create_app(
 ) -> FastAPI:
     # Uvicorn configures this logger in both CLI and container entry points.
     request_logger = logging.getLogger("uvicorn.error")
+    if workspace_store is not None:
+        if orchestrator.workspace_store is None:
+            orchestrator.workspace_store = workspace_store
+        elif orchestrator.workspace_store.root != workspace_store.root:
+            raise ValueError("orchestrator and API workspace stores must share one root")
     authenticator = authenticator or APIKeyAuthenticator.disabled()
     governance_store = governance_store or GovernanceStore(
         orchestrator.data_directory / "governance.sqlite3"
