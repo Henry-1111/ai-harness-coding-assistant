@@ -587,6 +587,10 @@ export AI_HARNESS_PROMOTION_GIT_BRANCH_PREFIX=ai-harness
 export AI_HARNESS_PROMOTION_GITHUB_REPOSITORY=example/project
 export AI_HARNESS_PROMOTION_GITHUB_TOKEN='<github-app-or-fine-grained-token>'
 export AI_HARNESS_PROMOTION_GITHUB_DRAFT=true
+# 可选：GitHub API 超时、最大尝试次数与指数退避基数。
+export AI_HARNESS_PROMOTION_GITHUB_TIMEOUT_SECONDS=30
+export AI_HARNESS_PROMOTION_GITHUB_MAX_ATTEMPTS=3
+export AI_HARNESS_PROMOTION_GITHUB_RETRY_BACKOFF_SECONDS=0.25
 ```
 
 Publisher 只会创建 `ai-harness/{task_id}` 独立分支，不直接写主分支；凭据由 SSH Agent、Git Credential
@@ -596,6 +600,9 @@ API 实例并发发布同一结果时，先写入者创建分支，其他实例�
 API 与控制台会返回分支名、Commit 和 Pull Request 信息。启用 GitHub 集成后，Publisher 会先查询同一
 `head + base` 的开放 PR：存在则幂等复用，不存在才创建；并发创建返回 422 时会再次查询并接纳胜出者。
 请求使用版本化 GitHub REST API，Token 只进入 Authorization Header，不写入任务状态、回执或错误日志。
+网络异常、429 与暂时性 5xx 会在有界次数内指数退避重试；服务端返回 `Retry-After` 时优先采用并限制单次等待，
+避免代码托管平台短暂抖动直接使已完成任务发布失败。即使创建 PR 的响应丢失，重试得到 422 后也会再次查询并
+复用已经创建的 PR，保持调用幂等。
 推荐使用仅具有目标仓库 Pull requests 读写权限的 GitHub App Installation Token 或
 Fine-grained Token。未配置 GitHub 变量时仍保持纯分支发布，可由 CI 或其他代码托管平台创建 PR。
 

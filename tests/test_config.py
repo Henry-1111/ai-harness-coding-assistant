@@ -64,6 +64,9 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", "github-token")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_API_URL", "https://github.example/api/v3")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_API_VERSION", "2022-11-28")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_TIMEOUT_SECONDS", "15")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_MAX_ATTEMPTS", "4")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_RETRY_BACKOFF_SECONDS", "0.5")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "false")
 
     settings = Settings.from_environment()
@@ -92,6 +95,9 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.promotion_github_token == "github-token"
     assert settings.promotion_github_api_url == "https://github.example/api/v3"
     assert settings.promotion_github_api_version == "2022-11-28"
+    assert settings.promotion_github_timeout_seconds == 15
+    assert settings.promotion_github_max_attempts == 4
+    assert settings.promotion_github_retry_backoff_seconds == 0.5
     assert settings.promotion_github_draft is False
 
 

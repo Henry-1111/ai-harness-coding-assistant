@@ -84,6 +84,9 @@ class Settings:
     promotion_github_token: str
     promotion_github_api_url: str
     promotion_github_api_version: str
+    promotion_github_timeout_seconds: float
+    promotion_github_max_attempts: int
+    promotion_github_retry_backoff_seconds: float
     promotion_github_draft: bool
 
     @classmethod
@@ -193,6 +196,15 @@ class Settings:
             ),
             promotion_github_api_version=os.getenv(
                 "AI_HARNESS_PROMOTION_GITHUB_API_VERSION", "2022-11-28"
+            ),
+            promotion_github_timeout_seconds=float(
+                os.getenv("AI_HARNESS_PROMOTION_GITHUB_TIMEOUT_SECONDS", "30")
+            ),
+            promotion_github_max_attempts=int(
+                os.getenv("AI_HARNESS_PROMOTION_GITHUB_MAX_ATTEMPTS", "3")
+            ),
+            promotion_github_retry_backoff_seconds=float(
+                os.getenv("AI_HARNESS_PROMOTION_GITHUB_RETRY_BACKOFF_SECONDS", "0.25")
             ),
             promotion_github_draft=(
                 os.getenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "true").lower()

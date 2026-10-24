@@ -227,17 +227,82 @@ def test_github_pull_request_creation_race_reuses_winner() -> None:
     assert receipt.created is False
 
 
+def test_github_pull_request_retries_transient_response_with_bounded_retry_after() -> None:
+    responses = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "60"}),
+            httpx.Response(
+                200,
+                json=[
+                    {"html_url": "https://github.com/acme/project/pull/10", "number": 10}
+                ],
+            ),
+        ]
+    )
+    sleeps: list[float] = []
+    github = GitHubPullRequestClient(
+        "acme/project",
+        "secret-token",
+        max_retry_after_seconds=2,
+        client=httpx.Client(transport=httpx.MockTransport(lambda _: next(responses))),
+        sleeper=sleeps.append,
+    )
+
+    receipt = github.ensure("task-123", "ai-harness/task-123", "main")
+
+    assert receipt.number == 10
+    assert receipt.created is False
+    assert sleeps == [2]
+
+
+def test_github_pull_request_recovers_when_create_response_is_lost() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(200, json=[])
+        if len(requests) == 2:
+            raise httpx.ConnectError("connection lost", request=request)
+        if len(requests) == 3:
+            return httpx.Response(422, json={"message": "already exists"})
+        return httpx.Response(
+            200,
+            json=[
+                {"html_url": "https://github.com/acme/project/pull/11", "number": 11}
+            ],
+        )
+
+    sleeps: list[float] = []
+    github = GitHubPullRequestClient(
+        "acme/project",
+        "secret-token",
+        retry_backoff_seconds=0.1,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        sleeper=sleeps.append,
+    )
+
+    receipt = github.ensure("task-123", "ai-harness/task-123", "main")
+
+    assert receipt.number == 11
+    assert receipt.created is False
+    assert sleeps == [0.1]
+    assert [request.method for request in requests] == ["GET", "POST", "POST", "GET"]
+
+
 def test_github_pull_request_error_redacts_token() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            403, text="credential super-secret cannot create pull requests"
+        )
+
     github = GitHubPullRequestClient(
         "acme/project",
         "super-secret",
-        client=httpx.Client(
-            transport=httpx.MockTransport(
-                lambda _: httpx.Response(
-                    403, text="credential super-secret cannot create pull requests"
-                )
-            )
-        ),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
 
     with pytest.raises(GitHubPullRequestError) as captured:
@@ -245,3 +310,4 @@ def test_github_pull_request_error_redacts_token() -> None:
 
     assert "super-secret" not in str(captured.value)
     assert "[REDACTED]" in str(captured.value)
+    assert len(requests) == 1

@@ -5,9 +5,10 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
@@ -15,6 +16,7 @@ import httpx
 from .repository import Repository
 
 BRANCH_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9._/-]{1,120}$")
+GITHUB_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 
 class GitPublishError(RuntimeError):
@@ -70,8 +72,12 @@ class GitHubPullRequestClient:
         api_url: str = "https://api.github.com",
         api_version: str = "2022-11-28",
         timeout_seconds: float = 30,
+        max_attempts: int = 3,
+        retry_backoff_seconds: float = 0.25,
+        max_retry_after_seconds: float = 5,
         draft: bool = True,
         client: httpx.Client | None = None,
+        sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
             raise ValueError("invalid GitHub repository; expected owner/name")
@@ -94,6 +100,12 @@ class GitHubPullRequestClient:
             raise ValueError("invalid GitHub API version")
         if timeout_seconds <= 0:
             raise ValueError("GitHub API timeout must be positive")
+        if max_attempts <= 0:
+            raise ValueError("GitHub API max attempts must be positive")
+        if retry_backoff_seconds < 0:
+            raise ValueError("GitHub API retry backoff must not be negative")
+        if max_retry_after_seconds < 0:
+            raise ValueError("GitHub API max retry-after must not be negative")
         self.owner = owner
         self.repository_name = repository_name
         self.token = token.strip()
@@ -101,7 +113,11 @@ class GitHubPullRequestClient:
         self.api_version = api_version
         self.draft = draft
         self.timeout_seconds = timeout_seconds
+        self.max_attempts = max_attempts
+        self.retry_backoff_seconds = retry_backoff_seconds
+        self.max_retry_after_seconds = max_retry_after_seconds
         self.client = client
+        self.sleeper = sleeper
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -117,15 +133,47 @@ class GitHubPullRequestClient:
         return f"{self.api_url}/repos/{owner}/{repository}/pulls"
 
     def _request(self, method: str, **kwargs: Any) -> httpx.Response:
-        try:
-            if self.client is not None:
-                return self.client.request(method, self._pulls_url(), **kwargs)
-            with httpx.Client(timeout=self.timeout_seconds) as client:
-                return client.request(method, self._pulls_url(), **kwargs)
-        except httpx.HTTPError as exc:
-            raise GitHubPullRequestError(
-                f"GitHub pull request API request failed: {exc}"
-            ) from exc
+        last_error: httpx.HTTPError | None = None
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                if self.client is not None:
+                    response = self.client.request(method, self._pulls_url(), **kwargs)
+                else:
+                    with httpx.Client(timeout=self.timeout_seconds) as client:
+                        response = client.request(method, self._pulls_url(), **kwargs)
+            except httpx.HTTPError as exc:
+                last_error = exc
+                if attempt == self.max_attempts:
+                    break
+                self.sleeper(self._retry_delay(attempt))
+                continue
+            if (
+                response.status_code not in GITHUB_RETRYABLE_STATUS_CODES
+                or attempt == self.max_attempts
+            ):
+                return response
+            self.sleeper(self._retry_delay(attempt, response))
+        assert last_error is not None
+        raise GitHubPullRequestError(
+            f"GitHub pull request API request failed: {last_error}"
+        ) from last_error
+
+    def _retry_delay(
+        self, attempt: int, response: httpx.Response | None = None
+    ) -> float:
+        if response is not None:
+            retry_after = response.headers.get("Retry-After")
+            if retry_after is not None:
+                try:
+                    return min(
+                        max(float(retry_after), 0), self.max_retry_after_seconds
+                    )
+                except ValueError:
+                    pass
+        return min(
+            self.retry_backoff_seconds * (2 ** (attempt - 1)),
+            self.max_retry_after_seconds,
+        )
 
     def _error(self, response: httpx.Response) -> GitHubPullRequestError:
         message = response.text.strip().replace(self.token, "[REDACTED]")

@@ -102,6 +102,9 @@ def build_promotion_publisher(settings: Settings) -> Optional[PromotionPublisher
             settings.promotion_github_token,
             api_url=settings.promotion_github_api_url,
             api_version=settings.promotion_github_api_version,
+            timeout_seconds=settings.promotion_github_timeout_seconds,
+            max_attempts=settings.promotion_github_max_attempts,
+            retry_backoff_seconds=settings.promotion_github_retry_backoff_seconds,
             draft=settings.promotion_github_draft,
         ),
     )
