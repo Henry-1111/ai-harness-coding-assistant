@@ -387,6 +387,9 @@ ready gauge。HTTP 指标按方法、路由模板和状态码统计请求数及�
 请求可携带最长 64 字符、仅包含字母数字和 `._-` 的 `X-Request-ID`；服务会在响应头原样返回，并输出不含
 请求正文、Authorization 或 API Key 的 JSON 访问日志。非法或缺失的 ID 会替换为随机值，未知 HTTP Method
 统一聚合为 `OTHER`，避免日志注入和 Prometheus 标签基数被恶意请求放大。
+API 响应默认携带 `nosniff`、禁止嵌入、禁止 Referrer 和 `no-store` 安全头。生产控制台域名必须通过
+`AI_HARNESS_CORS_ALLOWED_ORIGINS` 以逗号分隔显式配置；通配符、带用户信息或带路径的 Origin 会在启动时
+被拒绝，避免误把带 Bearer Token 的跨域 API 暴露给任意站点。
 
 原有同步 `POST /v1/tasks` 保留，便于 CLI、测试和兼容调用方使用。
 

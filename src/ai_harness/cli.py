@@ -386,6 +386,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                 quota_reconciliation_interval_seconds=(
                     settings.quota_reconciliation_interval_seconds
                 ),
+                cors_allowed_origins=settings.cors_allowed_origins,
             ),
             host=args.host,
             port=args.port,

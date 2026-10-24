@@ -121,6 +121,41 @@ def test_request_id_is_returned_and_untrusted_value_is_replaced(tmp_path: Path):
     assert accepted.headers["X-Request-ID"] == "trace-123"
     assert len(replaced.headers["X-Request-ID"]) == 32
     assert replaced.headers["X-Request-ID"].isalnum()
+    assert accepted.headers["X-Content-Type-Options"] == "nosniff"
+    assert accepted.headers["X-Frame-Options"] == "DENY"
+    assert accepted.headers["Referrer-Policy"] == "no-referrer"
+    assert accepted.headers["Cache-Control"] == "no-store"
+
+
+def test_cors_only_allows_configured_console_origin(tmp_path: Path):
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        max_job_workers=1,
+        cors_allowed_origins=["https://console.example.com"],
+    )
+
+    with TestClient(app) as client:
+        allowed = client.options(
+            "/health",
+            headers={
+                "Origin": "https://console.example.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        denied = client.options(
+            "/health",
+            headers={
+                "Origin": "https://evil.example.com",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+
+    assert allowed.status_code == 200
+    assert allowed.headers["Access-Control-Allow-Origin"] == "https://console.example.com"
+    assert denied.status_code == 400
+    assert "Access-Control-Allow-Origin" not in denied.headers
 
 
 def test_readiness_fails_closed_when_a_storage_dependency_is_unavailable(

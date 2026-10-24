@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, Sequence
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,6 +65,10 @@ def create_app(
     governance_store: Optional[GovernanceStoreProtocol] = None,
     quota_reconciler: Optional[QuotaReconciler] = None,
     quota_reconciliation_interval_seconds: float = 30,
+    cors_allowed_origins: Sequence[str] = (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ),
 ) -> FastAPI:
     # Uvicorn configures this logger in both CLI and container entry points.
     request_logger = logging.getLogger("uvicorn.error")
@@ -139,7 +143,7 @@ def create_app(
     app.state.http_metrics = http_metrics
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        allow_origins=list(cors_allowed_origins),
         allow_methods=["GET", "POST"],
         allow_headers=[
             "Authorization",
@@ -187,6 +191,10 @@ def create_app(
             duration,
         )
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Cache-Control"] = "no-store"
         request_logger.info(
             format_http_access_log(
                 request_id=request_id,

@@ -3,6 +3,34 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
+
+DEFAULT_CORS_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+
+
+def parse_cors_origins(value: str | None) -> tuple[str, ...]:
+    if value is None:
+        return DEFAULT_CORS_ORIGINS
+    origins: list[str] = []
+    for raw_origin in value.split(","):
+        origin = raw_origin.strip().rstrip("/")
+        if not origin:
+            continue
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError(f"invalid CORS origin: {raw_origin.strip()}")
+        normalized = f"{parsed.scheme}://{parsed.netloc}"
+        if normalized not in origins:
+            origins.append(normalized)
+    return tuple(origins)
 
 
 @dataclass(frozen=True)
@@ -37,6 +65,7 @@ class Settings:
     circuit_failure_threshold: int
     circuit_recovery_seconds: float
     quota_reconciliation_interval_seconds: float
+    cors_allowed_origins: tuple[str, ...]
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -92,5 +121,8 @@ class Settings:
             ),
             quota_reconciliation_interval_seconds=float(
                 os.getenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "30")
+            ),
+            cors_allowed_origins=parse_cors_origins(
+                os.getenv("AI_HARNESS_CORS_ALLOWED_ORIGINS")
             ),
         )

@@ -1,4 +1,6 @@
-from ai_harness.config import Settings
+import pytest
+
+from ai_harness.config import Settings, parse_cors_origins
 
 
 def test_embedding_endpoint_defaults_to_model_gateway(monkeypatch):
@@ -84,3 +86,26 @@ def test_distributed_governance_settings_are_configurable(monkeypatch):
     assert settings.redis_key_prefix == "test-harness"
     assert settings.redis_quota_ttl_seconds == 86400
     assert settings.redis_binding_cache_seconds == 60
+
+
+def test_cors_origins_are_explicit_normalized_and_deduplicated(monkeypatch):
+    monkeypatch.setenv(
+        "AI_HARNESS_CORS_ALLOWED_ORIGINS",
+        "https://console.example.com/, http://localhost:5173,https://console.example.com",
+    )
+
+    settings = Settings.from_environment()
+
+    assert settings.cors_allowed_origins == (
+        "https://console.example.com",
+        "http://localhost:5173",
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["*", "console.example.com", "https://user@example.com", "https://example.com/path"],
+)
+def test_cors_origins_reject_unsafe_or_malformed_values(value: str) -> None:
+    with pytest.raises(ValueError, match="invalid CORS origin"):
+        parse_cors_origins(value)
