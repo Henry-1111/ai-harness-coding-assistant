@@ -384,6 +384,9 @@ Provider HTTP 错误、SQLite 运行错误和任务总超时会进入重试并�
 `GET /v1/runtime` 返回 Worker、队列和熔断快照，`GET /metrics` 输出 Prometheus 文本，并分别暴露各依赖的
 ready gauge。HTTP 指标按方法、路由模板和状态码统计请求数及延迟直方图；`/v1/jobs/{job_id}` 这类动态
 路径只使用模板作为标签，不会因真实 Job ID 持续制造高基数时间序列。
+请求可携带最长 64 字符、仅包含字母数字和 `._-` 的 `X-Request-ID`；服务会在响应头原样返回，并输出不含
+请求正文、Authorization 或 API Key 的 JSON 访问日志。非法或缺失的 ID 会替换为随机值，未知 HTTP Method
+统一聚合为 `OTHER`，避免日志注入和 Prometheus 标签基数被恶意请求放大。
 
 原有同步 `POST /v1/tasks` 保留，便于 CLI、测试和兼容调用方使用。
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -37,7 +38,7 @@ from .jobs import (
     TaskWorkerPool,
 )
 from .models import TaskRequest, TaskResult, TaskState, TaskStatus
-from .observability import HTTPMetrics
+from .observability import HTTPMetrics, format_http_access_log, normalize_request_id
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 from .quota_reconciliation import QuotaReconciler
 
@@ -65,6 +66,8 @@ def create_app(
     quota_reconciler: Optional[QuotaReconciler] = None,
     quota_reconciliation_interval_seconds: float = 30,
 ) -> FastAPI:
+    # Uvicorn configures this logger in both CLI and container entry points.
+    request_logger = logging.getLogger("uvicorn.error")
     authenticator = authenticator or APIKeyAuthenticator.disabled()
     governance_store = governance_store or GovernanceStore(
         orchestrator.data_directory / "governance.sqlite3"
@@ -138,31 +141,60 @@ def create_app(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
         allow_methods=["GET", "POST"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key",
+            "X-Request-ID",
+        ],
+        expose_headers=["X-Request-ID"],
     )
 
     @app.middleware("http")
     async def collect_http_metrics(request: Request, call_next) -> Response:
+        request_id = normalize_request_id(request.headers.get("X-Request-ID"))
+        request.state.request_id = request_id
         started_at = time.perf_counter()
         try:
             response = await call_next(request)
         except Exception:
             route_object = request.scope.get("route")
             route = str(getattr(route_object, "path", "unmatched"))
+            duration = time.perf_counter() - started_at
             http_metrics.observe(
                 request.method,
                 route,
                 500,
-                time.perf_counter() - started_at,
+                duration,
+            )
+            request_logger.exception(
+                format_http_access_log(
+                    request_id=request_id,
+                    method=request.method,
+                    route=route,
+                    status_code=500,
+                    duration=duration,
+                )
             )
             raise
         route_object = request.scope.get("route")
         route = str(getattr(route_object, "path", "unmatched"))
+        duration = time.perf_counter() - started_at
         http_metrics.observe(
             request.method,
             route,
             response.status_code,
-            time.perf_counter() - started_at,
+            duration,
+        )
+        response.headers["X-Request-ID"] = request_id
+        request_logger.info(
+            format_http_access_log(
+                request_id=request_id,
+                method=request.method,
+                route=route,
+                status_code=response.status_code,
+                duration=duration,
+            )
         )
         return response
 

@@ -106,6 +106,23 @@ def test_readiness_fails_while_worker_circuit_is_open(tmp_path: Path):
     assert runtime.json()["circuit"]["state"] == "open"
 
 
+def test_request_id_is_returned_and_untrusted_value_is_replaced(tmp_path: Path):
+    app = create_app(
+        HarnessOrchestrator(
+            ScriptedModel([]), tmp_path / "data", runner_factory=LocalCommandSandbox
+        ),
+        max_job_workers=1,
+    )
+
+    with TestClient(app) as client:
+        accepted = client.get("/health", headers={"X-Request-ID": "trace-123"})
+        replaced = client.get("/health", headers={"X-Request-ID": "unsafe value"})
+
+    assert accepted.headers["X-Request-ID"] == "trace-123"
+    assert len(replaced.headers["X-Request-ID"]) == 32
+    assert replaced.headers["X-Request-ID"].isalnum()
+
+
 def test_readiness_fails_closed_when_a_storage_dependency_is_unavailable(
     tmp_path: Path,
 ) -> None:

@@ -1,9 +1,47 @@
 from __future__ import annotations
 
+import json
+import re
 import threading
+import uuid
 from dataclasses import dataclass, field
 
 HTTP_LATENCY_BUCKETS = (0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+HTTP_METHODS = frozenset({"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"})
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def normalize_http_method(method: str) -> str:
+    normalized = method.upper()
+    return normalized if normalized in HTTP_METHODS else "OTHER"
+
+
+def normalize_request_id(value: str | None) -> str:
+    if value and REQUEST_ID_PATTERN.fullmatch(value):
+        return value
+    return uuid.uuid4().hex
+
+
+def format_http_access_log(
+    *,
+    request_id: str,
+    method: str,
+    route: str,
+    status_code: int,
+    duration: float,
+) -> str:
+    return json.dumps(
+        {
+            "duration_ms": round(max(0.0, duration) * 1000, 3),
+            "event": "http_request",
+            "method": normalize_http_method(method),
+            "request_id": request_id,
+            "route": route,
+            "status_code": status_code,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 @dataclass
@@ -23,7 +61,7 @@ class HTTPMetrics:
         self._lock = threading.Lock()
 
     def observe(self, method: str, route: str, status_code: int, duration: float) -> None:
-        key = (method.upper(), route, status_code)
+        key = (normalize_http_method(method), route, status_code)
         with self._lock:
             series = self._series.setdefault(key, _HTTPSeries())
             series.count += 1
