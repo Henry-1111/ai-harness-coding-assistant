@@ -342,6 +342,9 @@ class HarnessOrchestrator:
                 "commit": receipt.commit,
                 "remote": receipt.remote,
                 "created": receipt.created,
+                "pull_request_url": receipt.pull_request_url,
+                "pull_request_number": receipt.pull_request_number,
+                "pull_request_created": receipt.pull_request_created,
             }
             state.scratchpad["promoted_files"] = list(state.changed_files)
             state.scratchpad["promoted_at"] = utc_now().isoformat()

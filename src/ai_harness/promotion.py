@@ -7,8 +7,10 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, Sequence
-from urllib.parse import urlsplit, urlunsplit
+from typing import Any, Protocol, Sequence
+from urllib.parse import quote, urlsplit, urlunsplit
+
+import httpx
 
 from .repository import Repository
 
@@ -25,6 +27,10 @@ class PromotionConflictError(GitPublishError):
     pass
 
 
+class GitHubPullRequestError(GitPublishError):
+    pass
+
+
 @dataclass(frozen=True)
 class PromotionReceipt:
     mode: str
@@ -32,6 +38,9 @@ class PromotionReceipt:
     commit: str
     remote: str
     created: bool
+    pull_request_url: str | None = None
+    pull_request_number: int | None = None
+    pull_request_created: bool | None = None
 
 
 class PromotionPublisher(Protocol):
@@ -41,6 +50,194 @@ class PromotionPublisher(Protocol):
         workspace: Path,
         changed_files: Sequence[str],
     ) -> PromotionReceipt: ...
+
+
+@dataclass(frozen=True)
+class PullRequestReceipt:
+    url: str
+    number: int
+    created: bool
+
+
+class GitHubPullRequestClient:
+    """Create or reuse one GitHub pull request for an immutable task branch."""
+
+    def __init__(
+        self,
+        repository: str,
+        token: str,
+        *,
+        api_url: str = "https://api.github.com",
+        api_version: str = "2022-11-28",
+        timeout_seconds: float = 30,
+        draft: bool = True,
+        client: httpx.Client | None = None,
+    ) -> None:
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+            raise ValueError("invalid GitHub repository; expected owner/name")
+        owner, repository_name = repository.split("/", 1)
+        if owner in {".", ".."} or repository_name in {".", ".."}:
+            raise ValueError("invalid GitHub repository; expected owner/name")
+        if not token.strip():
+            raise ValueError("GitHub pull request token is required")
+        parsed = urlsplit(api_url.rstrip("/"))
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("invalid GitHub API URL")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", api_version):
+            raise ValueError("invalid GitHub API version")
+        if timeout_seconds <= 0:
+            raise ValueError("GitHub API timeout must be positive")
+        self.owner = owner
+        self.repository_name = repository_name
+        self.token = token.strip()
+        self.api_url = api_url.rstrip("/")
+        self.api_version = api_version
+        self.draft = draft
+        self.timeout_seconds = timeout_seconds
+        self.client = client
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {self.token}",
+            "User-Agent": "ai-harness",
+            "X-GitHub-Api-Version": self.api_version,
+        }
+
+    def _pulls_url(self) -> str:
+        owner = quote(self.owner, safe="")
+        repository = quote(self.repository_name, safe="")
+        return f"{self.api_url}/repos/{owner}/{repository}/pulls"
+
+    def _request(self, method: str, **kwargs: Any) -> httpx.Response:
+        try:
+            if self.client is not None:
+                return self.client.request(method, self._pulls_url(), **kwargs)
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                return client.request(method, self._pulls_url(), **kwargs)
+        except httpx.HTTPError as exc:
+            raise GitHubPullRequestError(
+                f"GitHub pull request API request failed: {exc}"
+            ) from exc
+
+    def _error(self, response: httpx.Response) -> GitHubPullRequestError:
+        message = response.text.strip().replace(self.token, "[REDACTED]")
+        if len(message) > 500:
+            message = message[:500] + "..."
+        return GitHubPullRequestError(
+            f"GitHub pull request API returned {response.status_code}: "
+            f"{message or response.reason_phrase}"
+        )
+
+    @staticmethod
+    def _receipt(payload: object, *, created: bool) -> PullRequestReceipt:
+        if not isinstance(payload, dict):
+            raise GitHubPullRequestError("GitHub pull request API returned invalid JSON")
+        url = payload.get("html_url")
+        number = payload.get("number")
+        if (
+            not isinstance(url, str)
+            or not url
+            or not isinstance(number, int)
+            or isinstance(number, bool)
+        ):
+            raise GitHubPullRequestError("GitHub pull request API response is incomplete")
+        return PullRequestReceipt(url=url, number=number, created=created)
+
+    def _find_existing(self, branch: str, base_ref: str) -> PullRequestReceipt | None:
+        response = self._request(
+            "GET",
+            headers=self._headers(),
+            params={
+                "state": "open",
+                "head": f"{self.owner}:{branch}",
+                "base": base_ref,
+                "per_page": 100,
+            },
+        )
+        if response.status_code != 200:
+            raise self._error(response)
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise GitHubPullRequestError(
+                "GitHub pull request API returned invalid JSON"
+            ) from exc
+        if not isinstance(payload, list):
+            raise GitHubPullRequestError("GitHub pull request API returned invalid JSON")
+        return self._receipt(payload[0], created=False) if payload else None
+
+    def ensure(self, task_id: str, branch: str, base_ref: str) -> PullRequestReceipt:
+        existing = self._find_existing(branch, base_ref)
+        if existing is not None:
+            return existing
+        response = self._request(
+            "POST",
+            headers=self._headers(),
+            json={
+                "title": f"AI Harness task {task_id}",
+                "head": branch,
+                "base": base_ref,
+                "body": (
+                    "Automated branch produced by AI Harness after verification "
+                    "and reviewer approval."
+                ),
+                "draft": self.draft,
+            },
+        )
+        if response.status_code == 201:
+            try:
+                return self._receipt(response.json(), created=True)
+            except ValueError as exc:
+                raise GitHubPullRequestError(
+                    "GitHub pull request API returned invalid JSON"
+                ) from exc
+        if response.status_code == 422:
+            # Another instance can create the PR after our initial list request.
+            raced = self._find_existing(branch, base_ref)
+            if raced is not None:
+                return raced
+        raise self._error(response)
+
+
+class GitHubPullRequestPublisher:
+    """Publish a branch, then create or reuse its GitHub pull request."""
+
+    def __init__(
+        self,
+        branch_publisher: GitBranchPublisher,
+        pull_requests: GitHubPullRequestClient,
+    ) -> None:
+        self.branch_publisher = branch_publisher
+        self.pull_requests = pull_requests
+
+    def publish(
+        self,
+        task_id: str,
+        workspace: Path,
+        changed_files: Sequence[str],
+    ) -> PromotionReceipt:
+        branch = self.branch_publisher.publish(task_id, workspace, changed_files)
+        pull_request = self.pull_requests.ensure(
+            task_id, branch.branch, self.branch_publisher.base_ref
+        )
+        return PromotionReceipt(
+            mode=branch.mode,
+            branch=branch.branch,
+            commit=branch.commit,
+            remote=branch.remote,
+            created=branch.created,
+            pull_request_url=pull_request.url,
+            pull_request_number=pull_request.number,
+            pull_request_created=pull_request.created,
+        )
 
 
 class GitBranchPublisher:

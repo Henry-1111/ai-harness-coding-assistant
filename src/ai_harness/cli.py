@@ -31,7 +31,12 @@ from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .object_workspaces import S3WorkspaceSnapshotStore
 from .orchestrator import HarnessOrchestrator
-from .promotion import GitBranchPublisher, PromotionPublisher
+from .promotion import (
+    GitBranchPublisher,
+    GitHubPullRequestClient,
+    GitHubPullRequestPublisher,
+    PromotionPublisher,
+)
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
@@ -72,13 +77,33 @@ def build_promotion_publisher(settings: Settings) -> Optional[PromotionPublisher
         raise SystemExit(
             "AI_HARNESS_PROMOTION_GIT_REMOTE_URL is required for git_branch promotion"
         )
-    return GitBranchPublisher(
+    branch_publisher = GitBranchPublisher(
         settings.promotion_git_remote_url,
         settings.data_directory / "promotion-staging",
         base_ref=settings.promotion_git_base_ref,
         branch_prefix=settings.promotion_git_branch_prefix,
         author_name=settings.promotion_git_author_name,
         author_email=settings.promotion_git_author_email,
+    )
+    github_configured = bool(
+        settings.promotion_github_repository or settings.promotion_github_token
+    )
+    if not github_configured:
+        return branch_publisher
+    if not settings.promotion_github_repository or not settings.promotion_github_token:
+        raise SystemExit(
+            "AI_HARNESS_PROMOTION_GITHUB_REPOSITORY and "
+            "AI_HARNESS_PROMOTION_GITHUB_TOKEN must be configured together"
+        )
+    return GitHubPullRequestPublisher(
+        branch_publisher,
+        GitHubPullRequestClient(
+            settings.promotion_github_repository,
+            settings.promotion_github_token,
+            api_url=settings.promotion_github_api_url,
+            api_version=settings.promotion_github_api_version,
+            draft=settings.promotion_github_draft,
+        ),
     )
 
 

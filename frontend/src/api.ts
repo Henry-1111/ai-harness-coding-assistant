@@ -86,6 +86,9 @@ export interface PromotionReceipt {
   commit: string;
   remote: string;
   created: boolean;
+  pull_request_url: string | null;
+  pull_request_number: number | null;
+  pull_request_created: boolean | null;
 }
 
 export function promoteTask(

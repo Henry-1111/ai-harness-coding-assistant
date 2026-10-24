@@ -194,6 +194,9 @@ def test_remote_promotion_does_not_require_original_repository_after_execution(
                 commit="a" * 40,
                 remote="git@example.com:project.git",
                 created=True,
+                pull_request_url="https://github.com/acme/project/pull/11",
+                pull_request_number=11,
+                pull_request_created=True,
             )
 
     orchestrator = HarnessOrchestrator(
@@ -209,6 +212,11 @@ def test_remote_promotion_does_not_require_original_repository_after_execution(
     state = orchestrator.get(result.task_id)
     assert state is not None
     assert state.scratchpad["promotion"]["branch"] == f"ai-harness/{result.task_id}"
+    assert state.scratchpad["promotion"]["pull_request_number"] == 11
+    assert (
+        state.scratchpad["promotion"]["pull_request_url"]
+        == "https://github.com/acme/project/pull/11"
+    )
     assert calls[0][0] == result.task_id
 
 

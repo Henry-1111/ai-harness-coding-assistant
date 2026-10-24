@@ -1,6 +1,8 @@
 import pytest
 
+from ai_harness.cli import build_promotion_publisher
 from ai_harness.config import Settings, parse_cors_origins
+from ai_harness.promotion import GitHubPullRequestPublisher
 
 
 def test_embedding_endpoint_defaults_to_model_gateway(monkeypatch):
@@ -58,6 +60,11 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_REMOTE_URL", "git@example.com:repo.git")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_BASE_REF", "develop")
     monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_BRANCH_PREFIX", "review/harness")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_REPOSITORY", "acme/project")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", "github-token")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_API_URL", "https://github.example/api/v3")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_API_VERSION", "2022-11-28")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "false")
 
     settings = Settings.from_environment()
 
@@ -81,6 +88,11 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.promotion_git_remote_url == "git@example.com:repo.git"
     assert settings.promotion_git_base_ref == "develop"
     assert settings.promotion_git_branch_prefix == "review/harness"
+    assert settings.promotion_github_repository == "acme/project"
+    assert settings.promotion_github_token == "github-token"
+    assert settings.promotion_github_api_url == "https://github.example/api/v3"
+    assert settings.promotion_github_api_version == "2022-11-28"
+    assert settings.promotion_github_draft is False
 
 
 def test_request_authentication_settings_are_configurable(monkeypatch):
@@ -91,6 +103,24 @@ def test_request_authentication_settings_are_configurable(monkeypatch):
 
     assert settings.auth_enabled is True
     assert settings.auth_config_path == "/run/secrets/governance.json"
+
+
+def test_github_pull_request_publisher_requires_complete_configuration(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("AI_HARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_MODE", "git_branch")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GIT_REMOTE_URL", "git@example.com:repo.git")
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_REPOSITORY", "acme/project")
+    monkeypatch.delenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", raising=False)
+
+    with pytest.raises(SystemExit, match="must be configured together"):
+        build_promotion_publisher(Settings.from_environment())
+
+    monkeypatch.setenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", "github-token")
+    publisher = build_promotion_publisher(Settings.from_environment())
+
+    assert isinstance(publisher, GitHubPullRequestPublisher)
 
 
 def test_distributed_governance_settings_are_configurable(monkeypatch):

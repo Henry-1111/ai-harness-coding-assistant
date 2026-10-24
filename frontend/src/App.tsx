@@ -221,7 +221,9 @@ export default function App() {
       const response = await promoteTask(result.task_id);
       setPromoted(true);
       messageApi.success(
-        response.promotion
+        response.promotion?.pull_request_url
+          ? `已发布 ${response.promoted_files.length} 个文件并创建 Pull Request #${response.promotion.pull_request_number}`
+          : response.promotion
           ? `已发布 ${response.promoted_files.length} 个文件到分支 ${response.promotion.branch}`
           : `已发布 ${response.promoted_files.length} 个文件`,
       );

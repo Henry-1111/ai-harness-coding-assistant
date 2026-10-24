@@ -80,6 +80,11 @@ class Settings:
     promotion_git_branch_prefix: str
     promotion_git_author_name: str
     promotion_git_author_email: str
+    promotion_github_repository: str
+    promotion_github_token: str
+    promotion_github_api_url: str
+    promotion_github_api_version: str
+    promotion_github_draft: bool
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -178,5 +183,19 @@ class Settings:
             ),
             promotion_git_author_email=os.getenv(
                 "AI_HARNESS_PROMOTION_GIT_AUTHOR_EMAIL", "ai-harness@localhost"
+            ),
+            promotion_github_repository=os.getenv(
+                "AI_HARNESS_PROMOTION_GITHUB_REPOSITORY", ""
+            ),
+            promotion_github_token=os.getenv("AI_HARNESS_PROMOTION_GITHUB_TOKEN", ""),
+            promotion_github_api_url=os.getenv(
+                "AI_HARNESS_PROMOTION_GITHUB_API_URL", "https://api.github.com"
+            ),
+            promotion_github_api_version=os.getenv(
+                "AI_HARNESS_PROMOTION_GITHUB_API_VERSION", "2022-11-28"
+            ),
+            promotion_github_draft=(
+                os.getenv("AI_HARNESS_PROMOTION_GITHUB_DRAFT", "true").lower()
+                in {"1", "true", "yes", "on"}
             ),
         )
