@@ -1,66 +1,48 @@
-[
-  {
-    "id": "repository-boundary",
-    "query": "prevent a file path from escaping the repository root with path traversal",
-    "relevant_paths": ["src/ai_harness/repository.py"],
-    "language": "python",
-    "task_type": "security",
-    "split": "test"
-  },
-  {
-    "id": "checkpoint-resume",
-    "query": "load the latest task checkpoint and resume an interrupted workflow",
-    "relevant_paths": ["src/ai_harness/checkpoints.py", "src/ai_harness/orchestrator.py"],
-    "language": "python",
-    "task_type": "workflow",
-    "split": "test"
-  },
-  {
-    "id": "docker-isolation",
-    "query": "run verification with docker network disabled memory cpu and pid limits",
-    "relevant_paths": ["src/ai_harness/sandbox.py"],
-    "language": "python",
-    "task_type": "security",
-    "split": "test"
-  },
-  {
-    "id": "mcp-identity",
-    "query": "MCP tenant project identity and allowed server permission",
-    "relevant_paths": ["src/ai_harness/mcp.py"],
-    "language": "python",
-    "task_type": "integration",
-    "split": "test"
-  },
-  {
-    "id": "lsp-definition",
-    "query": "language server text document definition location JSON RPC",
-    "relevant_paths": ["src/ai_harness/lsp.py"],
-    "language": "python",
-    "task_type": "retrieval",
-    "split": "test"
-  },
-  {
-    "id": "bounded-edit",
-    "query": "apply an exact unique text edit only inside the allowed file scope",
-    "relevant_paths": ["src/ai_harness/tools.py"],
-    "language": "python",
-    "task_type": "editing",
-    "split": "test"
-  },
-  {
-    "id": "provider-json",
-    "query": "call an OpenAI compatible chat completions provider and parse JSON output",
-    "relevant_paths": ["src/ai_harness/agents.py"],
-    "language": "python",
-    "task_type": "integration",
-    "split": "test"
-  },
-  {
-    "id": "plan-cycle",
-    "query": "validate plan DAG dependencies and reject a dependency cycle",
-    "relevant_paths": ["src/ai_harness/models.py"],
-    "language": "python",
-    "task_type": "planning",
-    "split": "test"
-  }
-]
+{
+  "schema_version": 1,
+  "dataset_id": "ai-harness-retrieval-2026-10-v1",
+  "frozen_at": "2026-10-24",
+  "scope": "repository-internal file-level retrieval",
+  "cases": [
+    {"id":"repository-boundary","query":"prevent a file path from escaping the repository root with path traversal","relevant_paths":["src/ai_harness/repository.py"],"language":"python","task_type":"security","split":"test"},
+    {"id":"checkpoint-resume","query":"load the latest task checkpoint and resume an interrupted workflow","relevant_paths":["src/ai_harness/checkpoints.py","src/ai_harness/orchestrator.py"],"language":"python","task_type":"workflow","split":"test"},
+    {"id":"docker-isolation","query":"run verification with docker network disabled memory cpu and pid limits","relevant_paths":["src/ai_harness/sandbox.py"],"language":"python","task_type":"security","split":"test"},
+    {"id":"mcp-identity","query":"MCP tenant project identity and allowed server permission","relevant_paths":["src/ai_harness/mcp.py"],"language":"python","task_type":"integration","split":"test"},
+    {"id":"lsp-definition","query":"language server text document definition location JSON RPC","relevant_paths":["src/ai_harness/lsp.py"],"language":"python","task_type":"retrieval","split":"test"},
+    {"id":"bounded-edit","query":"apply an exact unique text edit only inside the allowed file scope","relevant_paths":["src/ai_harness/tools.py"],"language":"python","task_type":"editing","split":"test"},
+    {"id":"provider-json","query":"call an OpenAI compatible chat completions provider and parse JSON output","relevant_paths":["src/ai_harness/agents.py"],"language":"python","task_type":"integration","split":"test"},
+    {"id":"plan-cycle","query":"validate plan DAG dependencies and reject a dependency cycle","relevant_paths":["src/ai_harness/models.py"],"language":"python","task_type":"planning","split":"test"},
+    {"id":"task-normalization","query":"normalize a coding request and infer task type complexity risk and acceptance criteria","relevant_paths":["src/ai_harness/planner.py"],"language":"python","task_type":"planning","split":"test"},
+    {"id":"route-agent-budget","query":"route normalized work to agent roles and allocate model call and token budgets","relevant_paths":["src/ai_harness/planner.py"],"language":"python","task_type":"routing","split":"test"},
+    {"id":"collaboration-conflict","query":"detect overlapping edits from implementer and test integrator before merging turns","relevant_paths":["src/ai_harness/collaboration.py"],"language":"python","task_type":"multi_agent","split":"test"},
+    {"id":"review-repair-plan","query":"turn reviewer findings and failed verification into a bounded self healing repair plan","relevant_paths":["src/ai_harness/self_healing.py"],"language":"python","task_type":"self_healing","split":"test"},
+    {"id":"layered-memory","query":"store task working project episodic and semantic memory with tenant isolation","relevant_paths":["src/ai_harness/memory.py"],"language":"python","task_type":"memory","split":"test"},
+    {"id":"postgres-memory","query":"persist layered agent memories in PostgreSQL and retrieve them by tenant project and task","relevant_paths":["src/ai_harness/distributed_memory.py"],"language":"python","task_type":"memory","split":"test"},
+    {"id":"api-key-authentication","query":"authenticate a hashed API key and bind the caller to a tenant project and role","relevant_paths":["src/ai_harness/governance.py"],"language":"python","task_type":"security","split":"test"},
+    {"id":"oidc-jwt-validation","query":"validate OIDC JWT issuer audience signature claims and cache the JWKS document","relevant_paths":["src/ai_harness/governance.py"],"language":"python","task_type":"security","split":"test"},
+    {"id":"postgres-governance","query":"persist tenant bindings audit events and quota reservations transactionally in PostgreSQL","relevant_paths":["src/ai_harness/distributed_governance.py"],"language":"python","task_type":"governance","split":"test"},
+    {"id":"redis-quota-atomicity","query":"atomically reserve request and token quota in Redis without overspending under concurrency","relevant_paths":["src/ai_harness/distributed_governance.py"],"language":"python","task_type":"governance","split":"test"},
+    {"id":"quota-reconciliation","query":"reconcile stale distributed quota reservations against durable database state","relevant_paths":["src/ai_harness/quota_reconciliation.py"],"language":"python","task_type":"governance","split":"test"},
+    {"id":"job-idempotency","query":"enqueue an asynchronous task with an idempotency key and reject conflicting payload reuse","relevant_paths":["src/ai_harness/jobs.py"],"language":"python","task_type":"queue","split":"test"},
+    {"id":"worker-lease-recovery","query":"claim queued work with a lease heartbeat and recover jobs abandoned by another worker","relevant_paths":["src/ai_harness/jobs.py","src/ai_harness/distributed_runtime.py"],"language":"python","task_type":"queue","split":"test"},
+    {"id":"failure-circuit-breaker","query":"open a worker failure circuit after repeated errors and probe again after cooldown","relevant_paths":["src/ai_harness/jobs.py"],"language":"python","task_type":"resilience","split":"test"},
+    {"id":"postgres-job-store","query":"implement durable PostgreSQL job enqueue claim retry cancellation events and metrics","relevant_paths":["src/ai_harness/distributed_runtime.py"],"language":"python","task_type":"queue","split":"test"},
+    {"id":"postgres-checkpoint","query":"save and load workflow checkpoints as JSON state using PostgreSQL upsert semantics","relevant_paths":["src/ai_harness/distributed_runtime.py"],"language":"python","task_type":"workflow","split":"test"},
+    {"id":"database-migrations","query":"apply ordered PostgreSQL schema migrations once with checksums and advisory locking","relevant_paths":["src/ai_harness/postgres_schema.py"],"language":"python","task_type":"database","split":"test"},
+    {"id":"filesystem-snapshot","query":"archive restore and delete isolated workspace snapshots with capacity accounting","relevant_paths":["src/ai_harness/workspaces.py"],"language":"python","task_type":"storage","split":"test"},
+    {"id":"s3-snapshot-security","query":"upload workspace archives to S3 verify digest enforce safe extraction and use a local cache","relevant_paths":["src/ai_harness/object_workspaces.py"],"language":"python","task_type":"storage","split":"test"},
+    {"id":"promotion-git-branch","query":"publish a reviewed workspace commit to a deterministic remote branch without force push","relevant_paths":["src/ai_harness/promotion.py"],"language":"python","task_type":"promotion","split":"test"},
+    {"id":"github-pull-request","query":"create or reuse an idempotent GitHub pull request and retry transient API failures","relevant_paths":["src/ai_harness/promotion.py"],"language":"python","task_type":"integration","split":"test"},
+    {"id":"gitlab-merge-request","query":"publish an approved branch and create or reuse a GitLab merge request","relevant_paths":["src/ai_harness/promotion.py"],"language":"python","task_type":"integration","split":"test"},
+    {"id":"restricted-knowledge-agent","query":"run a read only ReAct loop over approved project knowledge tools with bounded steps","relevant_paths":["src/ai_harness/knowledge.py"],"language":"python","task_type":"agent","split":"test"},
+    {"id":"query-rewrite-fusion","query":"rewrite repository search terms and fuse lexical semantic symbol and definition rankings","relevant_paths":["src/ai_harness/repository.py"],"language":"python","task_type":"retrieval","split":"test"},
+    {"id":"progressive-evidence-stop","query":"retrieve context in multiple rounds and stop when evidence is sufficient or budget is exhausted","relevant_paths":["src/ai_harness/repository.py"],"language":"python","task_type":"retrieval","split":"test"},
+    {"id":"embedding-provider","query":"request OpenAI compatible vector embeddings and validate the returned dimensions","relevant_paths":["src/ai_harness/embeddings.py"],"language":"python","task_type":"integration","split":"test"},
+    {"id":"http-body-limit","query":"reject oversized HTTP request bodies before parsing JSON while preserving API error responses","relevant_paths":["src/ai_harness/api.py"],"language":"python","task_type":"security","split":"test"},
+    {"id":"health-readiness","query":"report API liveness and dependency readiness for database Redis and worker availability","relevant_paths":["src/ai_harness/api.py"],"language":"python","task_type":"observability","split":"test"},
+    {"id":"prometheus-metrics","query":"record HTTP and promotion counters latency series and render Prometheus metrics","relevant_paths":["src/ai_harness/observability.py"],"language":"python","task_type":"observability","split":"test"},
+    {"id":"secret-file-loading","query":"load deployment credentials from environment variables or mounted secret files with conflict checks","relevant_paths":["src/ai_harness/config.py"],"language":"python","task_type":"configuration","split":"test"},
+    {"id":"agent-ab-evaluation","query":"compare paired single and multi agent runs for success cost latency tokens and changed path accuracy","relevant_paths":["src/ai_harness/agent_evaluation.py"],"language":"python","task_type":"evaluation","split":"test"},
+    {"id":"runtime-queue-benchmark","query":"measure queue throughput latency concurrency idempotency and duplicate execution during a benchmark","relevant_paths":["src/ai_harness/runtime_evaluation.py"],"language":"python","task_type":"evaluation","split":"test"}
+  ]
+}

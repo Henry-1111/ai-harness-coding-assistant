@@ -1,35 +1,37 @@
 {
-  "cases": 8,
+  "dataset_sha256": "18b616dc8877e8dff54beab6a25c7db6169abb49b71e879a5fa814c2424583c1",
+  "split": "test",
+  "cases": 40,
   "k": 5,
-  "recall_at_k": 1.0,
-  "precision_at_k": 0.225,
-  "mrr": 0.9375,
-  "ndcg_at_k": 0.953866,
-  "hit_rate": 1.0,
-  "mean_context_reduction_ratio": 0.992288,
-  "baseline_recall_at_k": 1.0,
+  "recall_at_k": 0.975,
+  "precision_at_k": 0.205,
+  "mrr": 0.850833,
+  "ndcg_at_k": 0.879514,
+  "hit_rate": 0.975,
+  "mean_context_reduction_ratio": 0.997302,
+  "baseline_recall_at_k": 0.975,
   "recall_delta": 0.0,
-  "baseline_mrr": 0.9375,
+  "baseline_mrr": 0.850833,
   "mrr_delta": 0.0,
   "pairwise": {
     "metric": "reciprocal_rank",
     "progressive_wins": 0,
-    "ties": 8,
+    "ties": 40,
     "baseline_wins": 0
   },
   "bad_cases": [
     {
-      "id": "lsp-definition",
+      "id": "repository-boundary",
       "reasons": [
-        "max_rounds"
+        "first_relevant_not_ranked_first"
       ],
       "missing_paths": [],
       "retrieved_paths": [
-        "src/ai_harness/lsp.py",
+        "src/ai_harness/governance.py",
         "src/ai_harness/repository.py",
-        "src/ai_harness/cli.py",
-        "tests/test_lsp.py",
-        "src/ai_harness/tools.py"
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/workspaces.py"
       ]
     },
     {
@@ -43,51 +45,349 @@
         "src/ai_harness/agents.py",
         "src/ai_harness/cli.py",
         "tests/test_embeddings.py",
-        "tests/test_agents.py"
+        "src/ai_harness/knowledge.py"
+      ]
+    },
+    {
+      "id": "task-normalization",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/models.py",
+        "src/ai_harness/planner.py",
+        "tests/test_models_and_planner.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/agents.py"
+      ]
+    },
+    {
+      "id": "route-agent-budget",
+      "reasons": [
+        "missed_relevant_files",
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [
+        "src/ai_harness/planner.py"
+      ],
+      "retrieved_paths": [
+        "src/ai_harness/models.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/api.py"
+      ]
+    },
+    {
+      "id": "collaboration-conflict",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "tests/test_collaboration.py",
+        "tests/test_models_and_planner.py",
+        "tests/test_api.py",
+        "tests/test_orchestrator.py",
+        "src/ai_harness/collaboration.py"
+      ]
+    },
+    {
+      "id": "layered-memory",
+      "reasons": [
+        "first_relevant_not_ranked_first",
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/api.py",
+        "src/ai_harness/memory.py",
+        "tests/test_orchestrator.py",
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/orchestrator.py"
+      ]
+    },
+    {
+      "id": "postgres-memory",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/api.py"
+      ]
+    },
+    {
+      "id": "postgres-governance",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/governance.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/distributed_governance.py",
+        "tests/test_governance.py",
+        "src/ai_harness/quota_reconciliation.py"
+      ]
+    },
+    {
+      "id": "redis-quota-atomicity",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/api.py",
+        "tests/test_governance.py",
+        "tests/test_distributed_governance.py"
+      ]
+    },
+    {
+      "id": "quota-reconciliation",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/quota_reconciliation.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/orchestrator.py"
+      ]
+    },
+    {
+      "id": "postgres-job-store",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/distributed_runtime.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/api.py",
+        "tests/test_jobs.py"
+      ]
+    },
+    {
+      "id": "database-migrations",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/postgres_schema.py",
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/distributed_runtime.py",
+        "tests/test_distributed_runtime.py"
+      ]
+    },
+    {
+      "id": "filesystem-snapshot",
+      "reasons": [
+        "first_relevant_not_ranked_first"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/object_workspaces.py",
+        "src/ai_harness/workspaces.py",
+        "tests/test_object_workspaces.py",
+        "src/ai_harness/sandbox.py",
+        "tests/test_workspaces.py"
+      ]
+    },
+    {
+      "id": "s3-snapshot-security",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/object_workspaces.py",
+        "src/ai_harness/sandbox.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/distributed_governance.py",
+        "tests/test_object_workspaces.py"
+      ]
+    },
+    {
+      "id": "promotion-git-branch",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/cli.py",
+        "tests/test_promotion.py",
+        "src/ai_harness/orchestrator.py",
+        "tests/test_orchestrator.py"
+      ]
+    },
+    {
+      "id": "http-body-limit",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/api.py",
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/lsp.py"
+      ]
+    },
+    {
+      "id": "secret-file-loading",
+      "reasons": [
+        "max_rounds"
+      ],
+      "missing_paths": [],
+      "retrieved_paths": [
+        "src/ai_harness/config.py",
+        "tests/test_config.py",
+        "src/ai_harness/mcp.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/collaboration.py"
       ]
     }
   ],
   "by_language": {
     "python": {
-      "cases": 8,
-      "recall_at_k": 1.0,
-      "mrr": 0.9375,
-      "hit_rate": 1.0
+      "cases": 40,
+      "recall_at_k": 0.975,
+      "mrr": 0.850833,
+      "hit_rate": 0.975
     }
   },
   "by_task_type": {
+    "agent": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "configuration": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "database": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
     "editing": {
       "cases": 1,
       "recall_at_k": 1.0,
       "mrr": 1.0,
       "hit_rate": 1.0
     },
+    "evaluation": {
+      "cases": 2,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "governance": {
+      "cases": 3,
+      "recall_at_k": 1.0,
+      "mrr": 0.611111,
+      "hit_rate": 1.0
+    },
     "integration": {
+      "cases": 5,
+      "recall_at_k": 1.0,
+      "mrr": 0.9,
+      "hit_rate": 1.0
+    },
+    "memory": {
       "cases": 2,
       "recall_at_k": 1.0,
       "mrr": 0.75,
       "hit_rate": 1.0
     },
+    "multi_agent": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 0.2,
+      "hit_rate": 1.0
+    },
+    "observability": {
+      "cases": 2,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
     "planning": {
+      "cases": 2,
+      "recall_at_k": 1.0,
+      "mrr": 0.75,
+      "hit_rate": 1.0
+    },
+    "promotion": {
+      "cases": 1,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "queue": {
+      "cases": 3,
+      "recall_at_k": 1.0,
+      "mrr": 0.833333,
+      "hit_rate": 1.0
+    },
+    "resilience": {
       "cases": 1,
       "recall_at_k": 1.0,
       "mrr": 1.0,
       "hit_rate": 1.0
     },
     "retrieval": {
+      "cases": 3,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "hit_rate": 1.0
+    },
+    "routing": {
+      "cases": 1,
+      "recall_at_k": 0.0,
+      "mrr": 0.0,
+      "hit_rate": 0.0
+    },
+    "security": {
+      "cases": 5,
+      "recall_at_k": 1.0,
+      "mrr": 0.9,
+      "hit_rate": 1.0
+    },
+    "self_healing": {
       "cases": 1,
       "recall_at_k": 1.0,
       "mrr": 1.0,
       "hit_rate": 1.0
     },
-    "security": {
+    "storage": {
       "cases": 2,
       "recall_at_k": 1.0,
-      "mrr": 1.0,
+      "mrr": 0.75,
       "hit_rate": 1.0
     },
     "workflow": {
-      "cases": 1,
+      "cases": 2,
       "recall_at_k": 1.0,
       "mrr": 1.0,
       "hit_rate": 1.0
@@ -97,34 +397,34 @@
     {
       "id": "repository-boundary",
       "retrieved_paths": [
+        "src/ai_harness/governance.py",
         "src/ai_harness/repository.py",
-        "src/ai_harness/tools.py",
-        "src/ai_harness/git_tools.py",
-        "src/ai_harness/models.py",
-        "src/ai_harness/orchestrator.py"
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/workspaces.py"
       ],
       "relevant_paths": [
         "src/ai_harness/repository.py"
       ],
       "recall_at_k": 1.0,
       "precision_at_k": 0.2,
-      "reciprocal_rank": 1.0,
-      "ndcg_at_k": 1.0,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
       "hit": true,
-      "context_reduction_ratio": 0.991636,
+      "context_reduction_ratio": 0.996882,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
-      "baseline_reciprocal_rank": 1.0
+      "baseline_reciprocal_rank": 0.5
     },
     {
       "id": "checkpoint-resume",
       "retrieved_paths": [
         "src/ai_harness/orchestrator.py",
-        "src/ai_harness/checkpoints.py",
-        "tests/test_checkpoints.py",
         "src/ai_harness/api.py",
-        "src/ai_harness/cli.py"
+        "src/ai_harness/distributed_runtime.py",
+        "src/ai_harness/checkpoints.py",
+        "tests/test_checkpoints.py"
       ],
       "relevant_paths": [
         "src/ai_harness/checkpoints.py",
@@ -133,9 +433,9 @@
       "recall_at_k": 1.0,
       "precision_at_k": 0.4,
       "reciprocal_rank": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.877215,
       "hit": true,
-      "context_reduction_ratio": 0.991191,
+      "context_reduction_ratio": 0.997504,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
@@ -145,10 +445,10 @@
       "id": "docker-isolation",
       "retrieved_paths": [
         "src/ai_harness/sandbox.py",
-        "tests/test_tools_and_sandbox.py",
-        "src/ai_harness/orchestrator.py",
         "src/ai_harness/cli.py",
-        "src/ai_harness/memory.py"
+        "tests/test_tools_and_sandbox.py",
+        "src/ai_harness/runtime_evaluation.py",
+        "src/ai_harness/orchestrator.py"
       ],
       "relevant_paths": [
         "src/ai_harness/sandbox.py"
@@ -158,7 +458,7 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.992334,
+      "context_reduction_ratio": 0.997314,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
@@ -168,10 +468,10 @@
       "id": "mcp-identity",
       "retrieved_paths": [
         "src/ai_harness/mcp.py",
+        "src/ai_harness/knowledge.py",
         "tests/test_mcp.py",
-        "src/ai_harness/sandbox.py",
         "src/ai_harness/orchestrator.py",
-        "src/ai_harness/tools.py"
+        "src/ai_harness/api.py"
       ],
       "relevant_paths": [
         "src/ai_harness/mcp.py"
@@ -181,7 +481,7 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.993771,
+      "context_reduction_ratio": 0.997135,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
@@ -192,9 +492,9 @@
       "retrieved_paths": [
         "src/ai_harness/lsp.py",
         "src/ai_harness/repository.py",
-        "src/ai_harness/cli.py",
-        "tests/test_lsp.py",
-        "src/ai_harness/tools.py"
+        "src/ai_harness/mcp.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/cli.py"
       ],
       "relevant_paths": [
         "src/ai_harness/lsp.py"
@@ -204,9 +504,9 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.991886,
-      "rounds": 3,
-      "stop_reason": "max_rounds",
+      "context_reduction_ratio": 0.996983,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
       "baseline_reciprocal_rank": 1.0
     },
@@ -215,9 +515,9 @@
       "retrieved_paths": [
         "src/ai_harness/tools.py",
         "tests/test_tools_and_sandbox.py",
-        "src/ai_harness/models.py",
+        "src/ai_harness/governance.py",
         "src/ai_harness/repository.py",
-        "src/ai_harness/sandbox.py"
+        "src/ai_harness/models.py"
       ],
       "relevant_paths": [
         "src/ai_harness/tools.py"
@@ -227,8 +527,8 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.99223,
-      "rounds": 1,
+      "context_reduction_ratio": 0.997764,
+      "rounds": 2,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
       "baseline_reciprocal_rank": 1.0
@@ -240,7 +540,7 @@
         "src/ai_harness/agents.py",
         "src/ai_harness/cli.py",
         "tests/test_embeddings.py",
-        "tests/test_agents.py"
+        "src/ai_harness/knowledge.py"
       ],
       "relevant_paths": [
         "src/ai_harness/agents.py"
@@ -250,7 +550,7 @@
       "reciprocal_rank": 0.5,
       "ndcg_at_k": 0.63093,
       "hit": true,
-      "context_reduction_ratio": 0.993141,
+      "context_reduction_ratio": 0.997021,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,
@@ -261,8 +561,8 @@
       "retrieved_paths": [
         "src/ai_harness/models.py",
         "tests/test_models_and_planner.py",
-        "src/ai_harness/sandbox.py",
         "src/ai_harness/planner.py",
+        "src/ai_harness/sandbox.py",
         "src/ai_harness/orchestrator.py"
       ],
       "relevant_paths": [
@@ -273,7 +573,744 @@
       "reciprocal_rank": 1.0,
       "ndcg_at_k": 1.0,
       "hit": true,
-      "context_reduction_ratio": 0.992116,
+      "context_reduction_ratio": 0.997204,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "task-normalization",
+      "retrieved_paths": [
+        "src/ai_harness/models.py",
+        "src/ai_harness/planner.py",
+        "tests/test_models_and_planner.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/agents.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/planner.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
+      "hit": true,
+      "context_reduction_ratio": 0.997338,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
+    },
+    {
+      "id": "route-agent-budget",
+      "retrieved_paths": [
+        "src/ai_harness/models.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/api.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/planner.py"
+      ],
+      "recall_at_k": 0.0,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": 0.0,
+      "ndcg_at_k": 0.0,
+      "hit": false,
+      "context_reduction_ratio": 0.997068,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 0.0,
+      "baseline_reciprocal_rank": 0.0
+    },
+    {
+      "id": "collaboration-conflict",
+      "retrieved_paths": [
+        "tests/test_collaboration.py",
+        "tests/test_models_and_planner.py",
+        "tests/test_api.py",
+        "tests/test_orchestrator.py",
+        "src/ai_harness/collaboration.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/collaboration.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.2,
+      "ndcg_at_k": 0.386853,
+      "hit": true,
+      "context_reduction_ratio": 0.997262,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.2
+    },
+    {
+      "id": "review-repair-plan",
+      "retrieved_paths": [
+        "src/ai_harness/self_healing.py",
+        "src/ai_harness/models.py",
+        "src/ai_harness/orchestrator.py",
+        "tests/test_self_healing.py",
+        "src/ai_harness/planner.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/self_healing.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997344,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "layered-memory",
+      "retrieved_paths": [
+        "src/ai_harness/api.py",
+        "src/ai_harness/memory.py",
+        "tests/test_orchestrator.py",
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/memory.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
+      "hit": true,
+      "context_reduction_ratio": 0.997517,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
+    },
+    {
+      "id": "postgres-memory",
+      "retrieved_paths": [
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/api.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/distributed_memory.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997603,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "api-key-authentication",
+      "retrieved_paths": [
+        "src/ai_harness/governance.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/distributed_governance.py",
+        "tests/test_governance.py",
+        "tests/test_api.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/governance.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997395,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "oidc-jwt-validation",
+      "retrieved_paths": [
+        "src/ai_harness/governance.py",
+        "tests/test_oidc.py",
+        "src/ai_harness/sandbox.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/models.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/governance.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997346,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "postgres-governance",
+      "retrieved_paths": [
+        "src/ai_harness/governance.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/distributed_governance.py",
+        "tests/test_governance.py",
+        "src/ai_harness/quota_reconciliation.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/distributed_governance.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.333333,
+      "ndcg_at_k": 0.5,
+      "hit": true,
+      "context_reduction_ratio": 0.997529,
+      "rounds": 2,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.333333
+    },
+    {
+      "id": "redis-quota-atomicity",
+      "retrieved_paths": [
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/api.py",
+        "tests/test_governance.py",
+        "tests/test_distributed_governance.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/distributed_governance.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997295,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "quota-reconciliation",
+      "retrieved_paths": [
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/quota_reconciliation.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/quota_reconciliation.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
+      "hit": true,
+      "context_reduction_ratio": 0.997192,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
+    },
+    {
+      "id": "job-idempotency",
+      "retrieved_paths": [
+        "src/ai_harness/jobs.py",
+        "tests/test_jobs.py",
+        "src/ai_harness/distributed_runtime.py",
+        "src/ai_harness/api.py",
+        "tests/test_promotion.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/jobs.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997226,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "worker-lease-recovery",
+      "retrieved_paths": [
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/distributed_runtime.py",
+        "tests/test_jobs.py",
+        "tests/test_distributed_runtime.py",
+        "src/ai_harness/api.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/distributed_runtime.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.4,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997013,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "failure-circuit-breaker",
+      "retrieved_paths": [
+        "src/ai_harness/jobs.py",
+        "tests/test_jobs.py",
+        "tests/test_api.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/self_healing.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/jobs.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997347,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "postgres-job-store",
+      "retrieved_paths": [
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/distributed_runtime.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/api.py",
+        "tests/test_jobs.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/distributed_runtime.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
+      "hit": true,
+      "context_reduction_ratio": 0.996904,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
+    },
+    {
+      "id": "postgres-checkpoint",
+      "retrieved_paths": [
+        "src/ai_harness/distributed_runtime.py",
+        "src/ai_harness/checkpoints.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/governance.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/distributed_runtime.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997673,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "database-migrations",
+      "retrieved_paths": [
+        "src/ai_harness/postgres_schema.py",
+        "src/ai_harness/distributed_memory.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/distributed_runtime.py",
+        "tests/test_distributed_runtime.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/postgres_schema.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997946,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "filesystem-snapshot",
+      "retrieved_paths": [
+        "src/ai_harness/object_workspaces.py",
+        "src/ai_harness/workspaces.py",
+        "tests/test_object_workspaces.py",
+        "src/ai_harness/sandbox.py",
+        "tests/test_workspaces.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/workspaces.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 0.5,
+      "ndcg_at_k": 0.63093,
+      "hit": true,
+      "context_reduction_ratio": 0.99744,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 0.5
+    },
+    {
+      "id": "s3-snapshot-security",
+      "retrieved_paths": [
+        "src/ai_harness/object_workspaces.py",
+        "src/ai_harness/sandbox.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/distributed_governance.py",
+        "tests/test_object_workspaces.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/object_workspaces.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997197,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "promotion-git-branch",
+      "retrieved_paths": [
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/cli.py",
+        "tests/test_promotion.py",
+        "src/ai_harness/orchestrator.py",
+        "tests/test_orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/promotion.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997492,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "github-pull-request",
+      "retrieved_paths": [
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/api.py",
+        ".github/workflows/ci.yml",
+        "tests/test_promotion.py",
+        "tests/test_config.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/promotion.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997291,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "gitlab-merge-request",
+      "retrieved_paths": [
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/orchestrator.py",
+        "src/ai_harness/git_tools.py",
+        "tests/test_promotion.py",
+        "tests/test_config.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/promotion.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997038,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "restricted-knowledge-agent",
+      "retrieved_paths": [
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/mcp.py",
+        "src/ai_harness/orchestrator.py",
+        "tests/test_knowledge.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/knowledge.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.996829,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "query-rewrite-fusion",
+      "retrieved_paths": [
+        "src/ai_harness/repository.py",
+        "src/ai_harness/models.py",
+        "src/ai_harness/knowledge.py",
+        "tests/test_repository.py",
+        "src/ai_harness/governance.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/repository.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997491,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "progressive-evidence-stop",
+      "retrieved_paths": [
+        "src/ai_harness/repository.py",
+        "tests/test_repository.py",
+        "tests/test_jobs.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/models.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/repository.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997464,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "embedding-provider",
+      "retrieved_paths": [
+        "src/ai_harness/embeddings.py",
+        "src/ai_harness/agents.py",
+        "tests/test_embeddings.py",
+        "tests/test_api.py",
+        "src/ai_harness/governance.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/embeddings.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997547,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "http-body-limit",
+      "retrieved_paths": [
+        "src/ai_harness/api.py",
+        "src/ai_harness/promotion.py",
+        "src/ai_harness/governance.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/lsp.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/api.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.99788,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "health-readiness",
+      "retrieved_paths": [
+        "src/ai_harness/api.py",
+        "src/ai_harness/distributed_governance.py",
+        "src/ai_harness/jobs.py",
+        "tests/test_api.py",
+        "src/ai_harness/governance.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/api.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997223,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "prometheus-metrics",
+      "retrieved_paths": [
+        "src/ai_harness/observability.py",
+        "src/ai_harness/api.py",
+        "tests/test_observability.py",
+        "src/ai_harness/jobs.py",
+        "src/ai_harness/orchestrator.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/observability.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997157,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "secret-file-loading",
+      "retrieved_paths": [
+        "src/ai_harness/config.py",
+        "tests/test_config.py",
+        "src/ai_harness/mcp.py",
+        "src/ai_harness/api.py",
+        "src/ai_harness/collaboration.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/config.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.997576,
+      "rounds": 3,
+      "stop_reason": "max_rounds",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "agent-ab-evaluation",
+      "retrieved_paths": [
+        "src/ai_harness/agent_evaluation.py",
+        "tests/test_agent_evaluation.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/knowledge.py",
+        "src/ai_harness/models.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/agent_evaluation.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.996765,
+      "rounds": 1,
+      "stop_reason": "evidence_sufficient",
+      "baseline_recall_at_k": 1.0,
+      "baseline_reciprocal_rank": 1.0
+    },
+    {
+      "id": "runtime-queue-benchmark",
+      "retrieved_paths": [
+        "src/ai_harness/runtime_evaluation.py",
+        "tests/test_runtime_evaluation.py",
+        "src/ai_harness/cli.py",
+        "src/ai_harness/jobs.py",
+        "tests/test_jobs.py"
+      ],
+      "relevant_paths": [
+        "src/ai_harness/runtime_evaluation.py"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.2,
+      "reciprocal_rank": 1.0,
+      "ndcg_at_k": 1.0,
+      "hit": true,
+      "context_reduction_ratio": 0.996878,
       "rounds": 1,
       "stop_reason": "evidence_sufficient",
       "baseline_recall_at_k": 1.0,

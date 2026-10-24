@@ -454,7 +454,9 @@ Plan DAG、验证结果、Reviewer 结论和完整 diff，并且只有任务通�
 
 ## 检索评测
 
-项目提供带人工相关文件标注的固定任务集：
+项目提供 40 个带人工相关文件标注的仓库内冻结任务。数据文件带版本元数据，加载时会拒绝重复 ID、
+重复 Query、越界路径、缺失标注文件和直接泄漏答案路径的 Query；回归测试固定规范化数据集的
+SHA-256，标签发生变化时必须显式审查并更新指纹。
 
 ```bash
 ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
@@ -476,9 +478,12 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 - `by_language` / `by_task_type`：按语言和任务类型定位薄弱项；
 - `bad_cases`：自动列出漏召回、相关文件未排第一、预算耗尽等失败原因；
 - 每个 Case 的 `rounds` 与 `stop_reason`：验证迭代检索是否按证据或预算停止。
+- `dataset_sha256`：规范化 Case 集指纹，用于确认不同实验使用相同标签。
 
-`tests/test_retrieval_benchmark.py` 设置了回归下限。当前数据集只有 8 个仓库内任务，只用于验证检索实现和防止
-回归，不能作为外部通用准确率；对外写入简历前，应扩展为独立、冻结且不参与调参的任务集。
+`tests/test_retrieval_benchmark.py` 同时设置数量、覆盖面、数据指纹和指标回归下限。当前 40 Case 冻结集的
+实测结果为 Recall@5 `97.5%`、MRR `85.08%`、NDCG@5 `87.95%`、Hit Rate `97.5%`，原始逐 Case
+结果见 [`benchmarks/latest-report.json`](benchmarks/latest-report.json)。这些数字只描述本仓库的文件级检索，
+不能表述成跨仓库或跨语言的通用准确率；报告保留了失败 Case，便于后续盲测改进。
 
 ## 单 Agent / 多 Agent A/B 评测
 
@@ -486,7 +491,9 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 Implementer + Test/Integrator 两条路径。每个 Case 都使用全新的隔离工作区，且运行顺序交替，避免
 前后顺序持续偏向某一组。评测不会执行 Promote，因此不会修改被测源仓库。
 
-仓库内附带 3 个确定性缺陷作为冒烟样例。使用宿主机本地执行器只适用于这组可信 Fixture：
+仓库内附带 30 个冻结的确定性缺陷任务，覆盖算术与边界、集合处理、解析规范化、状态策略、重试、
+配额和配置优先级。每个 Case 都有独立的失败验证命令；数据集回归测试会确认所有缺陷在基线 Fixture
+中确实失败，避免把已经通过的无效任务计入成功率。使用宿主机本地执行器只适用于这组可信 Fixture：
 
 ```bash
 export AI_HARNESS_SANDBOX_MODE=local
@@ -498,18 +505,21 @@ ai-harness eval-agents \
   benchmarks/fixtures/agent_eval \
   benchmarks/agent_cases.json \
   --split test \
+  --repetitions 3 \
   --output benchmarks/agent-report.json
 ```
 
 报告包含两组成功率、耗时、模型调用次数、请求字符数、Provider Token、修复轮数、协作轮数、冲突数、
 预期修改文件的 Recall/Precision，以及逐 Case 的胜/平/负。只有上游 OpenAI-compatible 接口返回
 `usage` 时才统计 Token；否则字段为 `null`，不会用字符数伪造 Token。报告同时写入冻结数据集的
-SHA-256，便于确认不同实验使用的是同一版本。
+SHA-256，便于确认不同实验使用的是同一版本。`--repetitions` 会对每个 Case 重复运行，并在相邻轮次
+交换 single/multi 的先后顺序；报告记录 `run_index`、重复次数和每个 Variant 的观测数量。
 
-这 3 个 Case 只验证评测链路，不能作为简历结论。要形成可信数据，应扩展到至少 30 个未参与提示词
-调优的独立任务，固定模型与 Gateway 配置，多次重复运行，并同时报告成功率提升和 Token/时延成本。
-首轮真实 DeepSeek 冒烟结果见 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，原始机器可读
-报告见 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)。
+这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用前，应固定模型、
+Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、时延和失败类型，而不能只挑最佳轮次。
+此前 3 Case 的首轮 DeepSeek 冒烟结果保留在 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，
+对应原始报告见 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)；它们属于历史链路验证，
+不能与扩展后的 30 Case 结果混用。
 
 ## 系统级验证与运行时基准
 

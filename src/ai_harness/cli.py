@@ -271,6 +271,7 @@ def build_parser() -> argparse.ArgumentParser:
     agent_evaluate.add_argument("repository")
     agent_evaluate.add_argument("dataset")
     agent_evaluate.add_argument("--split", choices=["train", "validation", "test"])
+    agent_evaluate.add_argument("--repetitions", type=int, default=1)
     agent_evaluate.add_argument("--output", help="Write the JSON report to this path")
 
     runtime_evaluate = subparsers.add_parser(
@@ -298,6 +299,7 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
         def runner(
             case: AgentBenchmarkCase,
             variant: Literal["single", "multi"],
+            run_index: int,
         ) -> AgentBenchmarkObservation:
             model = OpenAICompatibleModel(
                 settings.model_base_url,
@@ -309,7 +311,7 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
             orchestrator = build_orchestrator(
                 settings=settings,
                 model=model,
-                data_directory=data_root / case_key / variant,
+                data_directory=data_root / case_key / f"run-{run_index}" / variant,
                 collaboration_mode="disabled" if variant == "single" else "forced",
             )
             request = TaskRequest(
@@ -335,6 +337,7 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
                 return AgentBenchmarkObservation(
                     case_id=case.id,
                     variant=variant,
+                    run_index=run_index,
                     status=result.status,
                     duration_ms=duration_ms,
                     model_calls=usage.calls,
@@ -358,6 +361,7 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
                 return AgentBenchmarkObservation(
                     case_id=case.id,
                     variant=variant,
+                    run_index=run_index,
                     status=TaskStatus.FAILED,
                     duration_ms=int((time.monotonic() - started) * 1000),
                     model_calls=usage.calls,
@@ -376,6 +380,7 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
             runner,
             dataset_hash=dataset_sha256(dataset_path),
             split=args.split,
+            repetitions=args.repetitions,
         )
     return evaluation.model_dump_json(indent=2)
 
@@ -383,8 +388,9 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
 def main(argv: Optional[Sequence[str]] = None) -> None:
     args = build_parser().parse_args(argv)
     if args.command == "eval-retrieval":
-        evaluation = RetrievalEvaluator(Repository(Path(args.repository))).evaluate(
-            load_cases(Path(args.dataset)),
+        repository_root = Path(args.repository).resolve()
+        evaluation = RetrievalEvaluator(Repository(repository_root)).evaluate(
+            load_cases(Path(args.dataset), repository_root=repository_root),
             k=args.k,
             split=args.split,
         )

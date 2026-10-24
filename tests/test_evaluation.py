@@ -58,9 +58,42 @@ def test_evaluator_reports_bad_case_reasons(tmp_path: Path):
     assert result.bad_cases[0].missing_paths == ["target.py"]
 
 
-def test_load_cases_rejects_non_array_dataset(tmp_path: Path):
+def test_load_cases_rejects_invalid_dataset_shape(tmp_path: Path):
     path = tmp_path / "cases.json"
     path.write_text('{"query": "wrong shape"}', encoding="utf-8")
 
-    with pytest.raises(ValueError, match="JSON array"):
+    with pytest.raises(ValueError, match="JSON array or an object with cases"):
         load_cases(path)
+
+
+def test_load_cases_rejects_duplicate_ids_queries_and_unsafe_paths(tmp_path: Path):
+    path = tmp_path / "cases.json"
+    path.write_text(
+        """[
+          {"id": "one", "query": "find quota logic", "relevant_paths": ["quota.py"]},
+          {"id": "one", "query": "find other logic", "relevant_paths": ["../other.py"]}
+        ]""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="ids must be unique"):
+        load_cases(path)
+
+
+def test_load_cases_accepts_versioned_dataset_and_checks_files(tmp_path: Path):
+    (tmp_path / "quota.py").write_text("def reserve(): pass\n", encoding="utf-8")
+    path = tmp_path / "cases.json"
+    path.write_text(
+        """{
+          "schema_version": 1,
+          "dataset_id": "fixture-v1",
+          "cases": [
+            {"id": "quota", "query": "find reservation behavior", "relevant_paths": ["quota.py"]}
+          ]
+        }""",
+        encoding="utf-8",
+    )
+
+    cases = load_cases(path, repository_root=tmp_path)
+
+    assert [case.id for case in cases] == ["quota"]

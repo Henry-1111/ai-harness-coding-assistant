@@ -29,6 +29,7 @@ class AgentBenchmarkCase(BaseModel):
 class AgentBenchmarkObservation(BaseModel):
     case_id: str
     variant: Literal["single", "multi"]
+    run_index: int = Field(default=1, ge=1)
     status: TaskStatus
     duration_ms: int = Field(ge=0)
     model_calls: int = Field(ge=0)
@@ -77,6 +78,8 @@ class AgentBenchmarkReport(BaseModel):
     generated_at: datetime = Field(default_factory=utc_now)
     dataset_sha256: str
     cases: int
+    repetitions: int
+    observations_per_variant: int
     single: AgentVariantSummary
     multi: AgentVariantSummary
     multi_minus_single: AgentBenchmarkDelta
@@ -106,35 +109,46 @@ class AgentBenchmarkEvaluator:
         self,
         cases: List[AgentBenchmarkCase],
         runner: Callable[
-            [AgentBenchmarkCase, Literal["single", "multi"]],
+            [AgentBenchmarkCase, Literal["single", "multi"], int],
             AgentBenchmarkObservation,
         ],
         *,
         dataset_hash: str,
         split: Optional[str] = None,
+        repetitions: int = 1,
     ) -> AgentBenchmarkReport:
         selected = [case for case in cases if not split or case.split == split]
         if not selected:
             raise ValueError("at least one agent benchmark case is required")
+        if repetitions <= 0:
+            raise ValueError("repetitions must be positive")
         details: List[AgentBenchmarkObservation] = []
-        paired: Dict[str, Dict[str, AgentBenchmarkObservation]] = {}
-        for index, case in enumerate(selected):
-            variants = ("single", "multi") if index % 2 == 0 else ("multi", "single")
-            paired[case.id] = {}
-            for variant in variants:
-                observation = runner(case, variant)
-                if observation.case_id != case.id or observation.variant != variant:
-                    raise ValueError("benchmark runner returned mismatched case or variant")
-                details.append(observation)
-                paired[case.id][variant] = observation
-        single_items = [paired[case.id]["single"] for case in selected]
-        multi_items = [paired[case.id]["multi"] for case in selected]
+        paired: Dict[tuple[str, int], Dict[str, AgentBenchmarkObservation]] = {}
+        for repetition in range(repetitions):
+            for index, case in enumerate(selected):
+                variants = (
+                    ("single", "multi")
+                    if (index + repetition) % 2 == 0
+                    else ("multi", "single")
+                )
+                pair_key = (case.id, repetition + 1)
+                paired[pair_key] = {}
+                for variant in variants:
+                    observation = runner(case, variant, repetition + 1).model_copy(
+                        update={"run_index": repetition + 1}
+                    )
+                    if observation.case_id != case.id or observation.variant != variant:
+                        raise ValueError("benchmark runner returned mismatched case or variant")
+                    details.append(observation)
+                    paired[pair_key][variant] = observation
+        single_items = [pair["single"] for pair in paired.values()]
+        multi_items = [pair["multi"] for pair in paired.values()]
         single = self._summarize(single_items)
         multi = self._summarize(multi_items)
         pairwise = AgentPairwise()
-        for case in selected:
-            single_success = paired[case.id]["single"].status == TaskStatus.SUCCEEDED
-            multi_success = paired[case.id]["multi"].status == TaskStatus.SUCCEEDED
+        for pair in paired.values():
+            single_success = pair["single"].status == TaskStatus.SUCCEEDED
+            multi_success = pair["multi"].status == TaskStatus.SUCCEEDED
             if multi_success and not single_success:
                 pairwise.multi_wins += 1
             elif single_success and not multi_success:
@@ -144,6 +158,8 @@ class AgentBenchmarkEvaluator:
         return AgentBenchmarkReport(
             dataset_sha256=dataset_hash,
             cases=len(selected),
+            repetitions=repetitions,
+            observations_per_variant=len(selected) * repetitions,
             single=single,
             multi=multi,
             multi_minus_single=AgentBenchmarkDelta(

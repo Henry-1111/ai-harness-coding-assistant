@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,7 +50,7 @@ def test_paired_evaluation_alternates_order_and_reports_delta():
     ]
     calls = []
 
-    def runner(case, variant):
+    def runner(case, variant, run_index):
         calls.append((case.id, variant))
         if case.id == "case-a" and variant == "single":
             status = TaskStatus.FAILED
@@ -77,12 +78,44 @@ def test_paired_evaluation_alternates_order_and_reports_delta():
         ("case-b", "single"),
     ]
     assert report.single.success_rate == 0.5
+    assert report.repetitions == 1
+    assert report.observations_per_variant == 2
     assert report.multi.success_rate == 1.0
     assert report.multi_minus_single.success_rate == 0.5
     assert report.multi_minus_single.mean_model_calls == 1.0
     assert report.multi_minus_single.mean_total_tokens == 15.0
     assert report.pairwise_success.multi_wins == 1
     assert report.pairwise_success.ties == 1
+
+
+def test_repeated_evaluation_counterbalances_variant_order():
+    case = AgentBenchmarkCase(id="case-a", goal="Fix the repeated calculator defect")
+    calls = []
+
+    def runner(current_case, variant, run_index):
+        calls.append((current_case.id, variant))
+        return observation(
+            current_case.id,
+            variant,
+            status=TaskStatus.SUCCEEDED,
+            duration_ms=10,
+            model_calls=1,
+            total_tokens=10,
+        )
+
+    report = AgentBenchmarkEvaluator().evaluate(
+        [case], runner, dataset_hash="frozen-dataset", repetitions=2
+    )
+
+    assert calls == [
+        ("case-a", "single"),
+        ("case-a", "multi"),
+        ("case-a", "multi"),
+        ("case-a", "single"),
+    ]
+    assert report.repetitions == 2
+    assert report.observations_per_variant == 2
+    assert {item.run_index for item in report.details} == {1, 2}
 
 
 def test_dataset_loading_hash_and_changed_path_metrics(tmp_path: Path):
@@ -134,3 +167,27 @@ def test_dataset_case_ids_must_be_unique(tmp_path: Path):
 
     with pytest.raises(ValueError, match="must be unique"):
         load_agent_cases(dataset)
+
+
+def test_frozen_agent_dataset_has_thirty_independently_failing_tasks():
+    root = Path(__file__).resolve().parents[1]
+    fixture_root = root / "benchmarks" / "fixtures" / "agent_eval"
+    dataset = root / "benchmarks" / "agent_cases.json"
+    cases = load_agent_cases(dataset)
+
+    assert len(cases) == 30
+    assert dataset_sha256(dataset) == (
+        "6f9d43944a941efd78d2ae6534f62eed5a4a5e794820687c5c79ae1b6c72e167"
+    )
+    for case in cases:
+        assert case.expected_changed_paths
+        assert all((fixture_root / path).is_file() for path in case.expected_changed_paths)
+        for command in case.verification_commands:
+            completed = subprocess.run(
+                command.split(),
+                cwd=fixture_root,
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+            assert completed.returncode != 0, f"{case.id} is not a failing fixture"

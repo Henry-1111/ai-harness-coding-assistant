@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import math
 from collections import defaultdict
+from hashlib import sha256
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .repository import (
     ContextIndex,
@@ -18,12 +19,14 @@ from .repository import (
 
 
 class RetrievalCase(BaseModel):
-    id: str
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
     query: str = Field(min_length=3)
     relevant_paths: List[str] = Field(min_length=1)
     language: str = "unknown"
     task_type: str = "general"
-    split: str = "test"
+    split: Literal["train", "validation", "test"] = "test"
 
 
 class CaseMetrics(BaseModel):
@@ -64,6 +67,8 @@ class EvaluationSlice(BaseModel):
 
 
 class RetrievalEvaluation(BaseModel):
+    dataset_sha256: str
+    split: Optional[str] = None
     cases: int
     k: int
     recall_at_k: float
@@ -83,11 +88,43 @@ class RetrievalEvaluation(BaseModel):
     details: List[CaseMetrics]
 
 
-def load_cases(path: Path) -> List[RetrievalCase]:
+def load_cases(
+    path: Path, *, repository_root: Optional[Path] = None
+) -> List[RetrievalCase]:
     value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, list):
-        raise ValueError("retrieval dataset must be a JSON array")
-    return [RetrievalCase.model_validate(item) for item in value]
+    if isinstance(value, dict) and isinstance(value.get("cases"), list):
+        value = value["cases"]
+    elif not isinstance(value, list):
+        raise ValueError("retrieval dataset must be a JSON array or an object with cases")
+    cases = [RetrievalCase.model_validate(item) for item in value]
+    case_ids = [case.id for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("retrieval case ids must be unique")
+    queries = [" ".join(case.query.lower().split()) for case in cases]
+    if len(queries) != len(set(queries)):
+        raise ValueError("retrieval case queries must be unique")
+    root = repository_root.resolve() if repository_root is not None else None
+    for case in cases:
+        if len(case.relevant_paths) != len(set(case.relevant_paths)):
+            raise ValueError(f"duplicate relevant path in case {case.id}")
+        for raw_path in case.relevant_paths:
+            relative = Path(raw_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ValueError(f"unsafe relevant path in case {case.id}: {raw_path}")
+            if raw_path.lower() in case.query.lower():
+                raise ValueError(f"query leaks relevant path in case {case.id}: {raw_path}")
+            if root is not None and not (root / relative).is_file():
+                raise ValueError(f"relevant path does not exist in case {case.id}: {raw_path}")
+    return cases
+
+
+def retrieval_cases_sha256(cases: List[RetrievalCase]) -> str:
+    payload = json.dumps(
+        [case.model_dump(mode="json") for case in cases],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return sha256(payload).hexdigest()
 
 
 class RetrievalEvaluator:
@@ -101,6 +138,7 @@ class RetrievalEvaluator:
     def evaluate(
         self, cases: List[RetrievalCase], k: int = 5, split: Optional[str] = None
     ) -> RetrievalEvaluation:
+        dataset_hash = retrieval_cases_sha256(cases)
         if split:
             cases = [case for case in cases if case.split == split]
         if not cases:
@@ -180,6 +218,8 @@ class RetrievalEvaluator:
                 pairwise.ties += 1
         bad_cases = self._bad_cases(details)
         return RetrievalEvaluation(
+            dataset_sha256=dataset_hash,
+            split=split,
             cases=count,
             k=k,
             recall_at_k=recall,

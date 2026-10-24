@@ -37,5 +37,221 @@
     "expected_changed_paths": ["text_utils.py"],
     "max_replans": 1,
     "split": "test"
+  },
+  {
+    "id": "deduplicate-order",
+    "goal": "Fix deduplicate so it removes repeated values while preserving first-seen order.",
+    "acceptance_criteria": ["Repeated values are removed", "First-seen order is preserved"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_deduplicate_preserves_order"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "chunk-empty-tail",
+    "goal": "Fix chunk so an exactly divisible input does not produce a trailing empty chunk.",
+    "acceptance_criteria": ["All values occur once", "No empty trailing chunk is returned"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_chunk_has_no_empty_tail"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "flatten-all-items",
+    "goal": "Fix flatten so it retains every item from every nested list.",
+    "acceptance_criteria": ["Nested lists are flattened in order", "No last item is dropped"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_flatten_keeps_every_item"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "rotate-large-count",
+    "goal": "Fix left rotation so counts larger than the list length wrap correctly.",
+    "acceptance_criteria": ["Rotation wraps by list length", "Element order remains stable"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_rotate_wraps_large_counts"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "clamp-bounds",
+    "goal": "Fix clamp so values below, inside, and above the bounds return the correct bounded value.",
+    "acceptance_criteria": ["Values inside bounds are unchanged", "Values outside bounds use the nearest bound"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_clamp_respects_bounds"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "moving-average-window",
+    "goal": "Fix moving_average so it returns only complete fixed-size windows.",
+    "acceptance_criteria": ["Every output uses a full window", "The final valid window is included"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_moving_average_only_complete_windows"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "pagination-one-based",
+    "goal": "Fix pagination so public page numbers are one-based rather than zero-based.",
+    "acceptance_criteria": ["Page one starts at the first item", "Page two starts after one page"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_paginate_uses_one_based_page_numbers"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "intersection-order",
+    "goal": "Fix intersection so matching values are unique and preserve their order from the left input.",
+    "acceptance_criteria": ["Only shared values remain", "Left input order is preserved"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_intersection_preserves_left_order"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "top-n-largest",
+    "goal": "Fix top_n so it returns the largest requested values in descending order.",
+    "acceptance_criteria": ["The largest values are selected", "Results are descending"],
+    "file_scope": ["collections_utils.py"],
+    "verification_commands": ["python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_top_n_returns_largest_values_descending"],
+    "expected_changed_paths": ["collections_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "parse-bool-false",
+    "goal": "Fix boolean parsing so common true and false strings are interpreted by value rather than non-emptiness.",
+    "acceptance_criteria": ["false parses to false", "YES parses to true"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_parse_bool_understands_false_values"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "email-trim",
+    "goal": "Fix email normalization so surrounding whitespace is removed before lowercasing.",
+    "acceptance_criteria": ["Email is lowercase", "Surrounding whitespace is removed"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_normalize_email_strips_whitespace"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "duration-units",
+    "goal": "Fix duration parsing so both millisecond and second suffixes convert to milliseconds.",
+    "acceptance_criteria": ["250ms remains 250 milliseconds", "2s becomes 2000 milliseconds"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_parse_duration_supports_ms_and_seconds"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "url-base-path",
+    "goal": "Fix URL joining so a leading slash in the endpoint does not discard the base API path.",
+    "acceptance_criteria": ["The base v1 path is preserved", "The endpoint has one separating slash"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_join_url_preserves_base_path"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "tag-normalization",
+    "goal": "Fix tag normalization so values are trimmed, lowercased, and empty tags removed.",
+    "acceptance_criteria": ["Tags are lowercase and trimmed", "Empty tags are omitted"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_normalize_tags_trims_and_removes_empty_values"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "final-file-extension",
+    "goal": "Fix file extension extraction so it uses the final suffix and normalizes case.",
+    "acceptance_criteria": ["The final suffix is selected", "The suffix is lowercase"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_file_extension_uses_final_suffix_lowercase"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "token-redaction",
+    "goal": "Fix token redaction so secrets containing hyphens and dots are fully masked.",
+    "acceptance_criteria": ["The complete token value is masked", "Following text remains unchanged"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_redact_token_handles_punctuation"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "header-case-insensitive",
+    "goal": "Fix header merging so an override replaces an existing header regardless of key casing.",
+    "acceptance_criteria": ["Header names are compared case-insensitively", "The override value wins"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_merge_headers_is_case_insensitive"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "optional-int-none",
+    "goal": "Fix optional integer parsing so a missing value remains None instead of becoming zero.",
+    "acceptance_criteria": ["None remains None", "Numeric strings become integers"],
+    "file_scope": ["parsing_utils.py"],
+    "verification_commands": ["python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_optional_int_preserves_missing_value"],
+    "expected_changed_paths": ["parsing_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "state-transition-graph",
+    "goal": "Fix status transitions so only allowed workflow edges are accepted and terminal states cannot restart.",
+    "acceptance_criteria": ["queued can transition to running", "succeeded cannot transition to running"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_transition_uses_explicit_state_graph"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "exponential-backoff",
+    "goal": "Fix retry delay so it grows exponentially by attempt and never exceeds the configured cap.",
+    "acceptance_criteria": ["Attempt three with base two returns eight", "Delay is capped"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_backoff_is_exponential_and_capped"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "quota-percentage",
+    "goal": "Fix quota utilization so it returns a percentage rather than a fraction.",
+    "acceptance_criteria": ["25 of 100 returns 25.0"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_quota_percent_returns_percentage"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "inventory-exact-reservation",
+    "goal": "Fix inventory reservation so consuming the exact remaining amount succeeds with zero remaining.",
+    "acceptance_criteria": ["Exact remaining amount succeeds", "Overuse is rejected"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_inventory_accepts_exact_remaining_amount"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "cache-ttl-boundary",
+    "goal": "Fix cache freshness so an entry expires exactly at its TTL boundary.",
+    "acceptance_criteria": ["An entry is stale at the TTL boundary", "An entry before the boundary is fresh"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_cache_expires_at_ttl_boundary"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "timeout-cap",
+    "goal": "Fix effective timeout selection so a requested timeout never exceeds the configured maximum.",
+    "acceptance_criteria": ["Large requested values are capped", "Smaller requested values are preserved"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_effective_timeout_never_exceeds_maximum"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "retryable-http-status",
+    "goal": "Fix retry classification so only throttling and server failures are retryable, not ordinary client errors.",
+    "acceptance_criteria": ["429 and 503 are retryable", "400 is not retryable"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_retryable_status_only_transient_failures"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "setting-precedence",
+    "goal": "Fix configuration resolution so environment overrides file and file overrides the default.",
+    "acceptance_criteria": ["Environment value has highest precedence", "File value precedes default"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_setting_precedence_environment_then_file_then_default"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
+  },
+  {
+    "id": "safe-divide-zero",
+    "goal": "Fix safe division so a zero denominator returns None instead of raising an exception.",
+    "acceptance_criteria": ["Zero denominator returns None", "Normal division still works"],
+    "file_scope": ["policy_utils.py"],
+    "verification_commands": ["python -m unittest -q test_policy_utils.PolicyUtilsTest.test_safe_divide_returns_none_for_zero_denominator"],
+    "expected_changed_paths": ["policy_utils.py"], "max_replans": 1, "split": "test"
   }
 ]
