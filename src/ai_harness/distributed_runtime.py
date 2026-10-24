@@ -222,6 +222,13 @@ class PostgresTaskJobStore:
                     WHERE idempotency_key IS NOT NULL;
                 """,
                     ),
+                    (
+                        2,
+                        """
+                ALTER TABLE task_jobs
+                    ADD COLUMN IF NOT EXISTS request_id TEXT;
+                """,
+                    ),
                 ],
             )
 
@@ -234,6 +241,7 @@ class PostgresTaskJobStore:
         tenant_id: str = "local",
         created_by: str = "system",
         job_id: Optional[str] = None,
+        request_id: Optional[str] = None,
     ) -> TaskJob:
         if not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be within 1..5")
@@ -245,6 +253,8 @@ class PostgresTaskJobStore:
         created_by = created_by.strip()
         if not tenant_id or not created_by:
             raise ValueError("tenant_id and created_by are required")
+        if request_id is not None and not 1 <= len(request_id) <= 64:
+            raise ValueError("request_id must be within 1..64 characters")
         request_json = request.model_dump_json()
         request_hash = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         now = utc_now().isoformat()
@@ -257,6 +267,7 @@ class PostgresTaskJobStore:
             idempotency_key=idempotency_key,
             tenant_id=tenant_id,
             created_by=created_by,
+            request_id=request_id,
         )
         with self._connect() as connection:
             connection.execute(
@@ -299,10 +310,10 @@ class PostgresTaskJobStore:
                     job_id, status, request_json, task_id, result_json, error,
                     attempts, max_attempts, cancel_requested, lease_owner,
                     lease_expires_at, created_at, updated_at, idempotency_key,
-                    request_hash, tenant_id, created_by
+                    request_hash, tenant_id, created_by, request_id
                 ) VALUES (
                     %s, %s, %s, NULL, NULL, NULL, 0, %s, FALSE, NULL, NULL,
-                    %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
@@ -316,6 +327,7 @@ class PostgresTaskJobStore:
                     request_hash,
                     tenant_id,
                     created_by,
+                    request_id,
                 ),
             )
             self._append_event(
@@ -323,7 +335,10 @@ class PostgresTaskJobStore:
                 job.job_id,
                 "queued",
                 JobStatus.PENDING,
-                details={"max_attempts": max_attempts},
+                details={
+                    "max_attempts": max_attempts,
+                    **({"request_id": request_id} if request_id else {}),
+                },
                 created_at=now,
             )
         return job
@@ -657,6 +672,7 @@ class PostgresTaskJobStore:
     def _decode(row: Mapping[str, Any]) -> TaskJob:
         return TaskJob(
             job_id=row["job_id"],
+            request_id=row["request_id"],
             status=JobStatus(row["status"]),
             request=TaskRequest.model_validate_json(row["request_json"]),
             task_id=row["task_id"],

@@ -254,10 +254,14 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         created = client.post(
             "/v1/jobs",
             json=request_body,
-            headers={"Idempotency-Key": "api-job-1"},
+            headers={
+                "Idempotency-Key": "api-job-1",
+                "X-Request-ID": "job-trace-123",
+            },
         )
         assert created.status_code == 202
         assert created.json()["status"] == "pending"
+        assert created.json()["request_id"] == "job-trace-123"
         job_id = created.json()["job_id"]
         replay = client.post(
             "/v1/jobs",
@@ -285,12 +289,14 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
     assert body["result"]["changed_files"] == ["calculator.py"]
     assert replay.status_code == 202
     assert replay.json()["job_id"] == job_id
+    assert replay.json()["request_id"] == "job-trace-123"
     assert conflict.status_code == 409
     assert [event["event_type"] for event in events.json()] == [
         "queued",
         "claimed",
         "completed",
     ]
+    assert events.json()[0]["details"]["request_id"] == "job-trace-123"
     assert metrics.status_code == 200
     assert metrics.json()["counts"]["succeeded"] == 1
     assert metrics.json()["outstanding_jobs"] == 0

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -99,6 +100,31 @@ def test_store_persists_claims_and_recovers_an_expired_lease(tmp_path: Path):
         "lease_recovered",
         "completed",
     ]
+
+
+def test_store_persists_request_id_and_records_it_on_queued_event(tmp_path: Path):
+    database = tmp_path / "jobs.sqlite3"
+    store = TaskJobStore(database)
+
+    queued = store.enqueue(request(tmp_path), request_id="trace-123")
+    reopened = TaskJobStore(database)
+    persisted = reopened.get(queued.job_id)
+
+    assert persisted is not None
+    assert persisted.request_id == "trace-123"
+    assert reopened.events(queued.job_id)[0].details["request_id"] == "trace-123"
+
+
+def test_store_adds_request_id_column_to_existing_database(tmp_path: Path):
+    database = tmp_path / "jobs.sqlite3"
+    TaskJobStore(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("ALTER TABLE task_jobs DROP COLUMN request_id")
+
+    upgraded = TaskJobStore(database)
+    queued = upgraded.enqueue(request(tmp_path), request_id="after-upgrade")
+
+    assert upgraded.get(queued.job_id) == queued
 
 
 def test_expired_lease_records_terminal_failure_when_retry_budget_is_exhausted(

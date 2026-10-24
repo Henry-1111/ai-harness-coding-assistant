@@ -524,6 +524,7 @@ def create_app(
     @app.post("/v1/jobs", response_model=TaskJob, status_code=202)
     def create_job(
         request: TaskRequest,
+        http_request: Request,
         idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
         principal: Principal = Depends(current_principal),  # noqa: B008
     ) -> TaskJob:
@@ -577,6 +578,7 @@ def create_app(
                 tenant_id=principal.tenant_id,
                 created_by=principal.subject,
                 job_id=job_id,
+                request_id=http_request.state.request_id,
             )
             governance_store.bind(
                 "job",

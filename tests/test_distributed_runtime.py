@@ -23,7 +23,10 @@ requires_postgres = pytest.mark.skipif(
 def test_concurrent_schema_bootstrap_is_serialized() -> None:
     with psycopg.connect(POSTGRES_URL) as connection:
         connection.execute(
-            "DROP TABLE IF EXISTS task_checkpoints, job_events, task_jobs CASCADE"
+            """
+            DROP TABLE IF EXISTS task_checkpoints, job_events, task_jobs,
+                ai_harness_schema_migrations CASCADE
+            """
         )
 
     def initialize(index: int) -> bool:
@@ -47,7 +50,7 @@ def test_concurrent_schema_bootstrap_is_serialized() -> None:
                 """
             ).fetchall()
         )
-    assert versions == {"checkpoints": 1, "jobs": 1}
+    assert versions == {"checkpoints": 1, "jobs": 2}
     with psycopg.connect(POSTGRES_URL) as connection:
         connection.execute(
             """
@@ -73,6 +76,41 @@ def reset_runtime_tables() -> None:
         connection.execute(
             "TRUNCATE task_checkpoints, job_events, task_jobs RESTART IDENTITY CASCADE"
         )
+
+
+@requires_postgres
+def test_jobs_schema_upgrades_from_version_one() -> None:
+    PostgresTaskJobStore(POSTGRES_URL)
+    with psycopg.connect(POSTGRES_URL) as connection:
+        connection.execute("ALTER TABLE task_jobs DROP COLUMN IF EXISTS request_id")
+        connection.execute(
+            """
+            DELETE FROM ai_harness_schema_migrations
+            WHERE component = 'jobs' AND version = 2
+            """
+        )
+
+    upgraded = PostgresTaskJobStore(POSTGRES_URL)
+    with psycopg.connect(POSTGRES_URL) as connection:
+        columns = {
+            row[0]
+            for row in connection.execute(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'task_jobs'
+                """
+            ).fetchall()
+        }
+        version = connection.execute(
+            """
+            SELECT MAX(version) FROM ai_harness_schema_migrations
+            WHERE component = 'jobs'
+            """
+        ).fetchone()
+
+    assert upgraded.healthcheck()
+    assert "request_id" in columns
+    assert version == (2,)
 
 
 def request(repository: Path, goal: str) -> TaskRequest:
@@ -114,6 +152,19 @@ def test_concurrent_idempotency_and_queue_capacity_are_global(tmp_path: Path) ->
     assert first.metrics().outstanding_jobs == 1
     with pytest.raises(QueueFullError, match="capacity 1"):
         second.enqueue(request(tmp_path, "another task"))
+
+
+@requires_postgres
+def test_request_id_survives_postgres_round_trip(tmp_path: Path) -> None:
+    reset_runtime_tables()
+    store = PostgresTaskJobStore(POSTGRES_URL)
+
+    queued = store.enqueue(request(tmp_path, "trace this task"), request_id="trace-123")
+    persisted = store.get(queued.job_id)
+
+    assert persisted is not None
+    assert persisted.request_id == "trace-123"
+    assert store.events(queued.job_id)[0].details["request_id"] == "trace-123"
 
 
 @requires_postgres
