@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import os
 import shutil
 import time
 import uuid
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from difflib import unified_diff
+from fcntl import LOCK_EX, LOCK_UN, flock
 from hashlib import sha256
 from pathlib import Path
-from typing import Callable, Literal, Optional, TypedDict
+from typing import Callable, Iterator, Literal, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
@@ -317,7 +320,7 @@ class HarnessOrchestrator:
         return self.checkpoints.load(task_id)
 
     def promote(self, task_id: str) -> list[str]:
-        """Copy only reviewed files from the isolated workspace to the source repo."""
+        """Atomically publish reviewed files unless their source baseline changed."""
         state = self.checkpoints.load(task_id)
         if state is None:
             raise KeyError(f"task not found: {task_id}")
@@ -325,14 +328,75 @@ class HarnessOrchestrator:
             raise RuntimeError("only approved tasks can be promoted")
         source = Repository(Path(state.request.repository))
         workspace = self._workspace_repository(state)
-        promoted = []
-        for relative_path in state.changed_files:
-            source_path = workspace.resolve(relative_path)
-            destination = source.resolve(relative_path, must_exist=False)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_path, destination)
-            promoted.append(relative_path)
+        baselines = state.scratchpad.get("promotion_baselines")
+        if not isinstance(baselines, dict):
+            raise RuntimeError("promotion baseline is unavailable; rerun the task")
+        promoted: list[str] = []
+        with self._promotion_lock(source.root):
+            pending: list[tuple[str, Path, Path]] = []
+            conflicts: list[str] = []
+            for relative_path in state.changed_files:
+                if relative_path not in baselines:
+                    raise RuntimeError(
+                        f"promotion baseline is unavailable for {relative_path}; rerun the task"
+                    )
+                workspace_path = workspace.resolve(relative_path)
+                destination = source.resolve(relative_path, must_exist=False)
+                desired_digest = self._file_digest(workspace_path)
+                current_digest = self._file_digest(destination)
+                baseline_digest = baselines[relative_path]
+                if current_digest == desired_digest:
+                    promoted.append(relative_path)
+                elif current_digest != baseline_digest:
+                    conflicts.append(relative_path)
+                else:
+                    pending.append((relative_path, workspace_path, destination))
+            if conflicts:
+                raise RuntimeError(
+                    "source files changed after task creation: " + ", ".join(conflicts)
+                )
+            for relative_path, workspace_path, destination in pending:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                temporary = destination.parent / (
+                    f".{destination.name}.ai-harness-{uuid.uuid4().hex}.tmp"
+                )
+                try:
+                    shutil.copy2(workspace_path, temporary)
+                    os.replace(temporary, destination)
+                finally:
+                    temporary.unlink(missing_ok=True)
+                promoted.append(relative_path)
+        state.scratchpad["promoted_files"] = list(promoted)
+        state.scratchpad["promoted_at"] = utc_now().isoformat()
+        self.checkpoints.save(state)
         return promoted
+
+    @contextmanager
+    def _promotion_lock(self, repository: Path) -> Iterator[None]:
+        git_directory = repository / ".git"
+        if git_directory.is_dir():
+            lock_path = git_directory / "ai-harness-promote.lock"
+        else:
+            lock_directory = self.data_directory / "promotion-locks"
+            lock_directory.mkdir(parents=True, exist_ok=True)
+            lock_name = sha256(str(repository).encode()).hexdigest()
+            lock_path = lock_directory / f"{lock_name}.lock"
+        with lock_path.open("a+b") as lock_file:
+            flock(lock_file.fileno(), LOCK_EX)
+            try:
+                yield
+            finally:
+                flock(lock_file.fileno(), LOCK_UN)
+
+    @staticmethod
+    def _file_digest(path: Path) -> Optional[str]:
+        if not path.is_file():
+            return None
+        digest = sha256()
+        with path.open("rb") as handle:
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+        return digest.hexdigest()
 
     def diff(self, task_id: str) -> str:
         state = self.checkpoints.load(task_id)
@@ -750,6 +814,12 @@ class HarnessOrchestrator:
         )
         for edit in decision.edits:
             self._check_execution_control()
+            baselines = task.scratchpad.setdefault("promotion_baselines", {})
+            if not isinstance(baselines, dict):
+                raise RuntimeError("invalid promotion baseline state")
+            if edit.path not in baselines:
+                candidate = repository.resolve(edit.path, must_exist=False)
+                baselines[edit.path] = self._file_digest(candidate)
             path = self.tools.execute("apply_edit", context, edit=edit)
             if path not in task.changed_files:
                 task.changed_files.append(path)

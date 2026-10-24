@@ -109,6 +109,71 @@ def test_full_workflow_isolated_verify_review_and_promote(tmp_path: Path, sample
 
     assert orchestrator.promote(result.task_id) == ["calculator.py"]
     assert "left + right" in (sample_repository / "calculator.py").read_text(encoding="utf-8")
+    assert orchestrator.promote(result.task_id) == ["calculator.py"]
+
+
+def test_promote_rejects_source_changes_made_after_task_started(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([successful_edit()]),
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+    result = orchestrator.run(request_for(sample_repository))
+    source_file = sample_repository / "calculator.py"
+    source_file.write_text(
+        source_file.read_text().replace("return left - right", "return left * right")
+    )
+
+    with pytest.raises(RuntimeError, match="source files changed after task creation"):
+        orchestrator.promote(result.task_id)
+
+    assert "return left * right" in source_file.read_text()
+
+
+def test_promote_records_baseline_before_first_edit(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([successful_edit()]),
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(request_for(sample_repository))
+    state = orchestrator.get(result.task_id)
+
+    assert state is not None
+    baseline = state.scratchpad["promotion_baselines"]["calculator.py"]
+    assert isinstance(baseline, str)
+    assert len(baseline) == 64
+
+
+def test_promote_preflights_every_file_before_writing_any_source_change(
+    tmp_path: Path, sample_repository: Path
+) -> None:
+    decision = successful_edit()
+    decision["edits"].append(
+        {"path": "notes.txt", "old_text": "", "new_text": "generated notes\n"}
+    )
+    orchestrator = HarnessOrchestrator(
+        ScriptedModel([decision]),
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+    result = orchestrator.run(
+        request_for(sample_repository, file_scope=["calculator.py", "notes.txt"])
+    )
+    calculator = sample_repository / "calculator.py"
+    calculator.write_text(
+        calculator.read_text().replace("return left - right", "return left * right")
+    )
+
+    with pytest.raises(RuntimeError, match="source files changed after task creation"):
+        orchestrator.promote(result.task_id)
+
+    assert not (sample_repository / "notes.txt").exists()
 
 
 def test_high_risk_task_waits_for_explicit_approval_before_execution(

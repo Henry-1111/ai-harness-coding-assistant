@@ -553,6 +553,11 @@ Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台�
 更新任务快照失败时保留上一份可恢复版本。`/metrics` 暴露快照数量、已用字节和容量上限，Prometheus 在连续
 10 分钟超过 85% 时告警，Grafana 看板展示实时占用比例。
 
+Promote 会为每个首次修改的文件持久化 SHA-256 基线。正式写回前先检查全部目标文件：源文件仍等于基线才
+允许发布，已经等于任务结果则按幂等成功处理，其他情况返回冲突且不写入任何文件，避免覆盖任务执行期间的
+人工或其他 Agent 修改。写回使用同目录临时文件与原子替换，进程中断后可安全重试；共享 Git 仓库还通过
+`.git/ai-harness-promote.lock` 协调多实例 Promote。
+
 ### Prometheus 与 Grafana
 
 监控栈使用可选 Compose profile，不会增加默认开发环境的启动负担：
@@ -583,8 +588,9 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Prometh
   Project Memory 的身份由 `tenant_id + repository` 共同派生，同一路径被多个租户授权时也不会互相读取经验；
   User Memory 使用认证主体作为 owner。
   异步任务可通过共享 POSIX 快照目录跨主机启动，审批恢复和 Diff 可从任务快照自动恢复。原始仓库路径只继续
-  用于授权、项目记忆身份和显式 Promote；Promote 仍必须在能访问原仓库的实例执行。当前 Compose 是单主机
-  部署，尚未提供 S3/对象存储适配器以及跨主机 Promote 协调。
+  用于授权、项目记忆身份和显式 Promote；Promote 仍必须在能访问原仓库的实例执行。共享 POSIX Git 仓库
+  可通过文件锁协调多实例写回，但当前 Compose 仍是单主机部署，尚未提供 S3/对象存储适配器或远程 Git
+  服务端发布适配器。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。
