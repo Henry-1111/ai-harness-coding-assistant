@@ -57,6 +57,39 @@ class S3WorkspaceSnapshotStore:
             client = boto3.client("s3", **{key: value for key, value in kwargs.items() if value})
         self.client = client
 
+    def _cache_replace(self, snapshot_id: str, source: Path) -> None:
+        """Replace one cache entry, evicting least-recently-used entries if needed."""
+        try:
+            self.cache.replace(snapshot_id, source)
+            return
+        except WorkspaceSnapshotCapacityError as original_error:
+            candidates = sorted(
+                (
+                    child
+                    for child in self.root.iterdir()
+                    if child.is_dir()
+                    and not child.name.startswith(".")
+                    and child.name != snapshot_id
+                ),
+                key=lambda child: (child.stat().st_mtime_ns, child.name),
+            )
+            for candidate in candidates:
+                self.cache.remove(candidate.name)
+                self._known_etags.pop(candidate.name, None)
+                try:
+                    self.cache.replace(snapshot_id, source)
+                    return
+                except WorkspaceSnapshotCapacityError:
+                    continue
+            raise original_error
+
+    def _touch_cache_entry(self, snapshot_id: str, path: Path) -> None:
+        try:
+            os.utime(path, None)
+        except FileNotFoundError:
+            self._known_etags.pop(snapshot_id, None)
+            raise
+
     @property
     def storage_identity(self) -> str:
         return f"s3:{self.bucket}/{self.prefix}"
@@ -94,7 +127,28 @@ class S3WorkspaceSnapshotStore:
         parts = PurePosixPath(info.name).parts
         if any(part in IGNORED_WORKSPACE_NAMES for part in parts):
             return None
+        if info.issym() and not S3WorkspaceSnapshotStore._safe_symlink(
+            PurePosixPath(info.name), info.linkname
+        ):
+            return None
         return info
+
+    @staticmethod
+    def _safe_symlink(member_path: PurePosixPath, link_name: str) -> bool:
+        target = PurePosixPath(link_name)
+        if target.is_absolute():
+            return False
+        depth = 0
+        for part in (member_path.parent / target).parts:
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                if depth == 0:
+                    return False
+                depth -= 1
+            else:
+                depth += 1
+        return True
 
     def _create_archive(self, source: Path, destination: Path) -> str:
         with tarfile.open(destination, "w:gz", dereference=False) as archive:
@@ -125,6 +179,10 @@ class S3WorkspaceSnapshotStore:
                         shutil.copyfileobj(source, output)
                     os.chmod(target, member.mode & 0o777)
                 elif member.issym():
+                    if not S3WorkspaceSnapshotStore._safe_symlink(
+                        member_path, member.linkname
+                    ):
+                        raise RuntimeError("unsafe workspace snapshot symlink target")
                     symlinks.append(member)
                 else:
                     raise RuntimeError("unsafe workspace snapshot archive member")
@@ -174,11 +232,12 @@ class S3WorkspaceSnapshotStore:
     def stage(self, snapshot_id: str, source: Path) -> bool:
         snapshot_id = validate_snapshot_id(snapshot_id)
         with self._lock:
-            self.cache.replace(snapshot_id, source)
+            self._cache_replace(snapshot_id, source)
             try:
                 created = self._put(snapshot_id, source, create_only=True)
             except Exception:
                 self.cache.remove(snapshot_id)
+                self._known_etags.pop(snapshot_id, None)
                 raise
             if not created:
                 self.cache.remove(snapshot_id)
@@ -188,8 +247,14 @@ class S3WorkspaceSnapshotStore:
     def replace(self, snapshot_id: str, source: Path) -> None:
         snapshot_id = validate_snapshot_id(snapshot_id)
         with self._lock:
-            self.cache.replace(snapshot_id, source)
-            self._put(snapshot_id, source, create_only=False)
+            self._cache_replace(snapshot_id, source)
+            try:
+                self._put(snapshot_id, source, create_only=False)
+            except Exception:
+                # Never serve bytes that failed to become authoritative remotely.
+                self.cache.remove(snapshot_id)
+                self._known_etags.pop(snapshot_id, None)
+                raise
 
     def _download(self, snapshot_id: str, head: dict[str, Any]) -> Path:
         response = self.client.get_object(Bucket=self.bucket, Key=self._key(snapshot_id))
@@ -209,7 +274,7 @@ class S3WorkspaceSnapshotStore:
             extracted = Path(directory) / "extracted"
             extracted.mkdir()
             self._extract_archive(archive_path, extracted)
-            self.cache.replace(snapshot_id, extracted)
+            self._cache_replace(snapshot_id, extracted)
         self._known_etags[snapshot_id] = str(head.get("ETag", ""))
         return self.cache.source_path(snapshot_id)
 
@@ -225,6 +290,7 @@ class S3WorkspaceSnapshotStore:
             except FileNotFoundError:
                 cached = None
             if cached is not None and self._known_etags.get(snapshot_id) == etag:
+                self._touch_cache_entry(snapshot_id, cached)
                 return cached
             return self._download(snapshot_id, head)
 
@@ -247,25 +313,4 @@ class S3WorkspaceSnapshotStore:
             return False
 
     def metrics(self) -> WorkspaceSnapshotMetrics:
-        count = 0
-        used = 0
-        continuation: Optional[str] = None
-        while True:
-            kwargs: dict[str, Any] = {
-                "Bucket": self.bucket,
-                "Prefix": self.object_prefix,
-            }
-            if continuation:
-                kwargs["ContinuationToken"] = continuation
-            page = self.client.list_objects_v2(**kwargs)
-            objects = [
-                item
-                for item in page.get("Contents", [])
-                if str(item.get("Key", "")).endswith(".tar.gz")
-            ]
-            count += len(objects)
-            used += sum(int(item.get("Size", 0)) for item in objects)
-            if not page.get("IsTruncated"):
-                break
-            continuation = str(page["NextContinuationToken"])
-        return WorkspaceSnapshotMetrics(count, used, self.max_bytes)
+        return self.cache.metrics()
