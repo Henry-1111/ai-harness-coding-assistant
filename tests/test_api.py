@@ -17,6 +17,7 @@ from ai_harness.governance import (
 from ai_harness.jobs import TaskJobStore, TaskWorkerPool
 from ai_harness.orchestrator import HarnessOrchestrator
 from ai_harness.sandbox import LocalCommandSandbox
+from ai_harness.workspaces import FilesystemWorkspaceSnapshotStore
 
 
 def test_api_runs_and_reads_task(tmp_path: Path, sample_repository: Path):
@@ -239,10 +240,12 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
             }
         ]
     )
+    snapshots = FilesystemWorkspaceSnapshotStore(tmp_path / "shared-snapshots")
     app = create_app(
         HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox),
         max_job_workers=1,
         job_poll_interval_seconds=0.01,
+        workspace_store=snapshots,
     )
     with TestClient(app) as client:
         request_body = {
@@ -263,6 +266,8 @@ def test_api_runs_durable_job_and_returns_result(tmp_path: Path, sample_reposito
         assert created.json()["status"] == "pending"
         assert created.json()["request_id"] == "job-trace-123"
         job_id = created.json()["job_id"]
+        assert created.json()["workspace_snapshot_id"] == job_id
+        assert (snapshots.source_path(job_id) / "calculator.py").is_file()
         replay = client.post(
             "/v1/jobs",
             json=request_body,

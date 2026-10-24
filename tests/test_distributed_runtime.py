@@ -50,7 +50,7 @@ def test_concurrent_schema_bootstrap_is_serialized() -> None:
                 """
             ).fetchall()
         )
-    assert versions == {"checkpoints": 1, "jobs": 2}
+    assert versions == {"checkpoints": 1, "jobs": 3}
     with psycopg.connect(POSTGRES_URL) as connection:
         connection.execute(
             """
@@ -84,9 +84,12 @@ def test_jobs_schema_upgrades_from_version_one() -> None:
     with psycopg.connect(POSTGRES_URL) as connection:
         connection.execute("ALTER TABLE task_jobs DROP COLUMN IF EXISTS request_id")
         connection.execute(
+            "ALTER TABLE task_jobs DROP COLUMN IF EXISTS workspace_snapshot_id"
+        )
+        connection.execute(
             """
             DELETE FROM ai_harness_schema_migrations
-            WHERE component = 'jobs' AND version = 2
+            WHERE component = 'jobs' AND version >= 2
             """
         )
 
@@ -110,7 +113,8 @@ def test_jobs_schema_upgrades_from_version_one() -> None:
 
     assert upgraded.healthcheck()
     assert "request_id" in columns
-    assert version == (2,)
+    assert "workspace_snapshot_id" in columns
+    assert version == (3,)
 
 
 def request(repository: Path, goal: str) -> TaskRequest:
@@ -159,11 +163,16 @@ def test_request_id_survives_postgres_round_trip(tmp_path: Path) -> None:
     reset_runtime_tables()
     store = PostgresTaskJobStore(POSTGRES_URL)
 
-    queued = store.enqueue(request(tmp_path, "trace this task"), request_id="trace-123")
+    queued = store.enqueue(
+        request(tmp_path, "trace this task"),
+        request_id="trace-123",
+        workspace_snapshot_id="snapshot-123",
+    )
     persisted = store.get(queued.job_id)
 
     assert persisted is not None
     assert persisted.request_id == "trace-123"
+    assert persisted.workspace_snapshot_id == "snapshot-123"
     assert store.events(queued.job_id)[0].details["request_id"] == "trace-123"
 
 

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from .models import TaskRequest, TaskResult, TaskStatus, utc_now
 from .observability import format_worker_event
 from .orchestrator import ExecutionControl, HarnessOrchestrator
+from .workspaces import FilesystemWorkspaceSnapshotStore, validate_snapshot_id
 
 worker_logger = logging.getLogger("ai_harness.worker")
 
@@ -42,6 +43,7 @@ class JobStatus(str, Enum):
 class TaskJob(BaseModel):
     job_id: str
     request_id: Optional[str] = None
+    workspace_snapshot_id: Optional[str] = None
     status: JobStatus = JobStatus.PENDING
     request: TaskRequest
     task_id: Optional[str] = None
@@ -125,6 +127,7 @@ class TaskJobStoreProtocol(Protocol):
         created_by: str = "system",
         job_id: Optional[str] = None,
         request_id: Optional[str] = None,
+        workspace_snapshot_id: Optional[str] = None,
     ) -> TaskJob: ...
 
     def get(self, job_id: str) -> Optional[TaskJob]: ...
@@ -313,6 +316,10 @@ class TaskJobStore:
                 )
             if "request_id" not in columns:
                 connection.execute("ALTER TABLE task_jobs ADD COLUMN request_id TEXT")
+            if "workspace_snapshot_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE task_jobs ADD COLUMN workspace_snapshot_id TEXT"
+                )
             connection.execute("DROP INDEX IF EXISTS idx_task_jobs_idempotency_key")
             connection.execute(
                 """
@@ -331,6 +338,7 @@ class TaskJobStore:
         created_by: str = "system",
         job_id: Optional[str] = None,
         request_id: Optional[str] = None,
+        workspace_snapshot_id: Optional[str] = None,
     ) -> TaskJob:
         if not 1 <= max_attempts <= 5:
             raise ValueError("max_attempts must be within 1..5")
@@ -344,6 +352,8 @@ class TaskJobStore:
             raise ValueError("tenant_id and created_by are required")
         if request_id is not None and not 1 <= len(request_id) <= 64:
             raise ValueError("request_id must be within 1..64 characters")
+        if workspace_snapshot_id is not None:
+            validate_snapshot_id(workspace_snapshot_id)
         request_json = request.model_dump_json()
         request_hash = hashlib.sha256(request_json.encode("utf-8")).hexdigest()
         now = utc_now().isoformat()
@@ -357,6 +367,7 @@ class TaskJobStore:
             tenant_id=tenant_id,
             created_by=created_by,
             request_id=request_id,
+            workspace_snapshot_id=workspace_snapshot_id,
         )
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -395,9 +406,10 @@ class TaskJobStore:
                     job_id, status, request_json, task_id, result_json, error,
                     attempts, max_attempts, cancel_requested, lease_owner,
                     lease_expires_at, created_at, updated_at,
-                    idempotency_key, request_hash, tenant_id, created_by, request_id
+                    idempotency_key, request_hash, tenant_id, created_by, request_id,
+                    workspace_snapshot_id
                 ) VALUES (
-                    ?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, NULL, NULL, NULL, 0, ?, 0, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 (
@@ -412,6 +424,7 @@ class TaskJobStore:
                     tenant_id,
                     created_by,
                     request_id,
+                    workspace_snapshot_id,
                 ),
             )
             self._append_event(
@@ -765,6 +778,7 @@ class TaskJobStore:
         return TaskJob(
             job_id=row["job_id"],
             request_id=row["request_id"],
+            workspace_snapshot_id=row["workspace_snapshot_id"],
             status=JobStatus(row["status"]),
             request=TaskRequest.model_validate_json(row["request_json"]),
             task_id=row["task_id"],
@@ -847,6 +861,7 @@ class TaskWorkerPool:
         circuit_failure_threshold: int = 3,
         circuit_recovery_seconds: float = 30,
         terminal_callback: Optional[Callable[[TaskJob], object]] = None,
+        workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
     ) -> None:
         if not 1 <= max_workers <= 32:
             raise ValueError("max_workers must be within 1..32")
@@ -867,6 +882,7 @@ class TaskWorkerPool:
             recovery_seconds=circuit_recovery_seconds,
         )
         self.terminal_callback = terminal_callback
+        self.workspace_store = workspace_store
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._workers: dict[str, WorkerSnapshot] = {}
@@ -960,7 +976,19 @@ class TaskWorkerPool:
                         tenant_id=job.tenant_id,
                         actor=job.created_by,
                     )
-                    result = self.orchestrator.run(job.request, control=control)
+                    workspace_source = (
+                        self.workspace_store.source_path(job.workspace_snapshot_id)
+                        if self.workspace_store and job.workspace_snapshot_id
+                        else None
+                    )
+                    if workspace_source is None:
+                        result = self.orchestrator.run(job.request, control=control)
+                    else:
+                        result = self.orchestrator.run(
+                            job.request,
+                            control=control,
+                            workspace_source=workspace_source,
+                        )
                     infrastructure_error = self._infrastructure_error(result)
                     if infrastructure_error:
                         self.circuit.record_failure()

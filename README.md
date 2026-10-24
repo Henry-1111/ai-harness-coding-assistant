@@ -540,6 +540,12 @@ docker compose up --build
 Checkpoint、队列、PostgreSQL 和 Redis，只有健康后才启动控制台；停止时保留 30 秒供 Worker 结束当前
 安全边界与释放资源，未完成任务仍可在租约过期后由其他实例接管。
 
+异步 `POST /v1/jobs` 在入队前会把授权后的源仓库复制到
+`AI_HARNESS_WORKSPACE_SNAPSHOT_DIR`。快照先写临时目录再原子发布，忽略 `.git`、虚拟环境、依赖目录和缓存，
+并保留符号链接而不跟随读取仓库边界外的内容。Job 只保存不可由客户端指定的快照 ID；Worker 从快照创建
+自己的隔离工作区，因此不再依赖 API 主机上的原始绝对路径。多主机部署需要把该目录以相同路径挂载到
+所有 API/Worker 实例；未配置时保持原来的本机路径模式。
+
 ### Prometheus 与 Grafana
 
 监控栈使用可选 Compose profile，不会增加默认开发环境的启动负担：
@@ -569,8 +575,9 @@ HTTP RPS/P95 延迟、任务状态与额度对账失败。Prometheus 同时预�
 - PostgreSQL 模式也会共享五层 Memory，并用按记忆键加锁的事务避免多个 Worker 同时追加经验时丢数据。
   Project Memory 的身份由 `tenant_id + repository` 共同派生，同一路径被多个租户授权时也不会互相读取经验；
   User Memory 使用认证主体作为 owner。
-  跨主机执行仍要求所有实例能访问同一个任务工作区（例如共享 POSIX 卷）；当前 Compose 是单主机部署，尚未
-  提供对象存储工作区适配器。
+  异步任务可通过共享 POSIX 快照目录跨主机启动，原始仓库路径只继续用于授权、项目记忆身份和显式 Promote。
+  审批后恢复、Diff 与 Promote 仍要求实例可访问任务工作区和原始仓库；当前 Compose 是单主机部署，尚未提供
+  S3/对象存储适配器以及跨主机 Promote 协调。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
 - 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。

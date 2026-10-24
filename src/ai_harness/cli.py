@@ -33,6 +33,7 @@ from .orchestrator import HarnessOrchestrator
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
+from .workspaces import FilesystemWorkspaceSnapshotStore
 
 
 def build_orchestrator(
@@ -370,6 +371,13 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             if settings.governance_database_url
             else None
         )
+        workspace_store = (
+            FilesystemWorkspaceSnapshotStore(
+                Path(settings.workspace_snapshot_directory)
+            )
+            if settings.workspace_snapshot_directory
+            else None
+        )
         uvicorn.run(
             create_app(
                 orchestrator,
@@ -387,6 +395,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                     settings.quota_reconciliation_interval_seconds
                 ),
                 cors_allowed_origins=settings.cors_allowed_origins,
+                workspace_store=workspace_store,
             ),
             host=args.host,
             port=args.port,

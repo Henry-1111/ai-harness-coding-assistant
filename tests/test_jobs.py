@@ -20,6 +20,7 @@ from ai_harness.jobs import (
 )
 from ai_harness.models import TaskRequest, TaskResult, TaskStatus
 from ai_harness.orchestrator import ExecutionControl
+from ai_harness.workspaces import FilesystemWorkspaceSnapshotStore
 
 
 def request(repository: Path, goal: str = "Fix the queued coding task") -> TaskRequest:
@@ -117,14 +118,19 @@ def test_store_persists_request_id_and_records_it_on_queued_event(tmp_path: Path
     assert reopened.events(queued.job_id)[0].details["request_id"] == "trace-123"
 
 
-def test_store_adds_request_id_column_to_existing_database(tmp_path: Path):
+def test_store_adds_correlation_columns_to_existing_database(tmp_path: Path):
     database = tmp_path / "jobs.sqlite3"
     TaskJobStore(database)
     with sqlite3.connect(database) as connection:
         connection.execute("ALTER TABLE task_jobs DROP COLUMN request_id")
+        connection.execute("ALTER TABLE task_jobs DROP COLUMN workspace_snapshot_id")
 
     upgraded = TaskJobStore(database)
-    queued = upgraded.enqueue(request(tmp_path), request_id="after-upgrade")
+    queued = upgraded.enqueue(
+        request(tmp_path),
+        request_id="after-upgrade",
+        workspace_snapshot_id="snapshot-after-upgrade",
+    )
 
     assert upgraded.get(queued.job_id) == queued
 
@@ -385,6 +391,49 @@ def test_worker_rejects_stale_settlement_without_counting_completion(
     ]
     assert events[-1]["request_id"] == "trace-stale"
     assert events[-1]["status"] == "stale_lease"
+
+
+def test_worker_uses_shared_snapshot_when_original_repository_is_unavailable(
+    tmp_path: Path,
+):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "app.py").write_text("original\n")
+    snapshots = FilesystemWorkspaceSnapshotStore(tmp_path / "shared")
+    snapshots.stage("snapshot-1", source)
+    task_request = request(source)
+    source.rename(tmp_path / "source-moved")
+    captured: list[Path] = []
+
+    class SnapshotOrchestrator:
+        def run(
+            self,
+            _: TaskRequest,
+            *,
+            control: ExecutionControl,
+            workspace_source: Path,
+        ) -> TaskResult:
+            captured.append(workspace_source)
+            assert (workspace_source / "app.py").read_text() == "original\n"
+            return result("snapshot-task")
+
+    store = TaskJobStore(tmp_path / "jobs.sqlite3")
+    job = store.enqueue(task_request, workspace_snapshot_id="snapshot-1")
+    pool = TaskWorkerPool(
+        SnapshotOrchestrator(),  # type: ignore[arg-type]
+        store,
+        max_workers=1,
+        poll_interval_seconds=0.01,
+        lease_seconds=30,
+        workspace_store=snapshots,
+    )
+    pool.start()
+    try:
+        wait_until(lambda: store.get(job.job_id).status == JobStatus.SUCCEEDED)
+    finally:
+        pool.stop()
+
+    assert captured == [snapshots.source_path("snapshot-1")]
 
 
 def test_worker_retries_exception_then_records_success(tmp_path: Path):

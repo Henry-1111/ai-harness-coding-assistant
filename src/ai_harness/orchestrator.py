@@ -50,6 +50,7 @@ from .repository import (
 from .sandbox import CommandRunner, DockerSandbox
 from .self_healing import SelfHealingPlanner
 from .tools import ToolContext, default_registry
+from .workspaces import IGNORED_WORKSPACE_NAMES
 
 
 class WorkflowState(TypedDict):
@@ -134,9 +135,12 @@ class HarnessOrchestrator:
         request: TaskRequest,
         *,
         control: Optional[ExecutionControl] = None,
+        workspace_source: Optional[Path] = None,
     ) -> TaskResult:
         task_id = str(uuid.uuid4())
-        workspace = self._create_workspace(task_id, Path(request.repository))
+        workspace = self._create_workspace(
+            task_id, workspace_source or Path(request.repository)
+        )
         normalized = self.router.normalizer.normalize(request)
         route = self.router.decide(normalized)
         plan = self.router.build_plan(
@@ -1028,9 +1032,8 @@ class HarnessOrchestrator:
         shutil.copytree(
             source,
             destination,
-            ignore=shutil.ignore_patterns(
-                ".git", ".venv", "node_modules", "__pycache__", ".pytest_cache", ".ai-harness"
-            ),
+            symlinks=True,
+            ignore=shutil.ignore_patterns(*IGNORED_WORKSPACE_NAMES),
         )
         return destination
 

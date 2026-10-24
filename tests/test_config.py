@@ -46,6 +46,7 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_CIRCUIT_FAILURE_THRESHOLD", "5")
     monkeypatch.setenv("AI_HARNESS_CIRCUIT_RECOVERY_SECONDS", "45")
     monkeypatch.setenv("AI_HARNESS_QUOTA_RECONCILIATION_INTERVAL_SECONDS", "15")
+    monkeypatch.setenv("AI_HARNESS_WORKSPACE_SNAPSHOT_DIR", "/shared/snapshots")
 
     settings = Settings.from_environment()
 
@@ -57,6 +58,7 @@ def test_job_worker_settings_are_configurable(monkeypatch):
     assert settings.circuit_failure_threshold == 5
     assert settings.circuit_recovery_seconds == 45
     assert settings.quota_reconciliation_interval_seconds == 15
+    assert settings.workspace_snapshot_directory == "/shared/snapshots"
 
 
 def test_request_authentication_settings_are_configurable(monkeypatch):

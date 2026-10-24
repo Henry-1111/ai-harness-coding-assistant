@@ -66,6 +66,7 @@ class Settings:
     circuit_recovery_seconds: float
     quota_reconciliation_interval_seconds: float
     cors_allowed_origins: tuple[str, ...]
+    workspace_snapshot_directory: str
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -124,5 +125,8 @@ class Settings:
             ),
             cors_allowed_origins=parse_cors_origins(
                 os.getenv("AI_HARNESS_CORS_ALLOWED_ORIGINS")
+            ),
+            workspace_snapshot_directory=os.getenv(
+                "AI_HARNESS_WORKSPACE_SNAPSHOT_DIR", ""
             ),
         )

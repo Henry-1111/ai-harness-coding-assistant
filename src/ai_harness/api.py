@@ -4,6 +4,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator, Optional, Sequence
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
@@ -41,6 +42,7 @@ from .models import TaskRequest, TaskResult, TaskState, TaskStatus
 from .observability import HTTPMetrics, format_http_access_log, normalize_request_id
 from .orchestrator import ExecutionControl, HarnessOrchestrator
 from .quota_reconciliation import QuotaReconciler
+from .workspaces import FilesystemWorkspaceSnapshotStore
 
 
 class ApprovalDecisionRequest(BaseModel):
@@ -69,6 +71,7 @@ def create_app(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ),
+    workspace_store: Optional[FilesystemWorkspaceSnapshotStore] = None,
 ) -> FastAPI:
     # Uvicorn configures this logger in both CLI and container entry points.
     request_logger = logging.getLogger("uvicorn.error")
@@ -104,17 +107,24 @@ def create_app(
             return True
         return False
 
-    worker_pool = worker_pool or TaskWorkerPool(
-        orchestrator,
-        job_store,
-        max_workers=max_job_workers,
-        poll_interval_seconds=job_poll_interval_seconds,
-        lease_seconds=job_lease_seconds,
-        task_timeout_seconds=job_timeout_seconds,
-        circuit_failure_threshold=circuit_failure_threshold,
-        circuit_recovery_seconds=circuit_recovery_seconds,
-        terminal_callback=settle_job_quota,
-    )
+    if worker_pool is not None:
+        if workspace_store is not None and worker_pool.workspace_store is not workspace_store:
+            raise ValueError(
+                "custom worker_pool must use the configured workspace_store"
+            )
+    else:
+        worker_pool = TaskWorkerPool(
+            orchestrator,
+            job_store,
+            max_workers=max_job_workers,
+            poll_interval_seconds=job_poll_interval_seconds,
+            lease_seconds=job_lease_seconds,
+            task_timeout_seconds=job_timeout_seconds,
+            circuit_failure_threshold=circuit_failure_threshold,
+            circuit_recovery_seconds=circuit_recovery_seconds,
+            terminal_callback=settle_job_quota,
+            workspace_store=workspace_store,
+        )
     quota_reconciler = quota_reconciler or QuotaReconciler(
         governance_store,
         job_store,
@@ -334,6 +344,8 @@ def create_app(
             "memory": orchestrator.memory.healthcheck,
             "governance": governance_store.healthcheck,
         }
+        if workspace_store is not None:
+            probes["workspace_snapshots"] = workspace_store.healthcheck
         health: dict[str, bool] = {}
         for name, probe in probes.items():
             try:
@@ -571,7 +583,17 @@ def create_app(
                     ).token_reservation
                 },
             )
+        snapshot_created = False
         try:
+            existing_job = job_store.get(job_id)
+            workspace_snapshot_id = (
+                existing_job.workspace_snapshot_id if existing_job else None
+            )
+            if workspace_store is not None and existing_job is None:
+                snapshot_created = workspace_store.stage(
+                    job_id, Path(request.repository)
+                )
+                workspace_snapshot_id = job_id
             job = job_store.enqueue(
                 request,
                 idempotency_key=idempotency_key,
@@ -579,6 +601,7 @@ def create_app(
                 created_by=principal.subject,
                 job_id=job_id,
                 request_id=http_request.state.request_id,
+                workspace_snapshot_id=workspace_snapshot_id,
             )
             governance_store.bind(
                 "job",
@@ -597,17 +620,31 @@ def create_app(
             )
             return job
         except QueueFullError as exc:
+            if workspace_store is not None and snapshot_created:
+                workspace_store.remove(job_id)
             if authenticator.enabled and job_store.get(job_id) is None:
                 governance_store.release_quota(job_id)
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         except IdempotencyConflictError as exc:
+            if workspace_store is not None and snapshot_created:
+                workspace_store.remove(job_id)
             if authenticator.enabled and job_store.get(job_id) is None:
                 governance_store.release_quota(job_id)
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-        except ValueError as exc:
+        except (FileNotFoundError, ValueError) as exc:
+            if workspace_store is not None and snapshot_created:
+                workspace_store.remove(job_id)
             if authenticator.enabled and job_store.get(job_id) is None:
                 governance_store.release_quota(job_id)
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except OSError as exc:
+            if workspace_store is not None and snapshot_created:
+                workspace_store.remove(job_id)
+            if authenticator.enabled and job_store.get(job_id) is None:
+                governance_store.release_quota(job_id)
+            raise HTTPException(
+                status_code=503, detail="workspace snapshot storage unavailable"
+            ) from exc
 
     @app.get("/v1/jobs/metrics", response_model=JobMetrics)
     def job_metrics(
