@@ -485,6 +485,26 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 结果见 [`benchmarks/latest-report.json`](benchmarks/latest-report.json)。这些数字只描述本仓库的文件级检索，
 不能表述成跨仓库或跨语言的通用准确率；报告保留了失败 Case，便于后续盲测改进。
 
+## 路由与 Plan DAG 评测
+
+项目提供 30 个冻结任务，人工标注 Task Type、复杂度、风险等级和预期 Route，并对每个生成 Plan 验证：
+
+- 必须包含 Scout、Code、Verify 和 Review；
+- Standard/Complex/Human Gate 必须包含 Plan，Fast Route 不应产生多余 Plan；
+- Complex/Human Gate 必须包含 Implementer 与 Test/Integrator 协作步骤；
+- DAG 必须无环、依赖顺序正确，且每个 Step 都有且只有一个 Assignment。
+
+```bash
+ai-harness eval-planning benchmarks/planning_cases.json \
+  --split test \
+  --output benchmarks/planning-report.json
+```
+
+当前冻结集实测 Route Accuracy 为 `96.67%`，Planning Decision Accuracy 为 `100%`，Plan 结构合法率为
+`100%`。报告保留 `migrate` 复杂度误判 Case，没有通过删除失败样本或测试后修改标签制造 100% 路由准确率。
+原始结果见 [`benchmarks/planning-report.json`](benchmarks/planning-report.json)。这些数字衡量确定性规则在本项目
+冻结任务上的表现，不代表开放领域自然语言路由准确率。
+
 ## 单 Agent / 多 Agent A/B 评测
 
 项目提供成对评测命令：同一模型、同一 Provider、同一冻结任务集分别走单 Coder 和

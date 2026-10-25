@@ -31,6 +31,7 @@ from .mcp import MCPToolCatalog
 from .models import AcceptanceCriterion, TaskRequest, TaskStatus
 from .object_workspaces import S3WorkspaceSnapshotStore
 from .orchestrator import HarnessOrchestrator
+from .planning_evaluation import PlanningEvaluator, load_planning_cases
 from .promotion import (
     GitBranchPublisher,
     GitHubPullRequestClient,
@@ -282,6 +283,14 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_evaluate.add_argument("--workers", type=int, default=4)
     runtime_evaluate.add_argument("--synthetic-work-ms", type=float, default=10)
     runtime_evaluate.add_argument("--output", help="Write the JSON report to this path")
+
+    planning_evaluate = subparsers.add_parser(
+        "eval-planning",
+        help="Measure task normalization, routing and generated Plan integrity",
+    )
+    planning_evaluate.add_argument("dataset")
+    planning_evaluate.add_argument("--split", choices=["train", "validation", "test"])
+    planning_evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
 
 
@@ -410,6 +419,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             jobs=args.jobs,
             workers=args.workers,
             synthetic_work_ms=args.synthetic_work_ms,
+        ).model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-planning":
+        report = PlanningEvaluator().evaluate(
+            load_planning_cases(Path(args.dataset)), split=args.split
         ).model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")

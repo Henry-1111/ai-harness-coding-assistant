@@ -11,6 +11,17 @@
 
 This benchmark measures retrieval inside AI_Harness only. It is not evidence of cross-repository or cross-language accuracy.
 
+## Planning and routing benchmark
+
+- Dataset: `planning_cases.json`, 30 frozen task descriptions with manually assigned task type, complexity, risk, and route labels.
+- Freeze identifier: `ai-harness-planning-2026-10-v1`.
+- Command: `ai-harness eval-planning benchmarks/planning_cases.json --split test --output benchmarks/planning-report.json`.
+- Report task type, complexity, risk, route and planning-decision accuracy separately.
+- Plan validity requires an acyclic topological order, the expected core/collaboration steps, and a one-to-one assignment list.
+- Keep every mismatch in the report. Do not relabel or delete failed cases after observing results.
+
+The frozen set measures deterministic routing rules in this project; it is not an open-domain intent classification benchmark.
+
 ## Agent A/B benchmark
 
 - Dataset: `agent_cases.json`, 30 deterministic defect tasks.
