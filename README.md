@@ -572,9 +572,11 @@ SHA-256，便于确认不同实验使用的是同一版本。`--repetitions` 会
 
 这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用前，应固定模型、
 Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、时延和失败类型，而不能只挑最佳轮次。
-此前 3 Case 的首轮 DeepSeek 冒烟结果保留在 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，
-对应原始报告见 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)；它们属于历史链路验证，
-不能与扩展后的 30 Case 结果混用。
+30 Case、3 次重复的 DeepSeek 正式结果见
+[`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，对应的 180 条原始观测见
+[`benchmarks/agent-report.json`](benchmarks/agent-report.json)。本次实测成功率约为 48%，并未达到项目描述中
+75%–80% 的目标；文档同时保留了精确编辑失败、验证失败、审批暂停和上游超时的完整分布，不能只引用
+早期 3 Case 冒烟测试的 100% 结果。
 
 ## 系统级验证与运行时基准
 
