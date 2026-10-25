@@ -488,6 +488,27 @@ def render_agent_aggregate_markdown(report: AgentAggregateReport) -> str:
     lines.append(
         "Provider-adjusted success is diagnostic only; raw success remains the end-to-end metric."
     )
+    lines.extend(
+        [
+            "",
+            "## Resume-safe result",
+            "",
+            (
+                f"On the frozen {report.cases}-case dataset across {report.runs} runs, "
+                f"single-agent execution achieved {percent(report.single.raw_success_rate)} "
+                f"end-to-end success with P95 latency of "
+                f"{report.single.p95_duration_ms:,} ms and mean observed usage of "
+                f"{(report.single.mean_known_tokens or 0):,.0f} tokens."
+            ),
+            "",
+            (
+                "The Provider-adjusted diagnostic success rate was "
+                f"{percent(report.single.provider_adjusted_success_rate)}; this excludes "
+                f"{report.single.provider_failures} explicit Provider failures and must not "
+                "replace the end-to-end rate."
+            ),
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 def changed_path_metrics(

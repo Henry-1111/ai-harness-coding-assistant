@@ -577,9 +577,8 @@ SHA-256，便于确认不同实验使用的是同一版本。`--repetitions` 会
 `needs_input` 并写入审批记录，然后由评测执行器以 `benchmark-runner` 身份显式批准。评测外的任务以及未提供
 该开关的评测仍必须由正常治理接口审批。
 
-这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用前，应固定模型、
-Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、时延和失败类型，而不能只挑最佳轮次。
-30 Case、3 次重复的 DeepSeek 正式结果见
+这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用时必须同时报告成功率、
+Token、时延和失败类型，而不能只挑最佳轮次。补丁前 30 Case、3 次重复的 DeepSeek 基线结果见
 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，对应的 180 条原始观测见
 [`benchmarks/agent-report.json`](benchmarks/agent-report.json)。本次实测成功率约为 48%，并未达到项目描述中
 75%–80% 的目标；文档同时保留了精确编辑失败、验证失败、审批暂停和上游超时的完整分布，不能只引用
@@ -589,8 +588,12 @@ Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、�
 [`benchmarks/AGENT_REGRESSION_RESULTS.md`](benchmarks/AGENT_REGRESSION_RESULTS.md)：10 Case 单轮相对同一
 子集历史基线有明显提升，因此继续触发了 30 Case 单轮验证；后者因 DeepSeek 余额耗尽、上游返回 402 而中止，
 受污染报告保留为 `agent-report-single-pass-aborted.json`，不能作为整体成功率引用。补充余额后从头完成的
-30 Case 单轮结果为单 Agent 83.33%、多 Agent 63.33%，原始观测见 `agent-report-single-pass.json`；该结果仍只是一轮
-本地冻结 Fixture 实验，必须重复验证后才能作为稳定数字使用。
+30 Case 单轮结果为单 Agent 83.33%、多 Agent 63.33%，原始观测见 `agent-report-single-pass.json`。
+
+补丁后三轮正式结果见 [`benchmarks/AGENT_THREE_RUN_RESULTS.md`](benchmarks/AGENT_THREE_RUN_RESULTS.md)，聚合 JSON
+见 `benchmarks/agent-report-three-runs.json`：每个变体共 90 个观测，单 Agent 原始成功率 74.44%、Provider 调整后
+诊断成功率 87.01%、P95 66.5 秒、平均已知 Token 3,601；多 Agent 原始成功率 65.56%，成本和尾延迟均更高。
+简历应优先引用 74.44% 的端到端数字，并注明这是固定 30 Case 本地冻结任务集的三轮结果。
 
 ## 系统级验证与运行时基准
 

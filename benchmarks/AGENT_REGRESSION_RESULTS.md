@@ -67,3 +67,7 @@ one frozen-fixture run, but it must be repeated before being presented as a stab
 project-wide success rate. Multi-agent execution improved path selection but reduced
 success, roughly doubled latency, and used about 76% more observed tokens per valid
 observation.
+
+The subsequent three-run aggregate is the authoritative post-fix result and is stored
+in `AGENT_THREE_RUN_RESULTS.md` and `agent-report-three-runs.json`. The single-pass
+figures above remain useful for auditability but must not replace the three-run result.

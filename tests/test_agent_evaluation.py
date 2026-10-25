@@ -175,6 +175,8 @@ def test_aggregate_reports_separates_provider_and_agent_failures():
     markdown = render_agent_aggregate_markdown(report)
     assert "Provider-adjusted success" in markdown
     assert "`provider_failure`: 1" in markdown
+    assert "## Resume-safe result" in markdown
+    assert "single-agent execution achieved 50.00% end-to-end success" in markdown
 
 
 def test_aggregate_reports_rejects_mismatched_datasets():
