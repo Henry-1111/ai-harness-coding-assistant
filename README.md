@@ -588,7 +588,9 @@ Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、�
 针对历史编辑失败 Case 的补丁回归结果见
 [`benchmarks/AGENT_REGRESSION_RESULTS.md`](benchmarks/AGENT_REGRESSION_RESULTS.md)：10 Case 单轮相对同一
 子集历史基线有明显提升，因此继续触发了 30 Case 单轮验证；后者因 DeepSeek 余额耗尽、上游返回 402 而中止，
-受污染报告保留为 `agent-report-single-pass-aborted.json`，不能作为整体成功率引用。
+受污染报告保留为 `agent-report-single-pass-aborted.json`，不能作为整体成功率引用。补充余额后从头完成的
+30 Case 单轮结果为单 Agent 83.33%、多 Agent 63.33%，原始观测见 `agent-report-single-pass.json`；该结果仍只是一轮
+本地冻结 Fixture 实验，必须重复验证后才能作为稳定数字使用。
 
 ## 系统级验证与运行时基准
 
