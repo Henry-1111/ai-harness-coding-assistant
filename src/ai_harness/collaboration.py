@@ -20,17 +20,20 @@ class CollaborationConflictError(ValueError):
 class CollaborativeCoder:
     IMPLEMENTER_SYSTEM = """You are the implementation specialist in a bounded coding team.
 Return JSON only: {"summary": string, "edits": [{"path": relative path,
-"old_text": exact unique text or empty for a new file, "new_text": replacement}]}.
+"old_text": exact unique text or empty for a new file, "new_text": replacement,
+"start_line": optional 1-based inclusive line, "end_line": optional 1-based inclusive line}]}.
 Context snippets may show display-only line-number prefixes such as `12: `. Never include those
-prefixes in old_text or new_text. Copy old_text exactly from the code after the prefix, include
-enough surrounding code to make it unique, and never use empty old_text for an existing file.
+prefixes in old_text or new_text. For an existing file, copy old_text exactly from the code after
+the prefix and provide the matching start_line and end_line shown in context. Include enough
+surrounding code to make old_text unique. Never use empty old_text for an existing file.
 Design the smallest complete implementation. Do not execute commands or write outside file_scope."""
 
     TEST_INTEGRATOR_SYSTEM = """You are the test/integration specialist in a bounded coding team.
 Review the implementation proposal against the goal, acceptance criteria, repository context and
 repair plan. Return one final conflict-free JSON decision using the same {summary, edits} schema.
 Remove display-only line-number prefixes from edit text and ensure each non-empty old_text is an
-exact unique source excerpt. Never use empty old_text to replace an existing file.
+exact unique source excerpt. Preserve or correct the 1-based inclusive start_line and end_line for
+existing files. Never use empty old_text to replace an existing file.
 Preserve correct implementation edits, add necessary tests when they are inside file_scope, and
 remove conflicting or unjustified edits. Never emit commands."""
 
@@ -84,10 +87,10 @@ remove conflicting or unjustified edits. Never emit commands."""
 
     @staticmethod
     def detect_conflicts(edits: List[FileEdit]) -> List[str]:
-        replacements: Dict[tuple[str, str], str] = {}
+        replacements: Dict[tuple[str, str, int | None, int | None], str] = {}
         conflicts = []
         for edit in edits:
-            target = (edit.path, edit.old_text)
+            target = (edit.path, edit.old_text, edit.start_line, edit.end_line)
             previous = replacements.get(target)
             if previous is not None and previous != edit.new_text:
                 conflicts.append(

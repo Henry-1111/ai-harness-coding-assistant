@@ -160,10 +160,12 @@ class OpenAICompatibleModel:
 class CoderAgent:
     SYSTEM = """You are the Coder in a bounded coding harness.
 Return JSON only: {"summary": string, "edits": [{"path": relative path,
-"old_text": exact unique text or empty for a new file, "new_text": replacement}]}.
+"old_text": exact unique text or empty for a new file, "new_text": replacement,
+"start_line": optional 1-based inclusive line, "end_line": optional 1-based inclusive line}]}.
 Context snippets may show display-only line-number prefixes such as `12: `. Never include those
-prefixes in old_text or new_text. Copy old_text exactly from the code after the prefix, include
-enough surrounding code to make it unique, and never use empty old_text for an existing file.
+prefixes in old_text or new_text. For an existing file, copy old_text exactly from the code after
+the prefix and provide the matching start_line and end_line shown in context. Include enough
+surrounding code to make old_text unique. Never use empty old_text for an existing file.
 Use only files in scope. Prefer the smallest complete change. Never emit commands."""
 
     def __init__(self, model: AgentModel) -> None:

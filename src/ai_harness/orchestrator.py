@@ -976,8 +976,12 @@ class HarnessOrchestrator:
         if path:
             try:
                 content = repository.read_text(path)
-                excerpt = content[:3000]
-                if len(content) > 3000:
+                numbered = "\n".join(
+                    f"{line_number}: {line}"
+                    for line_number, line in enumerate(content.splitlines(), start=1)
+                )
+                excerpt = numbered[:3000]
+                if len(numbered) > 3000:
                     excerpt += "\n<excerpt truncated>"
             except (FileNotFoundError, IsADirectoryError):
                 pass

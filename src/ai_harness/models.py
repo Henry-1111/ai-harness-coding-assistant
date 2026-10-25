@@ -224,6 +224,8 @@ class FileEdit(BaseModel):
     path: str
     old_text: str
     new_text: str
+    start_line: Optional[int] = Field(default=None, ge=1)
+    end_line: Optional[int] = Field(default=None, ge=1)
 
     @field_validator("path")
     @classmethod
@@ -231,6 +233,18 @@ class FileEdit(BaseModel):
         if value.startswith("/") or ".." in value.split("/"):
             raise ValueError("edit path must be repository-relative")
         return value
+
+    @model_validator(mode="after")
+    def complete_line_range(self) -> "FileEdit":
+        if (self.start_line is None) != (self.end_line is None):
+            raise ValueError("start_line and end_line must be provided together")
+        if (
+            self.start_line is not None
+            and self.end_line is not None
+            and self.end_line < self.start_line
+        ):
+            raise ValueError("end_line must be greater than or equal to start_line")
+        return self
 
 
 class CodingDecision(BaseModel):

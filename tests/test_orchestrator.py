@@ -470,6 +470,39 @@ def test_edit_preflight_failure_refreshes_context_and_self_heals(
     assert "+    return left + right" in orchestrator.diff(result.task_id)
 
 
+def test_line_range_relocates_stale_edit_without_replan(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel(
+        [
+            {
+                "summary": "Correct addition implementation",
+                "edits": [
+                    {
+                        "path": "calculator.py",
+                        "old_text": "    return left / right",
+                        "new_text": "    return left + right",
+                        "start_line": 2,
+                        "end_line": 2,
+                    }
+                ],
+            }
+        ]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(request_for(sample_repository, max_replans=1))
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert result.repair_history == []
+    assert len(model.calls) == 1
+    assert "+    return left + right" in orchestrator.diff(result.task_id)
+
+
 def test_repeated_edit_preflight_failure_stops_without_partial_patch(
     tmp_path: Path, sample_repository: Path
 ):

@@ -42,7 +42,8 @@ class SelfHealingPlanner:
                 instructions.append(
                     "Regenerate the smallest edit from the fresh file excerpt below. "
                     "Use a non-empty old_text copied exactly from the current file and include "
-                    f"enough context to make it unique:\n{evidence}"
+                    "enough context to make it unique. Also provide the matching 1-based inclusive "
+                    f"start_line and end_line so the edit can be safely relocated:\n{evidence}"
                 )
             elif finding.category == "no_changes":
                 instructions.append("Produce at least one necessary edit inside the allowed scope.")

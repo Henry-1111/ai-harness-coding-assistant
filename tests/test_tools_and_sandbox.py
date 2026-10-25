@@ -78,6 +78,126 @@ def test_apply_edit_relocates_anchor_with_extra_outer_newlines(tmp_path: Path):
     assert (tmp_path / "app.py").read_text(encoding="utf-8") == "value = 2\n"
 
 
+def test_apply_edit_uses_guarded_ast_aligned_line_range(tmp_path: Path):
+    (tmp_path / "app.py").write_text(
+        "def answer():\n    return 41\n", encoding="utf-8"
+    )
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    apply_edit(
+        context,
+        FileEdit(
+            path="app.py",
+            old_text="    return 40",
+            new_text="    return 42",
+            start_line=2,
+            end_line=2,
+        ),
+    )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
+        "def answer():\n    return 42\n"
+    )
+
+
+def test_apply_edit_uses_line_range_to_disambiguate_repeated_anchor(tmp_path: Path):
+    (tmp_path / "app.py").write_text("value = 1\nvalue = 1\n", encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    apply_edit(
+        context,
+        FileEdit(
+            path="app.py",
+            old_text="value = 1",
+            new_text="value = 2",
+            start_line=2,
+            end_line=2,
+        ),
+    )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
+        "value = 1\nvalue = 2\n"
+    )
+
+
+def test_apply_edit_rejects_line_range_with_unrelated_guard(tmp_path: Path):
+    original = "def answer():\n    return 41\n"
+    (tmp_path / "app.py").write_text(original, encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    with pytest.raises(ToolExecutionError, match="does not resemble"):
+        apply_edit(
+            context,
+            FileEdit(
+                path="app.py",
+                old_text="    raise RuntimeError('unrelated')",
+                new_text="    return 42",
+                start_line=2,
+                end_line=2,
+            ),
+        )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == original
+
+
+def test_apply_edit_rejects_non_ast_aligned_python_range(tmp_path: Path):
+    original = "def answer():\n    value = 41\n    return value\n"
+    (tmp_path / "app.py").write_text(original, encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    with pytest.raises(ToolExecutionError, match="not aligned"):
+        apply_edit(
+            context,
+            FileEdit(
+                path="app.py",
+                old_text="def answer():\n    value = 40",
+                new_text="def answer():\n    value = 42",
+                start_line=1,
+                end_line=2,
+            ),
+        )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == original
+
+
+def test_apply_edit_rejects_line_range_that_breaks_python_syntax(tmp_path: Path):
+    original = "def answer():\n    return 41\n"
+    (tmp_path / "app.py").write_text(original, encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    with pytest.raises(ToolExecutionError, match="invalid Python"):
+        apply_edit(
+            context,
+            FileEdit(
+                path="app.py",
+                old_text="    return 40",
+                new_text="    return (",
+                start_line=2,
+                end_line=2,
+            ),
+        )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == original
+
+
+def test_file_edit_requires_complete_ordered_line_range():
+    with pytest.raises(ValueError, match="provided together"):
+        FileEdit(
+            path="app.py",
+            old_text="value = 1",
+            new_text="value = 2",
+            start_line=1,
+        )
+    with pytest.raises(ValueError, match="greater than or equal"):
+        FileEdit(
+            path="app.py",
+            old_text="value = 1",
+            new_text="value = 2",
+            start_line=2,
+            end_line=1,
+        )
+
+
 def test_apply_edits_preflights_complete_batch_before_writing(tmp_path: Path):
     (tmp_path / "first.py").write_text("value = 1\n", encoding="utf-8")
     (tmp_path / "second.py").write_text("value = 2\n", encoding="utf-8")

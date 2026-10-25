@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import difflib
 import re
 import textwrap
 from dataclasses import dataclass
@@ -128,6 +130,94 @@ def _unique_anchor(original: str, old_text: str) -> tuple[str | None, int]:
     return None, ambiguous
 
 
+def _normalized_edit_text(text: str) -> str:
+    numbered = _strip_numbered_snippet(text)
+    if numbered is not None:
+        text = numbered
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return "\n".join(
+        line.rstrip() for line in textwrap.dedent(normalized).strip("\n").splitlines()
+    )
+
+
+def _python_range_is_ast_aligned(source: str, start_line: int, end_line: int) -> bool:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.stmt)
+            and getattr(node, "lineno", None) == start_line
+            and getattr(node, "end_lineno", None) == end_line
+        ):
+            return True
+        for _field, value in ast.iter_fields(node):
+            if not isinstance(value, list):
+                continue
+            statements = [item for item in value if isinstance(item, ast.stmt)]
+            for first_index, first in enumerate(statements):
+                if getattr(first, "lineno", None) != start_line:
+                    continue
+                for last in statements[first_index:]:
+                    if getattr(last, "end_lineno", None) == end_line:
+                        return True
+    return False
+
+
+def _replace_line_range(path: str, original: str, edit: FileEdit) -> str:
+    start_line = edit.start_line
+    end_line = edit.end_line
+    if start_line is None or end_line is None:
+        raise ToolExecutionError(
+            f"old_text could not be safely located in {path}",
+            path=path,
+            code="anchor_not_unique",
+        )
+    lines = original.splitlines(keepends=True)
+    if start_line > len(lines) or end_line > len(lines):
+        raise ToolExecutionError(
+            f"line range {start_line}-{end_line} is outside {path}",
+            path=path,
+            code="line_range_out_of_bounds",
+        )
+    selected = "".join(lines[start_line - 1 : end_line])
+    expected = _normalized_edit_text(edit.old_text)
+    actual = _normalized_edit_text(selected)
+    similarity = difflib.SequenceMatcher(a=expected, b=actual, autojunk=False).ratio()
+    if not expected or similarity < 0.7:
+        raise ToolExecutionError(
+            f"line range {start_line}-{end_line} does not resemble old_text in {path}",
+            path=path,
+            code="line_range_guard_mismatch",
+        )
+    if path.endswith(".py") and not _python_range_is_ast_aligned(
+        original, start_line, end_line
+    ):
+        raise ToolExecutionError(
+            f"line range {start_line}-{end_line} is not aligned to Python statements in {path}",
+            path=path,
+            code="line_range_not_ast_aligned",
+        )
+    replacement = edit.new_text
+    numbered_replacement = _strip_numbered_snippet(replacement)
+    if numbered_replacement is not None:
+        replacement = numbered_replacement
+    if selected.endswith(("\n", "\r")) and replacement and not replacement.endswith("\n"):
+        replacement += "\n"
+    updated = "".join(lines[: start_line - 1]) + replacement + "".join(lines[end_line:])
+    if path.endswith(".py"):
+        try:
+            ast.parse(updated)
+        except SyntaxError as exc:
+            raise ToolExecutionError(
+                f"line-range edit would produce invalid Python in {path}: {exc.msg}",
+                path=path,
+                code="invalid_python_edit",
+            ) from exc
+    return updated
+
+
 def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
     if original is not None:
         if edit.old_text == "":
@@ -138,6 +228,8 @@ def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
             )
         anchor, occurrences = _unique_anchor(original, edit.old_text)
         if anchor is None:
+            if edit.start_line is not None:
+                return _replace_line_range(path, original, edit)
             raise ToolExecutionError(
                 f"expected exactly one old_text match in {path}, found {occurrences}",
                 path=path,

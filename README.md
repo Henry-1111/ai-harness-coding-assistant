@@ -173,8 +173,10 @@ Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `us
 
 1. 模型不能直接执行命令，只能返回符合 Pydantic Schema 的 JSON。
 2. 所有文件路径必须位于仓库根目录和任务 `file_scope` 内。
-3. 修改已有文件时，`old_text` 必须唯一匹配；只允许去除连续展示行号、规范换行和外层空行后进行
-   唯一重定位，多处匹配继续拒绝。一个决策中的全部编辑会先完成预检，再统一写入，避免半应用补丁。
+3. 修改已有文件时优先要求 `old_text` 唯一匹配；无法唯一定位时，可使用带相似度保护的 1-based
+   `start_line/end_line` 范围重定位。Python 范围必须与完整 AST 语句或同级连续语句对齐，修改后还会重新
+   解析语法；范围越界、内容不相似、跨 AST 层级或语法损坏均会拒绝。一个决策中的全部编辑先完成预检，
+   再统一写入，避免半应用补丁。
 4. 验证命令通过 `shlex` 拆分并检查可执行文件 allowlist，不使用 `shell=True`。
 5. Docker Sandbox 默认 `--network none`、`no-new-privileges`，并限制 CPU、内存和 PID。
 6. 修改先保存在任务工作区；源仓库只有在 Reviewer 批准后通过显式 Promote 才会改变。
