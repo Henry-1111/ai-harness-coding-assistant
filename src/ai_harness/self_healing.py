@@ -37,6 +37,13 @@ class SelfHealingPlanner:
                 instructions.append(
                     f"Fix the failure from `{finding.command}` using this evidence:\n{evidence}"
                 )
+            elif finding.category == "edit_application":
+                evidence = finding.evidence[-1600:]
+                instructions.append(
+                    "Regenerate the smallest edit from the fresh file excerpt below. "
+                    "Use a non-empty old_text copied exactly from the current file and include "
+                    f"enough context to make it unique:\n{evidence}"
+                )
             elif finding.category == "no_changes":
                 instructions.append("Produce at least one necessary edit inside the allowed scope.")
             elif finding.category == "scope":

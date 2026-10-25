@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import textwrap
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Set
 
 from pydantic import BaseModel
@@ -16,7 +17,10 @@ class ToolPermissionError(PermissionError):
 
 
 class ToolExecutionError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, path: str = "", code: str = "tool_error") -> None:
+        super().__init__(message)
+        self.path = path
+        self.code = code
 
 
 class ToolSpec(BaseModel):
@@ -124,32 +128,75 @@ def _unique_anchor(original: str, old_text: str) -> tuple[str | None, int]:
     return None, ambiguous
 
 
-def apply_edit(context: ToolContext, edit: FileEdit) -> str:
-    path = edit.path
-    if not context.permits_path(path):
-        raise ToolPermissionError(f"path is outside task scope: {path}")
-    target = context.repository.resolve(path, must_exist=False)
-    if target.exists():
-        original = target.read_text(encoding="utf-8")
+def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
+    if original is not None:
         if edit.old_text == "":
-            raise ToolExecutionError("old_text must be non-empty for an existing file")
+            raise ToolExecutionError(
+                "old_text must be non-empty for an existing file",
+                path=path,
+                code="empty_existing_anchor",
+            )
         anchor, occurrences = _unique_anchor(original, edit.old_text)
         if anchor is None:
             raise ToolExecutionError(
-                f"expected exactly one old_text match in {path}, found {occurrences}"
+                f"expected exactly one old_text match in {path}, found {occurrences}",
+                path=path,
+                code="anchor_not_unique",
             )
         replacement = edit.new_text
         if anchor != edit.old_text:
             numbered_replacement = _strip_numbered_snippet(replacement)
             if numbered_replacement is not None:
                 replacement = numbered_replacement
-        updated = original.replace(anchor, replacement, 1)
-    else:
-        if edit.old_text:
-            raise ToolExecutionError("old_text must be empty when creating a file")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        updated = edit.new_text
-    target.write_text(updated, encoding="utf-8")
+        return original.replace(anchor, replacement, 1)
+    if edit.old_text:
+        raise ToolExecutionError(
+            "old_text must be empty when creating a file",
+            path=path,
+            code="new_file_has_anchor",
+        )
+    return edit.new_text
+
+
+def apply_edits(context: ToolContext, edits: List[FileEdit]) -> List[str]:
+    """Preflight every edit, then write the complete decision without partial patches."""
+    staged: Dict[str, tuple[Path, str | None, str]] = {}
+    ordered_paths: List[str] = []
+    for edit in edits:
+        path = edit.path
+        if not context.permits_path(path):
+            raise ToolPermissionError(f"path is outside task scope: {path}")
+        target = context.repository.resolve(path, must_exist=False)
+        if path in staged:
+            _, initial, current = staged[path]
+        else:
+            initial = target.read_text(encoding="utf-8") if target.exists() else None
+            current = initial
+            ordered_paths.append(path)
+        updated = _updated_text(path, current, edit)
+        staged[path] = (target, initial, updated)
+
+    written: List[str] = []
+    try:
+        for path in ordered_paths:
+            target, _, updated = staged[path]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(updated, encoding="utf-8")
+            written.append(path)
+    except OSError:
+        for path in reversed(written):
+            target, initial, _ = staged[path]
+            if initial is None:
+                target.unlink(missing_ok=True)
+            else:
+                target.write_text(initial, encoding="utf-8")
+        raise
+    return ordered_paths
+
+
+def apply_edit(context: ToolContext, edit: FileEdit) -> str:
+    path = edit.path
+    apply_edits(context, [edit])
     return path
 
 
@@ -170,5 +217,13 @@ def default_registry() -> ToolRegistry:
             required_permission="write",
         ),
         apply_edit,
+    )
+    registry.register(
+        ToolSpec(
+            name="apply_edits",
+            description="Preflight and apply one complete scoped edit batch",
+            required_permission="write",
+        ),
+        apply_edits,
     )
     return registry

@@ -437,6 +437,60 @@ def test_repeated_failure_stops_self_healing_before_replan_budget(
     assert experiences[-1]["outcome"] == "failed"
 
 
+def test_edit_preflight_failure_refreshes_context_and_self_heals(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel(
+        [
+            successful_edit(old="return left / right", new="return left + right"),
+            successful_edit(),
+        ]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(request_for(sample_repository, max_replans=1))
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert len(result.repair_history) == 1
+    assert result.repair_history[0].can_retry is True
+    assert result.repair_history[0].instructions
+    assert "return left - right" in model.calls[1]["payload"]["previous_failure"]
+    assert "anchor_not_unique" in model.calls[1]["payload"]["previous_failure"]
+    assert model.calls[1]["payload"]["repair_plan"]["attempt"] == 1
+    code_events = [event for event in result.trace if event.node == "code"]
+    assert [event.outcome for event in code_events] == ["failed", "succeeded"]
+    assert code_events[0].details["error_type"] == "edit_application"
+    assert "left - right" in (sample_repository / "calculator.py").read_text(
+        encoding="utf-8"
+    )
+    assert "+    return left + right" in orchestrator.diff(result.task_id)
+
+
+def test_repeated_edit_preflight_failure_stops_without_partial_patch(
+    tmp_path: Path, sample_repository: Path
+):
+    invalid = successful_edit(old="return left / right", new="return left + right")
+    model = ScriptedModel([invalid, invalid])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(request_for(sample_repository, max_replans=3))
+
+    assert result.status == TaskStatus.FAILED
+    assert len(result.repair_history) == 2
+    assert result.repair_history[-1].can_retry is False
+    assert result.repair_history[-1].repeat_count == 1
+    assert result.changed_files == []
+    assert orchestrator.diff(result.task_id) == ""
+
+
 def test_failed_task_cannot_be_promoted(tmp_path: Path, sample_repository: Path):
     model = ScriptedModel([successful_edit(new="return left * right")])
     orchestrator = HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox)

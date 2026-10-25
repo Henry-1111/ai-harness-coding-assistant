@@ -31,6 +31,8 @@ from .memory import LayeredMemoryStore, LayeredMemoryStoreProtocol, MemoryLayer
 from .models import (
     AgentTraceEvent,
     ApprovalRecord,
+    CommandResult,
+    FileEdit,
     MilestoneCode,
     MilestoneStatus,
     ReviewFinding,
@@ -53,7 +55,7 @@ from .repository import (
 )
 from .sandbox import CommandRunner, DockerSandbox
 from .self_healing import SelfHealingPlanner
-from .tools import ToolContext, default_registry
+from .tools import ToolContext, ToolExecutionError, default_registry
 from .workspaces import IGNORED_WORKSPACE_NAMES, WorkspaceSnapshotStore
 
 
@@ -843,7 +845,33 @@ class HarnessOrchestrator:
             if edit.path not in baselines:
                 candidate = repository.resolve(edit.path, must_exist=False)
                 baselines[edit.path] = self._file_digest(candidate)
-            path = self.tools.execute("apply_edit", context, edit=edit)
+        try:
+            applied_paths = self.tools.execute("apply_edits", context, edits=decision.edits)
+        except ToolExecutionError as exc:
+            diagnostic = self._edit_application_diagnostic(repository, decision.edits, exc)
+            task.scratchpad["edit_application_failure"] = {
+                "code": exc.code,
+                "path": exc.path,
+                "diagnostic": diagnostic,
+            }
+            task.trace.append(
+                AgentTraceEvent(
+                    node="code",
+                    outcome="failed",
+                    duration_ms=round((time.monotonic() - started) * 1000),
+                    details={
+                        "error_type": "edit_application",
+                        "error_code": exc.code,
+                        "path": exc.path,
+                        "message": str(exc),
+                    },
+                )
+            )
+            self._set_assignment_status(task, "code", "failed")
+            task.current_node = "code"
+            self.checkpoints.save(task)
+            return {"task": task}
+        for path in applied_paths:
             if path not in task.changed_files:
                 task.changed_files.append(path)
         task.scratchpad["coder_summary"] = decision.summary
@@ -891,10 +919,20 @@ class HarnessOrchestrator:
         workspace = Path(str(task.scratchpad["workspace"]))
         sandbox = self.runner_factory(workspace)
         task.verification = []
-        for command in task.request.verification_commands:
-            self._check_execution_control()
-            task.verification.append(sandbox.run(command))
-            self._check_execution_control()
+        edit_failure = task.scratchpad.pop("edit_application_failure", None)
+        if isinstance(edit_failure, dict):
+            task.verification.append(
+                CommandResult(
+                    command="apply_edit_preflight",
+                    exit_code=1,
+                    stderr=str(edit_failure.get("diagnostic", "edit preflight failed")),
+                )
+            )
+        else:
+            for command in task.request.verification_commands:
+                self._check_execution_control()
+                task.verification.append(sandbox.run(command))
+                self._check_execution_control()
         exit_codes = [result.exit_code for result in task.verification]
         task.trace.append(
             AgentTraceEvent(
@@ -926,6 +964,30 @@ class HarnessOrchestrator:
         task.current_node = "verify"
         self.checkpoints.save(task)
         return {"task": task}
+
+    @staticmethod
+    def _edit_application_diagnostic(
+        repository: Repository,
+        edits: list[FileEdit],
+        error: ToolExecutionError,
+    ) -> str:
+        path = error.path or (edits[0].path if edits else "")
+        excerpt = "<file does not exist>"
+        if path:
+            try:
+                content = repository.read_text(path)
+                excerpt = content[:3000]
+                if len(content) > 3000:
+                    excerpt += "\n<excerpt truncated>"
+            except (FileNotFoundError, IsADirectoryError):
+                pass
+        return (
+            f"edit_error_code={error.code}\n"
+            f"path={path}\n"
+            f"message={error}\n"
+            "current_file_excerpt:\n"
+            f"{excerpt}"
+        )[-4000:]
 
     def _review(self, state: WorkflowState) -> WorkflowState:
         self._check_execution_control()

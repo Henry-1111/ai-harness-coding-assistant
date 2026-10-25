@@ -268,7 +268,14 @@ class CommandResult(BaseModel):
 
 
 class ReviewFinding(BaseModel):
-    category: Literal["no_changes", "verification", "timeout", "scope", "repeated_failure"]
+    category: Literal[
+        "no_changes",
+        "verification",
+        "timeout",
+        "scope",
+        "edit_application",
+        "repeated_failure",
+    ]
     severity: Literal["warning", "error"] = "error"
     message: str
     command: Optional[str] = None

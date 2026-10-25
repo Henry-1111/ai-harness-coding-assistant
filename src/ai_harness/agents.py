@@ -216,6 +216,15 @@ class ReviewerAgent:
                         evidence=(result.stderr or result.stdout)[-2000:],
                     )
                 )
+            elif result.command == "apply_edit_preflight" and result.exit_code != 0:
+                findings.append(
+                    ReviewFinding(
+                        category="edit_application",
+                        message="The proposed edit batch could not be applied safely",
+                        command=result.command,
+                        evidence=(result.stderr or result.stdout)[-2000:],
+                    )
+                )
             elif result.exit_code != 0:
                 findings.append(
                     ReviewFinding(

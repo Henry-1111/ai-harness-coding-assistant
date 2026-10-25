@@ -43,7 +43,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 复杂任务由 Implementer 与 Test/Integrator 两个 Agent 形成提案、冲突检查和整合决策；
 - LangGraph 驱动的 Scout、Coder、Verify、Reviewer 工作流；
 - OpenAI-compatible JSON 模型适配器；
-- exact-match 文件编辑、目录穿越防护、文件范围和权限检查；
+- 整批编辑预检、唯一锚点重定位、目录穿越防护、文件范围和权限检查；
 - allowlist 命令执行，不经过 shell；
 - 本地持久化工作区，以及网络隔离、内存/CPU/PID 限制的 Docker Sandbox；
 - 测试失败后的有限 Replan，防止无限循环和修改范围扩张；
@@ -173,7 +173,8 @@ Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `us
 
 1. 模型不能直接执行命令，只能返回符合 Pydantic Schema 的 JSON。
 2. 所有文件路径必须位于仓库根目录和任务 `file_scope` 内。
-3. 修改已有文件时，`old_text` 必须唯一匹配，避免模糊替换错误位置。
+3. 修改已有文件时，`old_text` 必须唯一匹配；只允许去除连续展示行号、规范换行和外层空行后进行
+   唯一重定位，多处匹配继续拒绝。一个决策中的全部编辑会先完成预检，再统一写入，避免半应用补丁。
 4. 验证命令通过 `shlex` 拆分并检查可执行文件 allowlist，不使用 `shell=True`。
 5. Docker Sandbox 默认 `--network none`、`no-new-privileges`，并限制 CPU、内存和 PID。
 6. 修改先保存在任务工作区；源仓库只有在 Reviewer 批准后通过显式 Promote 才会改变。
@@ -239,9 +240,10 @@ Docker Secret、Kubernetes Secret 或平台密钥管理器把对应只读文件�
 
 ## 结果评审、自愈与经验沉淀
 
-Reviewer 会把无修改、验证失败、超时和越界修改转换为结构化 Finding。失败任务生成带失败指纹、
-失败命令和修复指令的 RepairPlan，并在下一轮显式注入 Coder。相同确定性失败第二次出现时立即停止
-自动修复，避免无效循环耗尽模型额度；`max_replans` 仍是总重试上限。
+Reviewer 会把无修改、补丁预检失败、验证失败、超时和越界修改转换为结构化 Finding。补丁无法安全
+应用时不会留下部分写入；系统重新读取目标文件，将失败代码、路径、原因和最新文件片段写入
+RepairPlan，并在下一轮显式注入 Coder。相同确定性失败第二次出现时立即停止自动修复，避免无效循环
+耗尽模型额度；`max_replans` 仍是总重试上限。
 
 终态任务会把结果、验证状态、修复次数和失败指纹写入项目级 `experiences` 记忆。记录按 task ID
 幂等写入并最多保留 20 条；后续 Coder 只读取最近 5 条结构化经验，不保存模型思维链或 Provider 密钥。
@@ -251,7 +253,7 @@ Reviewer 会把无修改、验证失败、超时和越界修改转换为结构�
 `complex` 和 `human_gate` 路由会把 Code 阶段展开为 `implementation → test_design → code`：
 Implementer 先生成候选修改，Test/Integrator 再依据验收条件、测试缺口和候选冲突生成唯一的最终决策。
 候选提案不会直接写文件；只有经过整合且不存在同一源文本竞争替换的最终编辑，才能进入权限受控的
-`apply_edit`。快速和标准任务仍使用单 Coder 路径，避免额外模型调用。
+`apply_edits` 整批预检。快速和标准任务仍使用单 Coder 路径，避免额外模型调用。
 
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 

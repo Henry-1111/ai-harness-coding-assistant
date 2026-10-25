@@ -16,6 +16,7 @@ from ai_harness.tools import (
     ToolExecutionError,
     ToolPermissionError,
     apply_edit,
+    apply_edits,
     default_registry,
 )
 
@@ -75,6 +76,42 @@ def test_apply_edit_relocates_anchor_with_extra_outer_newlines(tmp_path: Path):
     )
 
     assert (tmp_path / "app.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_apply_edits_preflights_complete_batch_before_writing(tmp_path: Path):
+    (tmp_path / "first.py").write_text("value = 1\n", encoding="utf-8")
+    (tmp_path / "second.py").write_text("value = 2\n", encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    with pytest.raises(ToolExecutionError, match="exactly one"):
+        apply_edits(
+            context,
+            [
+                FileEdit(path="first.py", old_text="value = 1", new_text="value = 10"),
+                FileEdit(path="second.py", old_text="missing", new_text="value = 20"),
+            ],
+        )
+
+    assert (tmp_path / "first.py").read_text(encoding="utf-8") == "value = 1\n"
+    assert (tmp_path / "second.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
+def test_apply_edits_supports_sequential_edits_to_same_file(tmp_path: Path):
+    (tmp_path / "app.py").write_text("first = 1\nsecond = 2\n", encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    paths = apply_edits(
+        context,
+        [
+            FileEdit(path="app.py", old_text="first = 1", new_text="first = 10"),
+            FileEdit(path="app.py", old_text="second = 2", new_text="second = 20"),
+        ],
+    )
+
+    assert paths == ["app.py"]
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
+        "first = 10\nsecond = 20\n"
+    )
 
 
 def test_apply_edit_enforces_scope(tmp_path: Path):
