@@ -1,0 +1,192 @@
+[
+  {
+    "id": "clamp-bounds",
+    "goal": "Fix clamp so values below, inside, and above the bounds return the correct bounded value.",
+    "acceptance_criteria": [
+      "Values inside bounds are unchanged",
+      "Values outside bounds use the nearest bound"
+    ],
+    "file_scope": [
+      "collections_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_clamp_respects_bounds"
+    ],
+    "expected_changed_paths": [
+      "collections_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "pagination-one-based",
+    "goal": "Fix pagination so public page numbers are one-based rather than zero-based.",
+    "acceptance_criteria": [
+      "Page one starts at the first item",
+      "Page two starts after one page"
+    ],
+    "file_scope": [
+      "collections_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_paginate_uses_one_based_page_numbers"
+    ],
+    "expected_changed_paths": [
+      "collections_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "intersection-order",
+    "goal": "Fix intersection so matching values are unique and preserve their order from the left input.",
+    "acceptance_criteria": [
+      "Only shared values remain",
+      "Left input order is preserved"
+    ],
+    "file_scope": [
+      "collections_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_intersection_preserves_left_order"
+    ],
+    "expected_changed_paths": [
+      "collections_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "tag-normalization",
+    "goal": "Fix tag normalization so values are trimmed, lowercased, and empty tags removed.",
+    "acceptance_criteria": [
+      "Tags are lowercase and trimmed",
+      "Empty tags are omitted"
+    ],
+    "file_scope": [
+      "parsing_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_normalize_tags_trims_and_removes_empty_values"
+    ],
+    "expected_changed_paths": [
+      "parsing_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "token-redaction",
+    "goal": "Fix token redaction so secrets containing hyphens and dots are fully masked.",
+    "acceptance_criteria": [
+      "The complete token value is masked",
+      "Following text remains unchanged"
+    ],
+    "file_scope": [
+      "parsing_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_redact_token_handles_punctuation"
+    ],
+    "expected_changed_paths": [
+      "parsing_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "header-case-insensitive",
+    "goal": "Fix header merging so an override replaces an existing header regardless of key casing.",
+    "acceptance_criteria": [
+      "Header names are compared case-insensitively",
+      "The override value wins"
+    ],
+    "file_scope": [
+      "parsing_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_merge_headers_is_case_insensitive"
+    ],
+    "expected_changed_paths": [
+      "parsing_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "optional-int-none",
+    "goal": "Fix optional integer parsing so a missing value remains None instead of becoming zero.",
+    "acceptance_criteria": [
+      "None remains None",
+      "Numeric strings become integers"
+    ],
+    "file_scope": [
+      "parsing_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_optional_int_preserves_missing_value"
+    ],
+    "expected_changed_paths": [
+      "parsing_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "inventory-exact-reservation",
+    "goal": "Fix inventory reservation so consuming the exact remaining amount succeeds with zero remaining.",
+    "acceptance_criteria": [
+      "Exact remaining amount succeeds",
+      "Overuse is rejected"
+    ],
+    "file_scope": [
+      "policy_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_policy_utils.PolicyUtilsTest.test_inventory_accepts_exact_remaining_amount"
+    ],
+    "expected_changed_paths": [
+      "policy_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "cache-ttl-boundary",
+    "goal": "Fix cache freshness so an entry expires exactly at its TTL boundary.",
+    "acceptance_criteria": [
+      "An entry is stale at the TTL boundary",
+      "An entry before the boundary is fresh"
+    ],
+    "file_scope": [
+      "policy_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_policy_utils.PolicyUtilsTest.test_cache_expires_at_ttl_boundary"
+    ],
+    "expected_changed_paths": [
+      "policy_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  },
+  {
+    "id": "setting-precedence",
+    "goal": "Fix configuration resolution so environment overrides file and file overrides the default.",
+    "acceptance_criteria": [
+      "Environment value has highest precedence",
+      "File value precedes default"
+    ],
+    "file_scope": [
+      "policy_utils.py"
+    ],
+    "verification_commands": [
+      "python -m unittest -q test_policy_utils.PolicyUtilsTest.test_setting_precedence_environment_then_file_then_default"
+    ],
+    "expected_changed_paths": [
+      "policy_utils.py"
+    ],
+    "max_replans": 1,
+    "split": "test"
+  }
+]

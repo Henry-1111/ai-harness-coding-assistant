@@ -585,6 +585,11 @@ Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、�
 75%–80% 的目标；文档同时保留了精确编辑失败、验证失败、审批暂停和上游超时的完整分布，不能只引用
 早期 3 Case 冒烟测试的 100% 结果。
 
+针对历史编辑失败 Case 的补丁回归结果见
+[`benchmarks/AGENT_REGRESSION_RESULTS.md`](benchmarks/AGENT_REGRESSION_RESULTS.md)：10 Case 单轮相对同一
+子集历史基线有明显提升，因此继续触发了 30 Case 单轮验证；后者因 DeepSeek 余额耗尽、上游返回 402 而中止，
+受污染报告保留为 `agent-report-single-pass-aborted.json`，不能作为整体成功率引用。
+
 ## 系统级验证与运行时基准
 
 自动化测试中的 `tests/test_system_e2e.py` 会启动一个本地 OpenAI-compatible HTTP Stub，验证完整链路：
