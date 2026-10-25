@@ -505,6 +505,25 @@ ai-harness eval-planning benchmarks/planning_cases.json \
 原始结果见 [`benchmarks/planning-report.json`](benchmarks/planning-report.json)。这些数字衡量确定性规则在本项目
 冻结任务上的表现，不代表开放领域自然语言路由准确率。
 
+## Checkpoint 故障恢复评测
+
+Checkpoint 基准会并发写入多任务、多修订状态，销毁原 Store 实例后由新实例重新打开持久化数据库，验证
+最新状态、完整历史修订和连续 Revision；同时注入损坏 JSON 记录，确认坏任务读取失败时不会影响健康任务。
+
+```bash
+ai-harness eval-checkpoints \
+  --tasks 200 \
+  --revisions 8 \
+  --writers 8 \
+  --corruption-trials 20 \
+  --output benchmarks/checkpoint-report.json
+```
+
+当前本机 SQLite 基准共写入 1,600 个 Checkpoint，新进程恢复率 `100%`、历史修订完整率 `100%`、
+损坏记录隔离率 `100%`，恢复延迟 P50/P95/P99 为 `0.086/0.167/0.421 ms`。原始报告见
+[`benchmarks/checkpoint-report.json`](benchmarks/checkpoint-report.json)。这些数字支持本地持久化恢复能力，
+不等同于机器宕机后的磁盘耐久性，也不能替代 PostgreSQL 跨节点故障演练。
+
 ## 单 Agent / 多 Agent A/B 评测
 
 项目提供成对评测命令：同一模型、同一 Provider、同一冻结任务集分别走单 Coder 和

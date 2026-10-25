@@ -1,0 +1,19 @@
+{
+  "benchmark": "sqlite_checkpoint_recovery",
+  "generated_at": "2026-10-25T02:30:44.324022+00:00",
+  "tasks": 200,
+  "revisions_per_task": 8,
+  "writers": 8,
+  "corruption_trials": 20,
+  "total_checkpoints": 1600,
+  "recovered_tasks": 200,
+  "recovery_rate": 1.0,
+  "revision_integrity_rate": 1.0,
+  "corruption_isolation_rate": 1.0,
+  "recovery_latency_ms": {
+    "p50": 0.086,
+    "p95": 0.167,
+    "p99": 0.421
+  },
+  "failed_task_ids": []
+}

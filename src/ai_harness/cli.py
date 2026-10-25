@@ -19,6 +19,7 @@ from .agent_evaluation import (
 )
 from .agents import OpenAICompatibleModel
 from .api import create_app
+from .checkpoint_evaluation import run_checkpoint_benchmark
 from .config import Settings
 from .distributed_governance import DistributedGovernanceStore
 from .distributed_memory import PostgresLayeredMemoryStore
@@ -291,6 +292,16 @@ def build_parser() -> argparse.ArgumentParser:
     planning_evaluate.add_argument("dataset")
     planning_evaluate.add_argument("--split", choices=["train", "validation", "test"])
     planning_evaluate.add_argument("--output", help="Write the JSON report to this path")
+
+    checkpoint_evaluate = subparsers.add_parser(
+        "eval-checkpoints",
+        help="Benchmark durable checkpoint recovery after process restart",
+    )
+    checkpoint_evaluate.add_argument("--tasks", type=int, default=200)
+    checkpoint_evaluate.add_argument("--revisions", type=int, default=8)
+    checkpoint_evaluate.add_argument("--writers", type=int, default=8)
+    checkpoint_evaluate.add_argument("--corruption-trials", type=int, default=20)
+    checkpoint_evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
 
 
@@ -427,6 +438,17 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     if args.command == "eval-planning":
         report = PlanningEvaluator().evaluate(
             load_planning_cases(Path(args.dataset)), split=args.split
+        ).model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-checkpoints":
+        report = run_checkpoint_benchmark(
+            tasks=args.tasks,
+            revisions_per_task=args.revisions,
+            writers=args.writers,
+            corruption_trials=args.corruption_trials,
         ).model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")

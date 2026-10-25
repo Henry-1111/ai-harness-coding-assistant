@@ -22,6 +22,16 @@ This benchmark measures retrieval inside AI_Harness only. It is not evidence of 
 
 The frozen set measures deterministic routing rules in this project; it is not an open-domain intent classification benchmark.
 
+## Checkpoint recovery benchmark
+
+- Command: `ai-harness eval-checkpoints --tasks 200 --revisions 8 --writers 8 --corruption-trials 20 --output benchmarks/checkpoint-report.json`.
+- Concurrent writers create multiple revisions per task in a temporary SQLite database.
+- A fresh store instance simulates process restart and must recover the latest state plus every historical revision.
+- Invalid JSON rows are injected under separate task IDs to verify that corrupt records fail closed without blocking healthy tasks.
+- Report recovery rate, revision integrity, corruption isolation and P50/P95/P99 load latency.
+
+This benchmark covers process restart and record isolation on local SQLite. It does not claim host-crash durability or PostgreSQL cross-node recovery.
+
 ## Agent A/B benchmark
 
 - Dataset: `agent_cases.json`, 30 deterministic defect tasks.
