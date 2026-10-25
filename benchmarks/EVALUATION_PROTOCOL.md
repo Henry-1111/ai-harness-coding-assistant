@@ -32,6 +32,16 @@ The frozen set measures deterministic routing rules in this project; it is not a
 
 This benchmark covers process restart and record isolation on local SQLite. It does not claim host-crash durability or PostgreSQL cross-node recovery.
 
+## Security attack benchmark
+
+- Dataset: `security_cases.json`, 48 frozen boundary and policy attacks.
+- Command: `ai-harness eval-security benchmarks/security_cases.json --output benchmarks/security-report.json`.
+- Categories cover repository traversal, scope violations, command allow-list bypass, snapshot identifiers, archive paths, archive symlinks, and Docker policy construction.
+- File attacks run only inside a temporary directory and check both out-of-repository and out-of-scope sentinels for side effects.
+- Report every attack, rejection error, category block rate, unauthorized write, and observed host-path escape.
+
+Docker cases assert the generated isolation policy; they do not constitute a container-runtime penetration test or protection against unknown kernel vulnerabilities.
+
 ## Agent A/B benchmark
 
 - Dataset: `agent_cases.json`, 30 deterministic defect tasks.

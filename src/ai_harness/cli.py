@@ -44,6 +44,7 @@ from .promotion import (
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
+from .security_evaluation import SecurityEvaluator, load_security_cases
 from .workspaces import FilesystemWorkspaceSnapshotStore, WorkspaceSnapshotStore
 
 
@@ -302,6 +303,13 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint_evaluate.add_argument("--writers", type=int, default=8)
     checkpoint_evaluate.add_argument("--corruption-trials", type=int, default=20)
     checkpoint_evaluate.add_argument("--output", help="Write the JSON report to this path")
+
+    security_evaluate = subparsers.add_parser(
+        "eval-security",
+        help="Run frozen boundary, permission, command and archive attacks",
+    )
+    security_evaluate.add_argument("dataset")
+    security_evaluate.add_argument("--output", help="Write the JSON report to this path")
     return parser
 
 
@@ -449,6 +457,14 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             revisions_per_task=args.revisions,
             writers=args.writers,
             corruption_trials=args.corruption_trials,
+        ).model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-security":
+        report = SecurityEvaluator().evaluate(
+            load_security_cases(Path(args.dataset))
         ).model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")

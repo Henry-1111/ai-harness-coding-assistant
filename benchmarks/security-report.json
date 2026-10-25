@@ -1,0 +1,391 @@
+{
+  "dataset_sha256": "baf2962abcb2ce3a17923555cde72c2aa059cdd09b0d306f078b4ddc3dee0e1a",
+  "attacks": 48,
+  "blocked": 48,
+  "block_rate": 1.0,
+  "unauthorized_writes": 0,
+  "sandbox_escapes": 0,
+  "by_category": {
+    "archive_path": {
+      "attacks": 6,
+      "blocked": 6,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "archive_symlink": {
+      "attacks": 5,
+      "blocked": 5,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "command_allowlist": {
+      "attacks": 10,
+      "blocked": 10,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "docker_policy": {
+      "attacks": 3,
+      "blocked": 3,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "repository_path": {
+      "attacks": 8,
+      "blocked": 8,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "scoped_write": {
+      "attacks": 8,
+      "blocked": 8,
+      "block_rate": 1.0,
+      "side_effects": 0
+    },
+    "snapshot_id": {
+      "attacks": 8,
+      "blocked": 8,
+      "block_rate": 1.0,
+      "side_effects": 0
+    }
+  },
+  "failures": [],
+  "details": [
+    {
+      "id": "repo-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-double-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-absolute",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-nested-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-dot-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-deep-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-root-parent",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "repo-parent-slash",
+      "category": "repository_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RepositoryBoundaryError: path escapes repository root"
+    },
+    {
+      "id": "scope-sibling",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ToolPermissionError: path is outside task scope: src/secret.txt"
+    },
+    {
+      "id": "scope-prefix-confusion",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ToolPermissionError: path is outside task scope: src/safeish/file.txt"
+    },
+    {
+      "id": "scope-normalized-parent",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValidationError: 1 validation error for FileEdit\npath\n  Value error, edit path must be repository-relative [type=value_error, input_value='src/safe/../secret.txt', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/value_error"
+    },
+    {
+      "id": "scope-deep-normalized-parent",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValidationError: 1 validation error for FileEdit\npath\n  Value error, edit path must be repository-relative [type=value_error, input_value='src/safe/nested/../../secret.txt', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/value_error"
+    },
+    {
+      "id": "scope-root-file",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ToolPermissionError: path is outside task scope: README.md"
+    },
+    {
+      "id": "scope-outside-repository",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValidationError: 1 validation error for FileEdit\npath\n  Value error, edit path must be repository-relative [type=value_error, input_value='../sentinel.txt', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/value_error"
+    },
+    {
+      "id": "scope-absolute",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValidationError: 1 validation error for FileEdit\npath\n  Value error, edit path must be repository-relative [type=value_error, input_value='/tmp/ai-harness-attack.txt', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.14/v/value_error"
+    },
+    {
+      "id": "scope-parent-directory",
+      "category": "scoped_write",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ToolPermissionError: path is outside task scope: src"
+    },
+    {
+      "id": "command-shell",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: sh"
+    },
+    {
+      "id": "command-bash",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: bash"
+    },
+    {
+      "id": "command-zsh",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: zsh"
+    },
+    {
+      "id": "command-rm",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: rm"
+    },
+    {
+      "id": "command-curl",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: curl"
+    },
+    {
+      "id": "command-wget",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: wget"
+    },
+    {
+      "id": "command-netcat",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: nc"
+    },
+    {
+      "id": "command-sudo",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: sudo"
+    },
+    {
+      "id": "command-docker",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: docker"
+    },
+    {
+      "id": "command-env",
+      "category": "command_allowlist",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "SandboxViolation: command is not allow-listed: env"
+    },
+    {
+      "id": "snapshot-empty",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-parent",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-slash",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-backslash",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-space",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-newline",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-too-long",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "snapshot-shell-char",
+      "category": "snapshot_id",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "ValueError: invalid workspace snapshot id"
+    },
+    {
+      "id": "archive-parent",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "archive-double-parent",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "archive-absolute",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "archive-nested-parent",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "archive-dot-parent",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "archive-deep-parent",
+      "category": "archive_path",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot archive path"
+    },
+    {
+      "id": "symlink-parent",
+      "category": "archive_symlink",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot symlink target"
+    },
+    {
+      "id": "symlink-absolute",
+      "category": "archive_symlink",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot symlink target"
+    },
+    {
+      "id": "symlink-deep-parent",
+      "category": "archive_symlink",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot symlink target"
+    },
+    {
+      "id": "symlink-root",
+      "category": "archive_symlink",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot symlink target"
+    },
+    {
+      "id": "symlink-nested-escape",
+      "category": "archive_symlink",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": "RuntimeError: unsafe workspace snapshot symlink target"
+    },
+    {
+      "id": "docker-python-policy",
+      "category": "docker_policy",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": ""
+    },
+    {
+      "id": "docker-pytest-policy",
+      "category": "docker_policy",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": ""
+    },
+    {
+      "id": "docker-ruff-policy",
+      "category": "docker_policy",
+      "blocked": true,
+      "side_effect_detected": false,
+      "error": ""
+    }
+  ]
+}

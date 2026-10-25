@@ -524,6 +524,22 @@ ai-harness eval-checkpoints \
 [`benchmarks/checkpoint-report.json`](benchmarks/checkpoint-report.json)。这些数字支持本地持久化恢复能力，
 不等同于机器宕机后的磁盘耐久性，也不能替代 PostgreSQL 跨节点故障演练。
 
+## 安全攻击评测
+
+冻结安全集包含 48 个攻击 Case，覆盖仓库路径穿越、任务 Scope 越权写入、非白名单命令、非法 Snapshot ID、
+Tar 路径穿越、恶意符号链接以及 Docker 隔离参数缺失。每次文件攻击都在临时目录中运行，并检查仓库外
+哨兵文件和 Scope 外文件是否发生副作用。
+
+```bash
+ai-harness eval-security benchmarks/security_cases.json \
+  --output benchmarks/security-report.json
+```
+
+当前结果为 48/48 阻断，阻断率 `100%`，观察到的越权写入和宿主路径逃逸均为 `0`。原始逐 Case 结果见
+[`benchmarks/security-report.json`](benchmarks/security-report.json)。其中 Docker Case 验证启动参数包含
+`--network none`、只读根文件系统、资源限制、`no-new-privileges` 和删除 Linux capabilities；该结果不是
+专业容器逃逸红队认证，也不表示系统能够防御未知内核漏洞。
+
 ## 单 Agent / 多 Agent A/B 评测
 
 项目提供成对评测命令：同一模型、同一 Provider、同一冻结任务集分别走单 Coder 和
