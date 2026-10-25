@@ -11,7 +11,7 @@ from difflib import unified_diff
 from fcntl import LOCK_EX, LOCK_UN, flock
 from hashlib import sha256
 from pathlib import Path
-from typing import Callable, Iterator, Literal, Optional, TypedDict
+from typing import Callable, Dict, Iterator, Literal, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
@@ -848,6 +848,13 @@ class HarnessOrchestrator:
         try:
             applied_paths = self.tools.execute("apply_edits", context, edits=decision.edits)
         except ToolExecutionError as exc:
+            edit_metrics = task.scratchpad.setdefault(
+                "edit_application_metrics", {"strategies": {}, "failure_codes": {}}
+            )
+            if isinstance(edit_metrics, dict):
+                failure_codes = edit_metrics.setdefault("failure_codes", {})
+                if isinstance(failure_codes, dict):
+                    failure_codes[exc.code] = int(failure_codes.get(exc.code, 0)) + 1
             diagnostic = self._edit_application_diagnostic(repository, decision.edits, exc)
             task.scratchpad["edit_application_failure"] = {
                 "code": exc.code,
@@ -871,6 +878,19 @@ class HarnessOrchestrator:
             task.current_node = "code"
             self.checkpoints.save(task)
             return {"task": task}
+        edit_metrics = task.scratchpad.setdefault(
+            "edit_application_metrics", {"strategies": {}, "failure_codes": {}}
+        )
+        applied_strategies: Dict[str, int] = {}
+        if isinstance(edit_metrics, dict):
+            strategies = edit_metrics.setdefault("strategies", {})
+            if isinstance(strategies, dict):
+                for event in context.audit_events:
+                    strategy = str(event.get("strategy", "unknown"))
+                    strategies[strategy] = int(strategies.get(strategy, 0)) + 1
+                    applied_strategies[strategy] = (
+                        applied_strategies.get(strategy, 0) + 1
+                    )
         for path in applied_paths:
             if path not in task.changed_files:
                 task.changed_files.append(path)
@@ -884,6 +904,7 @@ class HarnessOrchestrator:
                 duration_ms=round((time.monotonic() - started) * 1000),
                 details={
                     "changed_files": list(task.changed_files),
+                    "edit_strategies": applied_strategies,
                     "collaboration": (
                         {
                             "round": collaboration_turn.round,

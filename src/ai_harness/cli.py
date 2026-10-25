@@ -395,6 +395,16 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
                     result.changed_files,
                     case.expected_changed_paths,
                 )
+                persisted_result = orchestrator.get(result.task_id)
+                edit_metrics = (
+                    persisted_result.scratchpad.get("edit_application_metrics", {})
+                    if persisted_result is not None
+                    else {}
+                )
+                if not isinstance(edit_metrics, dict):
+                    edit_metrics = {}
+                edit_strategies = edit_metrics.get("strategies", {})
+                edit_failure_codes = edit_metrics.get("failure_codes", {})
                 return AgentBenchmarkObservation(
                     case_id=case.id,
                     variant=variant,
@@ -415,6 +425,16 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
                     changed_paths=result.changed_files,
                     changed_path_recall=recall,
                     changed_path_precision=precision,
+                    edit_strategies=(
+                        dict(edit_strategies)
+                        if isinstance(edit_strategies, dict)
+                        else {}
+                    ),
+                    edit_failure_codes=(
+                        dict(edit_failure_codes)
+                        if isinstance(edit_failure_codes, dict)
+                        else {}
+                    ),
                     error=result.error,
                 )
             except Exception as exc:

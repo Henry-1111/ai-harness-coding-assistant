@@ -1,0 +1,467 @@
+{
+  "generated_at": "2026-10-25T16:51:24.860598Z",
+  "dataset_sha256": "c4ae5c097670fce72928795b8a39719f20daef3c7e8556c9a1d0c833f3cd9d0e",
+  "cases": 10,
+  "repetitions": 1,
+  "observations_per_variant": 10,
+  "single": {
+    "cases": 10,
+    "success_rate": 0.3,
+    "mean_duration_ms": 33092.6,
+    "mean_model_calls": 1.9,
+    "mean_request_chars": 5144.9,
+    "mean_total_tokens": 7443.8,
+    "mean_repair_rounds": 1.6,
+    "mean_collaboration_rounds": 0.0,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0
+  },
+  "multi": {
+    "cases": 10,
+    "success_rate": 0.3,
+    "mean_duration_ms": 59392.5,
+    "mean_model_calls": 3.7,
+    "mean_request_chars": 11003.0,
+    "mean_total_tokens": null,
+    "mean_repair_rounds": 1.5,
+    "mean_collaboration_rounds": 1.8,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0
+  },
+  "multi_minus_single": {
+    "success_rate": 0.0,
+    "mean_duration_ms": 26299.9,
+    "mean_model_calls": 1.8,
+    "mean_total_tokens": null,
+    "mean_repair_rounds": -0.1
+  },
+  "pairwise_success": {
+    "multi_wins": 1,
+    "ties": 8,
+    "single_wins": 1
+  },
+  "details": [
+    {
+      "case_id": "clamp-bounds",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 8939,
+      "model_calls": 2,
+      "request_chars": 7161,
+      "prompt_tokens": 2211,
+      "completion_tokens": 1403,
+      "total_tokens": 3614,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "clamp-bounds",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 37919,
+      "model_calls": 4,
+      "request_chars": 11528,
+      "prompt_tokens": 3214,
+      "completion_tokens": 6416,
+      "total_tokens": 9630,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_clamp_respects_bounds; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "pagination-one-based",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 89605,
+      "model_calls": 4,
+      "request_chars": 12389,
+      "prompt_tokens": 3598,
+      "completion_tokens": 17078,
+      "total_tokens": 20676,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_paginate_uses_one_based_page_numbers; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "pagination-one-based",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 22518,
+      "model_calls": 2,
+      "request_chars": 5524,
+      "prompt_tokens": 1630,
+      "completion_tokens": 4364,
+      "total_tokens": 5994,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_paginate_uses_one_based_page_numbers; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "intersection-order",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 41554,
+      "model_calls": 2,
+      "request_chars": 5340,
+      "prompt_tokens": 1559,
+      "completion_tokens": 7379,
+      "total_tokens": 8938,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "intersection-order",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 48998,
+      "model_calls": 4,
+      "request_chars": 12055,
+      "prompt_tokens": 3437,
+      "completion_tokens": 8656,
+      "total_tokens": 12093,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_collections_utils.CollectionsUtilsTest.test_intersection_preserves_left_order; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "tag-normalization",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 30331,
+      "model_calls": 4,
+      "request_chars": 12579,
+      "prompt_tokens": 3500,
+      "completion_tokens": 5338,
+      "total_tokens": 8838,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "tag-normalization",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 22202,
+      "model_calls": 2,
+      "request_chars": 5738,
+      "prompt_tokens": 1631,
+      "completion_tokens": 3598,
+      "total_tokens": 5229,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "token-redaction",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 75756,
+      "model_calls": 2,
+      "request_chars": 5168,
+      "prompt_tokens": 1485,
+      "completion_tokens": 14029,
+      "total_tokens": 15514,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "token-redaction",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 86795,
+      "model_calls": 3,
+      "request_chars": 7389,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 1,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "ReadTimeout: timed out"
+    },
+    {
+      "case_id": "header-case-insensitive",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 74886,
+      "model_calls": 4,
+      "request_chars": 12281,
+      "prompt_tokens": 3357,
+      "completion_tokens": 13971,
+      "total_tokens": 17328,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_merge_headers_is_case_insensitive; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "header-case-insensitive",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 52274,
+      "model_calls": 2,
+      "request_chars": 5304,
+      "prompt_tokens": 1481,
+      "completion_tokens": 10266,
+      "total_tokens": 11747,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "optional-int-none",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 11195,
+      "model_calls": 2,
+      "request_chars": 4922,
+      "prompt_tokens": 1379,
+      "completion_tokens": 1890,
+      "total_tokens": 3269,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "optional-int-none",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 26008,
+      "model_calls": 4,
+      "request_chars": 11289,
+      "prompt_tokens": 3081,
+      "completion_tokens": 4524,
+      "total_tokens": 7605,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_optional_int_preserves_missing_value; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "inventory-exact-reservation",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 69472,
+      "model_calls": 4,
+      "request_chars": 14448,
+      "prompt_tokens": 4206,
+      "completion_tokens": 12851,
+      "total_tokens": 17057,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "inventory-exact-reservation",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 25197,
+      "model_calls": 2,
+      "request_chars": 5209,
+      "prompt_tokens": 1452,
+      "completion_tokens": 4033,
+      "total_tokens": 5485,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "cache-ttl-boundary",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 32607,
+      "model_calls": 1,
+      "request_chars": 1687,
+      "prompt_tokens": 511,
+      "completion_tokens": 5753,
+      "total_tokens": 6264,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "cache-ttl-boundary",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 36702,
+      "model_calls": 2,
+      "request_chars": 3650,
+      "prompt_tokens": 1072,
+      "completion_tokens": 6375,
+      "total_tokens": 7447,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "setting-precedence",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 93209,
+      "model_calls": 4,
+      "request_chars": 12422,
+      "prompt_tokens": 3354,
+      "completion_tokens": 16885,
+      "total_tokens": 20239,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": null
+    },
+    {
+      "case_id": "setting-precedence",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 38684,
+      "model_calls": 2,
+      "request_chars": 5396,
+      "prompt_tokens": 1501,
+      "completion_tokens": 6883,
+      "total_tokens": 8384,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "error": "The proposed edit batch could not be applied safely"
+    }
+  ]
+}

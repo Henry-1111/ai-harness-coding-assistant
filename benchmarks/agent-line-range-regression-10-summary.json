@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-10-25T16:54:29.092952Z",
+  "dataset_sha256": "c4ae5c097670fce72928795b8a39719f20daef3c7e8556c9a1d0c833f3cd9d0e",
+  "cases": 10,
+  "runs": 1,
+  "observations_per_variant": 10,
+  "single": {
+    "observations": 10,
+    "successes": 3,
+    "raw_success_rate": 0.3,
+    "provider_failures": 0,
+    "agent_failures": 7,
+    "provider_adjusted_observations": 10,
+    "provider_adjusted_success_rate": 0.3,
+    "mean_duration_ms": 33092.6,
+    "p50_duration_ms": 25197,
+    "p95_duration_ms": 52274,
+    "mean_model_calls": 1.9,
+    "known_token_observations": 10,
+    "known_total_tokens": 74438,
+    "mean_known_tokens": 7443.8,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0,
+    "edit_strategies": {},
+    "edit_failure_codes": {},
+    "failure_classes": {
+      "edit_application": 6,
+      "repeated_verification": 1
+    }
+  },
+  "multi": {
+    "observations": 10,
+    "successes": 3,
+    "raw_success_rate": 0.3,
+    "provider_failures": 1,
+    "agent_failures": 6,
+    "provider_adjusted_observations": 9,
+    "provider_adjusted_success_rate": 0.333333,
+    "mean_duration_ms": 59392.5,
+    "p50_duration_ms": 48998,
+    "p95_duration_ms": 89605,
+    "mean_model_calls": 3.7,
+    "known_token_observations": 9,
+    "known_total_tokens": 120913,
+    "mean_known_tokens": 13434.778,
+    "mean_changed_path_recall": 1.0,
+    "mean_changed_path_precision": 1.0,
+    "edit_strategies": {},
+    "edit_failure_codes": {},
+    "failure_classes": {
+      "edit_application": 1,
+      "provider_failure": 1,
+      "repeated_verification": 5
+    }
+  },
+  "per_run": [
+    {
+      "run_index": 1,
+      "single_success_rate": 0.3,
+      "multi_success_rate": 0.3,
+      "single_provider_failures": 0,
+      "multi_provider_failures": 1
+    }
+  ]
+}

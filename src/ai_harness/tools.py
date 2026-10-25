@@ -4,7 +4,7 @@ import ast
 import difflib
 import re
 import textwrap
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Set
 
@@ -36,6 +36,7 @@ class ToolContext:
     repository: Repository
     permissions: Set[str]
     allowed_paths: List[str]
+    audit_events: List[Dict[str, Any]] = field(default_factory=list)
 
     def permits_path(self, path: str) -> bool:
         if not self.allowed_paths:
@@ -218,7 +219,7 @@ def _replace_line_range(path: str, original: str, edit: FileEdit) -> str:
     return updated
 
 
-def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
+def _updated_text(path: str, original: str | None, edit: FileEdit) -> tuple[str, str]:
     if original is not None:
         if edit.old_text == "":
             raise ToolExecutionError(
@@ -229,7 +230,7 @@ def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
         anchor, occurrences = _unique_anchor(original, edit.old_text)
         if anchor is None:
             if edit.start_line is not None:
-                return _replace_line_range(path, original, edit)
+                return _replace_line_range(path, original, edit), "line_range"
             raise ToolExecutionError(
                 f"expected exactly one old_text match in {path}, found {occurrences}",
                 path=path,
@@ -240,19 +241,21 @@ def _updated_text(path: str, original: str | None, edit: FileEdit) -> str:
             numbered_replacement = _strip_numbered_snippet(replacement)
             if numbered_replacement is not None:
                 replacement = numbered_replacement
-        return original.replace(anchor, replacement, 1)
+        strategy = "exact_anchor" if anchor == edit.old_text else "normalized_anchor"
+        return original.replace(anchor, replacement, 1), strategy
     if edit.old_text:
         raise ToolExecutionError(
             "old_text must be empty when creating a file",
             path=path,
             code="new_file_has_anchor",
         )
-    return edit.new_text
+    return edit.new_text, "new_file"
 
 
 def apply_edits(context: ToolContext, edits: List[FileEdit]) -> List[str]:
     """Preflight every edit, then write the complete decision without partial patches."""
     staged: Dict[str, tuple[Path, str | None, str]] = {}
+    staged_audit_events: List[Dict[str, str]] = []
     ordered_paths: List[str] = []
     for edit in edits:
         path = edit.path
@@ -265,8 +268,11 @@ def apply_edits(context: ToolContext, edits: List[FileEdit]) -> List[str]:
             initial = target.read_text(encoding="utf-8") if target.exists() else None
             current = initial
             ordered_paths.append(path)
-        updated = _updated_text(path, current, edit)
+        updated, strategy = _updated_text(path, current, edit)
         staged[path] = (target, initial, updated)
+        staged_audit_events.append(
+            {"tool": "apply_edits", "path": path, "strategy": strategy}
+        )
 
     written: List[str] = []
     try:
@@ -283,6 +289,7 @@ def apply_edits(context: ToolContext, edits: List[FileEdit]) -> List[str]:
             else:
                 target.write_text(initial, encoding="utf-8")
         raise
+    context.audit_events.extend(staged_audit_events)
     return ordered_paths
 
 

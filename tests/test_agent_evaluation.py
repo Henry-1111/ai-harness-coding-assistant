@@ -43,6 +43,10 @@ def observation(
         changed_paths=["calculator.py"],
         changed_path_recall=1.0,
         changed_path_precision=1.0,
+        edit_strategies={"exact_anchor": 1},
+        edit_failure_codes=(
+            {"anchor_not_unique": 1} if status == TaskStatus.FAILED else {}
+        ),
     )
 
 
@@ -151,6 +155,7 @@ def test_aggregate_reports_separates_provider_and_agent_failures():
         if variant == "single":
             item.status = TaskStatus.FAILED
             item.error = "The proposed edit batch could not be applied safely"
+            item.edit_failure_codes = {"anchor_not_unique": 1}
         return item
 
     evaluator = AgentBenchmarkEvaluator()
@@ -165,6 +170,8 @@ def test_aggregate_reports_separates_provider_and_agent_failures():
     assert report.single.provider_failures == 0
     assert report.single.agent_failures == 1
     assert report.single.failure_classes == {"edit_application": 1}
+    assert report.single.edit_strategies == {"exact_anchor": 2}
+    assert report.single.edit_failure_codes == {"anchor_not_unique": 1}
     assert report.multi.raw_success_rate == 0.5
     assert report.multi.provider_failures == 1
     assert report.multi.agent_failures == 0
@@ -175,6 +182,8 @@ def test_aggregate_reports_separates_provider_and_agent_failures():
     markdown = render_agent_aggregate_markdown(report)
     assert "Provider-adjusted success" in markdown
     assert "`provider_failure`: 1" in markdown
+    assert "## Edit application" in markdown
+    assert "`anchor_not_unique`: 1" in markdown
     assert "## Resume-safe result" in markdown
     assert "single-agent execution achieved 50.00% end-to-end success" in markdown
 

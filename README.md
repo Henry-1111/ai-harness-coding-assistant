@@ -597,6 +597,11 @@ Token、时延和失败类型，而不能只挑最佳轮次。补丁前 30 Case�
 诊断成功率 87.01%、P95 66.5 秒、平均已知 Token 3,601；多 Agent 原始成功率 65.56%，成本和尾延迟均更高。
 简历应优先引用 74.44% 的端到端数字，并注明这是固定 30 Case 本地冻结任务集的三轮结果。
 
+针对 AST/行范围安全重定位的同一 10 Case 单轮回归见
+[`benchmarks/AGENT_LINE_RANGE_RESULTS.md`](benchmarks/AGENT_LINE_RANGE_RESULTS.md)。多 Agent 原始成功率从 20%
+升至 30%，编辑应用失败从 5 个降至 1 个；单 Agent 原始成功率仍为 30%，结果并不支持宣称整体成功率已稳定
+提升。后续评测报告会额外记录精确锚点、规范化锚点、行范围和新文件策略的实际次数，以及具体拒绝码。
+
 ## 系统级验证与运行时基准
 
 自动化测试中的 `tests/test_system_e2e.py` 会启动一个本地 OpenAI-compatible HTTP Stub，验证完整链路：

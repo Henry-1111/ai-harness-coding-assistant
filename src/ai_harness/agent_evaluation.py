@@ -43,6 +43,8 @@ class AgentBenchmarkObservation(BaseModel):
     changed_paths: List[str] = Field(default_factory=list)
     changed_path_recall: Optional[float] = Field(default=None, ge=0, le=1)
     changed_path_precision: Optional[float] = Field(default=None, ge=0, le=1)
+    edit_strategies: Dict[str, int] = Field(default_factory=dict)
+    edit_failure_codes: Dict[str, int] = Field(default_factory=dict)
     error: Optional[str] = None
 
 
@@ -112,6 +114,8 @@ class AgentAggregateVariant(BaseModel):
     mean_known_tokens: Optional[float]
     mean_changed_path_recall: Optional[float]
     mean_changed_path_precision: Optional[float]
+    edit_strategies: Dict[str, int]
+    edit_failure_codes: Dict[str, int]
     failure_classes: Dict[str, int]
 
 
@@ -321,11 +325,22 @@ def _aggregate_variant(
         if item.changed_path_precision is not None
     ]
     failure_classes: Dict[str, int] = {}
+    edit_strategies: Dict[str, int] = {}
+    edit_failure_codes: Dict[str, int] = {}
     for item in items:
         failure_class = _failure_class(item)
         if failure_class == "succeeded":
-            continue
-        failure_classes[failure_class] = failure_classes.get(failure_class, 0) + 1
+            pass
+        else:
+            failure_classes[failure_class] = failure_classes.get(failure_class, 0) + 1
+        for strategy, occurrences in item.edit_strategies.items():
+            edit_strategies[strategy] = (
+                edit_strategies.get(strategy, 0) + occurrences
+            )
+        for code, occurrences in item.edit_failure_codes.items():
+            edit_failure_codes[code] = (
+                edit_failure_codes.get(code, 0) + occurrences
+            )
     return AgentAggregateVariant(
         observations=count,
         successes=successes,
@@ -353,6 +368,8 @@ def _aggregate_variant(
             if precision_values
             else None
         ),
+        edit_strategies=dict(sorted(edit_strategies.items())),
+        edit_failure_codes=dict(sorted(edit_failure_codes.items())),
         failure_classes=dict(sorted(failure_classes.items())),
     )
 
@@ -484,6 +501,26 @@ def render_agent_aggregate_markdown(report: AgentAggregateReport) -> str:
                 lines.append(f"- `{name}`: {count}")
         else:
             lines.append("- None")
+        lines.append("")
+    lines.extend(["## Edit application", ""])
+    for variant, summary in (("Single agent", report.single), ("Multi agent", report.multi)):
+        lines.append(f"### {variant}")
+        lines.append("")
+        if summary.edit_strategies:
+            lines.append("Applied strategies:")
+            lines.append("")
+            for name, count in summary.edit_strategies.items():
+                lines.append(f"- `{name}`: {count}")
+        else:
+            lines.append("- Applied strategies: not recorded")
+        if summary.edit_failure_codes:
+            lines.append("")
+            lines.append("Rejected edits:")
+            lines.append("")
+            for name, count in summary.edit_failure_codes.items():
+                lines.append(f"- `{name}`: {count}")
+        else:
+            lines.append("- Rejected edits: none recorded")
         lines.append("")
     lines.append(
         "Provider-adjusted success is diagnostic only; raw success remains the end-to-end metric."

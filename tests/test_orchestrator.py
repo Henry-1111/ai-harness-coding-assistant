@@ -464,6 +464,12 @@ def test_edit_preflight_failure_refreshes_context_and_self_heals(
     code_events = [event for event in result.trace if event.node == "code"]
     assert [event.outcome for event in code_events] == ["failed", "succeeded"]
     assert code_events[0].details["error_type"] == "edit_application"
+    persisted = orchestrator.get(result.task_id)
+    assert persisted is not None
+    assert persisted.scratchpad["edit_application_metrics"] == {
+        "strategies": {"exact_anchor": 1},
+        "failure_codes": {"anchor_not_unique": 1},
+    }
     assert "left - right" in (sample_repository / "calculator.py").read_text(
         encoding="utf-8"
     )
@@ -500,6 +506,14 @@ def test_line_range_relocates_stale_edit_without_replan(
     assert result.status == TaskStatus.SUCCEEDED
     assert result.repair_history == []
     assert len(model.calls) == 1
+    persisted = orchestrator.get(result.task_id)
+    assert persisted is not None
+    assert persisted.scratchpad["edit_application_metrics"] == {
+        "strategies": {"line_range": 1},
+        "failure_codes": {},
+    }
+    code_events = [event for event in result.trace if event.node == "code"]
+    assert code_events[0].details["edit_strategies"] == {"line_range": 1}
     assert "+    return left + right" in orchestrator.diff(result.task_id)
 
 

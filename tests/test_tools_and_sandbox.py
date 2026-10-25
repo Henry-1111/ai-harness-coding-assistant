@@ -232,6 +232,32 @@ def test_apply_edits_supports_sequential_edits_to_same_file(tmp_path: Path):
     assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
         "first = 10\nsecond = 20\n"
     )
+    assert context.audit_events == [
+        {"tool": "apply_edits", "path": "app.py", "strategy": "exact_anchor"},
+        {"tool": "apply_edits", "path": "app.py", "strategy": "exact_anchor"},
+    ]
+
+
+def test_apply_edits_audits_line_range_only_after_complete_batch(tmp_path: Path):
+    (tmp_path / "app.py").write_text("value = 1\n", encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    apply_edits(
+        context,
+        [
+            FileEdit(
+                path="app.py",
+                old_text="value = 0",
+                new_text="value = 2",
+                start_line=1,
+                end_line=1,
+            )
+        ],
+    )
+
+    assert context.audit_events == [
+        {"tool": "apply_edits", "path": "app.py", "strategy": "line_range"}
+    ]
 
 
 def test_apply_edit_enforces_scope(tmp_path: Path):
