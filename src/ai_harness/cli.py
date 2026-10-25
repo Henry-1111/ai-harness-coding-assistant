@@ -275,6 +275,14 @@ def build_parser() -> argparse.ArgumentParser:
     agent_evaluate.add_argument("dataset")
     agent_evaluate.add_argument("--split", choices=["train", "validation", "test"])
     agent_evaluate.add_argument("--repetitions", type=int, default=1)
+    agent_evaluate.add_argument(
+        "--approve-trusted-fixtures",
+        action="store_true",
+        help=(
+            "Record and approve governance gates during an explicitly trusted local "
+            "fixture benchmark"
+        ),
+    )
     agent_evaluate.add_argument("--output", help="Write the JSON report to this path")
 
     runtime_evaluate = subparsers.add_parser(
@@ -356,6 +364,18 @@ def run_agent_benchmark(args: argparse.Namespace) -> str:
             started = time.monotonic()
             try:
                 result = orchestrator.run(request)
+                if (
+                    args.approve_trusted_fixtures
+                    and result.status == TaskStatus.NEEDS_INPUT
+                    and result.approval is not None
+                    and result.approval.status == "pending"
+                ):
+                    result = orchestrator.decide_approval(
+                        result.task_id,
+                        approved=True,
+                        actor="benchmark-runner",
+                        note="Explicitly trusted frozen local evaluation fixture",
+                    )
                 duration_ms = int((time.monotonic() - started) * 1000)
                 usage = model.usage_snapshot()
                 recall, precision = changed_path_metrics(

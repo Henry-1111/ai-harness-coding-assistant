@@ -46,6 +46,7 @@ Docker cases assert the generated isolation policy; they do not constitute a con
 
 - Dataset: `agent_cases.json`, 30 deterministic defect tasks.
 - Run the same frozen dataset against single-agent and multi-agent variants with the same model, Gateway, temperature, and infrastructure.
+- For this reviewed local fixture only, pass `--approve-trusted-fixtures` so high-risk labels are recorded and explicitly approved instead of counted as coding failures. Never use this switch for an untrusted or external repository.
 - Use at least three repetitions. Variant order is counterbalanced between repetitions.
 - Preserve failed runs and null token observations; do not replace missing provider usage with estimated tokens.
 - Report the dataset SHA-256, model and Gateway configuration, repetition count, success rate, latency, model calls, provider tokens, repair rounds, and changed-path Recall/Precision.

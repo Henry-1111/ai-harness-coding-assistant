@@ -28,6 +28,55 @@ def test_apply_edit_requires_unique_old_text(tmp_path: Path):
         apply_edit(context, FileEdit(path="app.py", old_text="value = 1", new_text="value = 2"))
 
 
+def test_apply_edit_relocates_unique_numbered_retrieval_snippet(tmp_path: Path):
+    (tmp_path / "app.py").write_text(
+        "def answer():\n    return 41\n", encoding="utf-8"
+    )
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    apply_edit(
+        context,
+        FileEdit(
+            path="app.py",
+            old_text="10: def answer():\n11:     return 41\n",
+            new_text="10: def answer():\n11:     return 42\n",
+        ),
+    )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
+        "def answer():\n    return 42\n"
+    )
+
+
+def test_apply_edit_rejects_ambiguous_numbered_retrieval_snippet(tmp_path: Path):
+    (tmp_path / "app.py").write_text(
+        "value = 1\nvalue = 1\n", encoding="utf-8"
+    )
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    with pytest.raises(ToolExecutionError, match="exactly one"):
+        apply_edit(
+            context,
+            FileEdit(path="app.py", old_text="7: value = 1", new_text="value = 2"),
+        )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == (
+        "value = 1\nvalue = 1\n"
+    )
+
+
+def test_apply_edit_relocates_anchor_with_extra_outer_newlines(tmp_path: Path):
+    (tmp_path / "app.py").write_text("value = 1\n", encoding="utf-8")
+    context = ToolContext(Repository(tmp_path), {"write"}, [])
+
+    apply_edit(
+        context,
+        FileEdit(path="app.py", old_text="\nvalue = 1\n\n", new_text="value = 2"),
+    )
+
+    assert (tmp_path / "app.py").read_text(encoding="utf-8") == "value = 2\n"
+
+
 def test_apply_edit_enforces_scope(tmp_path: Path):
     (tmp_path / "app.py").write_text("value = 1\n", encoding="utf-8")
     context = ToolContext(Repository(tmp_path), {"write"}, ["src"])

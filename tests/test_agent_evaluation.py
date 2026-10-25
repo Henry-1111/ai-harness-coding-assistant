@@ -12,6 +12,7 @@ from ai_harness.agent_evaluation import (
     dataset_sha256,
     load_agent_cases,
 )
+from ai_harness.cli import build_parser
 from ai_harness.models import TaskStatus
 
 
@@ -116,6 +117,23 @@ def test_repeated_evaluation_counterbalances_variant_order():
     assert report.repetitions == 2
     assert report.observations_per_variant == 2
     assert {item.run_index for item in report.details} == {1, 2}
+
+
+def test_trusted_fixture_approval_is_an_explicit_benchmark_opt_in():
+    parser = build_parser()
+
+    default_args = parser.parse_args(["eval-agents", "repo", "cases.json"])
+    approved_args = parser.parse_args(
+        [
+            "eval-agents",
+            "repo",
+            "cases.json",
+            "--approve-trusted-fixtures",
+        ]
+    )
+
+    assert default_args.approve_trusted_fixtures is False
+    assert approved_args.approve_trusted_fixtures is True
 
 
 def test_dataset_loading_hash_and_changed_path_metrics(tmp_path: Path):

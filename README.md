@@ -561,6 +561,7 @@ ai-harness eval-agents \
   benchmarks/agent_cases.json \
   --split test \
   --repetitions 3 \
+  --approve-trusted-fixtures \
   --output benchmarks/agent-report.json
 ```
 
@@ -569,6 +570,10 @@ ai-harness eval-agents \
 `usage` 时才统计 Token；否则字段为 `null`，不会用字符数伪造 Token。报告同时写入冻结数据集的
 SHA-256，便于确认不同实验使用的是同一版本。`--repetitions` 会对每个 Case 重复运行，并在相邻轮次
 交换 single/multi 的先后顺序；报告记录 `run_index`、重复次数和每个 Variant 的观测数量。
+
+`--approve-trusted-fixtures` 只适用于仓库内这组经过审查的本地 Fixture。它不会关闭审批门：任务仍会先进入
+`needs_input` 并写入审批记录，然后由评测执行器以 `benchmark-runner` 身份显式批准。评测外的任务以及未提供
+该开关的评测仍必须由正常治理接口审批。
 
 这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用前，应固定模型、
 Gateway 配置与温度，至少重复 3 次，同时报告成功率、Token、时延和失败类型，而不能只挑最佳轮次。

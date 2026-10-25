@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import textwrap
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Set
 
@@ -68,6 +70,60 @@ def read_file(context: ToolContext, path: str) -> str:
     return context.repository.read_text(path)
 
 
+def _strip_numbered_snippet(text: str) -> str | None:
+    """Remove retrieval display line numbers from a copied multi-line snippet."""
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return None
+    numbers: List[int] = []
+    stripped: List[str] = []
+    for line in lines:
+        ending = "\n" if line.endswith("\n") else ""
+        content = line[:-1] if ending else line
+        if content.endswith("\r"):
+            content = content[:-1]
+        match = re.fullmatch(r"\s*(\d+): ?(.*)", content)
+        if match is None:
+            return None
+        numbers.append(int(match.group(1)))
+        stripped.append(match.group(2) + ending)
+    if any(right != left + 1 for left, right in zip(numbers, numbers[1:])):
+        return None
+    return "".join(stripped)
+
+
+def _unique_anchor(original: str, old_text: str) -> tuple[str | None, int]:
+    occurrences = original.count(old_text)
+    if occurrences == 1:
+        return old_text, occurrences
+    if occurrences > 1:
+        return None, occurrences
+
+    candidates: List[str] = []
+    numbered = _strip_numbered_snippet(old_text)
+    if numbered is not None:
+        candidates.append(numbered)
+    normalized_newlines = old_text.replace("\r\n", "\n").replace("\r", "\n")
+    candidates.extend(
+        [
+            normalized_newlines,
+            normalized_newlines.strip("\n"),
+            textwrap.dedent(normalized_newlines),
+        ]
+    )
+    seen = {old_text}
+    ambiguous = 0
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        candidate_occurrences = original.count(candidate)
+        if candidate_occurrences == 1:
+            return candidate, candidate_occurrences
+        ambiguous = max(ambiguous, candidate_occurrences)
+    return None, ambiguous
+
+
 def apply_edit(context: ToolContext, edit: FileEdit) -> str:
     path = edit.path
     if not context.permits_path(path):
@@ -77,12 +133,17 @@ def apply_edit(context: ToolContext, edit: FileEdit) -> str:
         original = target.read_text(encoding="utf-8")
         if edit.old_text == "":
             raise ToolExecutionError("old_text must be non-empty for an existing file")
-        occurrences = original.count(edit.old_text)
-        if occurrences != 1:
+        anchor, occurrences = _unique_anchor(original, edit.old_text)
+        if anchor is None:
             raise ToolExecutionError(
                 f"expected exactly one old_text match in {path}, found {occurrences}"
             )
-        updated = original.replace(edit.old_text, edit.new_text, 1)
+        replacement = edit.new_text
+        if anchor != edit.old_text:
+            numbered_replacement = _strip_numbered_snippet(replacement)
+            if numbered_replacement is not None:
+                replacement = numbered_replacement
+        updated = original.replace(anchor, replacement, 1)
     else:
         if edit.old_text:
             raise ToolExecutionError("old_text must be empty when creating a file")
