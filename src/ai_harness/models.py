@@ -96,6 +96,25 @@ class RouteDecision(BaseModel):
     required_roles: List[AgentRole] = Field(default_factory=list)
 
 
+class CollaborationPolicy(BaseModel):
+    enabled: bool = False
+    strategy: Literal["single", "implementer_reviewer"] = "single"
+    reasons: List[str] = Field(default_factory=list)
+    max_rounds: int = Field(default=0, ge=0, le=3)
+    model_call_budget: int = Field(default=1, ge=1, le=6)
+
+    @model_validator(mode="after")
+    def consistent_budget(self) -> "CollaborationPolicy":
+        if self.enabled:
+            if self.strategy == "single" or self.max_rounds == 0:
+                raise ValueError("enabled collaboration requires a multi-agent strategy")
+            if self.model_call_budget < self.max_rounds * 2:
+                raise ValueError("model call budget must cover both agents in every round")
+        elif self.strategy != "single" or self.max_rounds != 0:
+            raise ValueError("disabled collaboration must use the single strategy")
+        return self
+
+
 class AgentAssignment(BaseModel):
     assignment_id: str
     step_id: str
@@ -329,6 +348,9 @@ class TaskState(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     normalized: Optional[NormalizedTask] = None
     route: Optional[RouteDecision] = None
+    collaboration_policy: CollaborationPolicy = Field(
+        default_factory=CollaborationPolicy
+    )
     plan: Optional[PlanDAG] = None
     assignments: List[AgentAssignment] = Field(default_factory=list)
     milestones: List[TaskMilestone] = Field(default_factory=list)
@@ -356,6 +378,9 @@ class TaskResult(BaseModel):
     status: TaskStatus
     normalized: Optional[NormalizedTask] = None
     route: Optional[RouteDecision] = None
+    collaboration_policy: CollaborationPolicy = Field(
+        default_factory=CollaborationPolicy
+    )
     milestones: List[TaskMilestone] = Field(default_factory=list)
     changed_files: List[str]
     verification: List[CommandResult]

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Literal, Optional
 
 from .models import (
     AgentAssignment,
     AgentRole,
+    CollaborationPolicy,
     NormalizedTask,
     PlanDAG,
     PlanStep,
@@ -144,6 +145,16 @@ class TaskRouter:
         "多个",
         "跨",
     )
+    COLLABORATION_MARKERS = (
+        "multiple",
+        "across",
+        "cross-module",
+        "cross module",
+        "多个",
+        "跨模块",
+        "跨文件",
+        "全链路",
+    )
 
     def __init__(self, normalizer: Optional[TaskNormalizer] = None) -> None:
         self.normalizer = normalizer or TaskNormalizer()
@@ -181,6 +192,62 @@ class TaskRouter:
         normalized = self.normalizer.normalize(request)
         return self.decide(normalized).requires_planning
 
+    def collaboration_policy(
+        self,
+        request: TaskRequest,
+        normalized: NormalizedTask,
+        route: RouteDecision,
+        mode: Literal["auto", "disabled", "forced"] = "auto",
+    ) -> CollaborationPolicy:
+        if mode == "disabled":
+            return CollaborationPolicy(
+                reasons=["collaboration explicitly disabled"],
+            )
+
+        max_rounds = min(2, request.max_replans + 1)
+        if mode == "forced":
+            return CollaborationPolicy(
+                enabled=True,
+                strategy="implementer_reviewer",
+                reasons=["collaboration explicitly forced"],
+                max_rounds=max_rounds,
+                model_call_budget=max_rounds * 2,
+            )
+
+        lowered = normalized.normalized_goal.lower()
+        cross_module = any(marker in lowered for marker in self.COLLABORATION_MARKERS)
+        multi_path_scope = (
+            len(request.file_scope) > 1 and route.route != RouteKind.FAST
+        )
+        broad_unbounded_scope = not request.file_scope and route.route in {
+            RouteKind.COMPLEX,
+            RouteKind.HUMAN_GATE,
+        }
+        high_risk = normalized.risk_level in {RiskLevel.HIGH, RiskLevel.CRITICAL}
+        migration = normalized.task_type == TaskType.MIGRATION
+        signals = {
+            "cross_module_goal": cross_module,
+            "multi_path_scope": multi_path_scope,
+            "broad_unbounded_scope": broad_unbounded_scope,
+            "high_risk": high_risk,
+            "migration": migration,
+        }
+        reasons = [name for name, present in signals.items() if present]
+        enabled = bool(reasons)
+        if not enabled:
+            return CollaborationPolicy(
+                reasons=[
+                    "single-agent route: no cross-module, multi-path, migration or high-risk signal"
+                ]
+            )
+        return CollaborationPolicy(
+            enabled=True,
+            strategy="implementer_reviewer",
+            reasons=reasons,
+            max_rounds=max_rounds,
+            model_call_budget=max_rounds * 2,
+        )
+
     def build_plan(
         self,
         request: TaskRequest,
@@ -214,7 +281,7 @@ class TaskRouter:
             )
             code_dependency = "plan"
         collaboration = (
-            route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}
+            self.collaboration_policy(request, normalized, route).enabled
             if collaboration is None
             else collaboration
         )

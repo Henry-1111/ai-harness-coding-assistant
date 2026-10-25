@@ -2,6 +2,7 @@ import pytest
 
 from ai_harness.models import (
     AgentRole,
+    CollaborationPolicy,
     PlanDAG,
     PlanStep,
     RiskLevel,
@@ -98,3 +99,67 @@ def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
         "verify",
         "review",
     ]
+
+
+def test_collaboration_policy_uses_explicit_complexity_signals(tmp_path):
+    router = TaskRouter()
+    single_file = TaskRequest(
+        repository=str(tmp_path),
+        goal="Refactor calculator implementation",
+        file_scope=["calculator.py"],
+    )
+    normalized = router.normalizer.normalize(single_file)
+    route = router.decide(normalized)
+
+    policy = router.collaboration_policy(single_file, normalized, route)
+
+    assert route.route == RouteKind.COMPLEX
+    assert policy.enabled is False
+    assert policy.strategy == "single"
+
+    cross_file = single_file.model_copy(
+        update={
+            "goal": "Refactor calculator across multiple modules",
+            "file_scope": ["calculator.py", "service.py"],
+        }
+    )
+    normalized = router.normalizer.normalize(cross_file)
+    route = router.decide(normalized)
+    policy = router.collaboration_policy(cross_file, normalized, route)
+
+    assert policy.enabled is True
+    assert policy.strategy == "implementer_reviewer"
+    assert policy.reasons == ["cross_module_goal", "multi_path_scope"]
+    assert policy.max_rounds == 2
+    assert policy.model_call_budget == 4
+
+
+def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
+    request = TaskRequest(
+        repository=str(tmp_path),
+        goal="Fix calculator behavior",
+        max_replans=3,
+    )
+    router = TaskRouter()
+    normalized = router.normalizer.normalize(request)
+    route = router.decide(normalized)
+
+    forced = router.collaboration_policy(request, normalized, route, "forced")
+    disabled = router.collaboration_policy(request, normalized, route, "disabled")
+
+    assert forced.enabled is True
+    assert forced.max_rounds == 2
+    assert forced.model_call_budget == 4
+    assert disabled == CollaborationPolicy(
+        reasons=["collaboration explicitly disabled"]
+    )
+
+
+def test_collaboration_policy_rejects_inconsistent_budget():
+    with pytest.raises(ValueError, match="cover both agents"):
+        CollaborationPolicy(
+            enabled=True,
+            strategy="implementer_reviewer",
+            max_rounds=2,
+            model_call_budget=3,
+        )

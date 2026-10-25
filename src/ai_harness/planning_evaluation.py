@@ -129,7 +129,13 @@ class PlanningEvaluator:
         )
         normalized = self.router.normalizer.normalize(request)
         route = self.router.decide(normalized)
-        plan = self.router.build_plan(request, normalized, route)
+        collaboration = self.router.collaboration_policy(request, normalized, route)
+        plan = self.router.build_plan(
+            request,
+            normalized,
+            route,
+            collaboration=collaboration.enabled,
+        )
         ordered = plan.topological_order()
         assignments = self.router.assignments(plan)
         step_ids = [step.id for step in ordered]
@@ -151,7 +157,7 @@ class PlanningEvaluator:
             step_ids,
             assignments=[assignment.step_id for assignment in assignments],
             requires_planning=route.requires_planning,
-            collaborative=route.route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE},
+            collaborative=collaboration.enabled,
         )
         if not structurally_valid:
             errors.append("plan_structurally_valid")

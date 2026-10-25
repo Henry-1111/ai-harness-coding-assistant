@@ -6,7 +6,7 @@ from conftest import ScriptedModel
 
 from ai_harness.mcp import MCPToolCatalog, MCPToolCatalogConfig
 from ai_harness.memory import MemoryLayer
-from ai_harness.models import TaskRequest, TaskStatus
+from ai_harness.models import RouteKind, TaskRequest, TaskStatus
 from ai_harness.orchestrator import ExecutionControl, HarnessOrchestrator
 from ai_harness.promotion import PromotionReceipt
 from ai_harness.sandbox import LocalCommandSandbox
@@ -642,6 +642,31 @@ def test_collaboration_can_be_disabled_for_complex_task(
     ]
 
 
+def test_single_file_refactor_uses_single_agent_policy(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel([successful_edit()])
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator implementation",
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert result.route is not None
+    assert result.route.route == RouteKind.COMPLEX
+    assert result.collaboration_policy.enabled is False
+    assert result.collaboration_history == []
+    assert len(model.calls) == 1
+
+
 def test_collaboration_can_be_forced_for_fast_task(
     tmp_path: Path, sample_repository: Path
 ):
@@ -668,6 +693,47 @@ def test_collaboration_can_be_forced_for_fast_task(
         "verify",
         "review",
     ]
+
+
+def test_collaboration_budget_falls_back_to_single_agent(
+    tmp_path: Path, sample_repository: Path
+):
+    model = ScriptedModel(
+        [
+            successful_edit(new="return left * right"),
+            successful_edit(new="return left * right"),
+            successful_edit(old="return left * right", new="return left / right"),
+            successful_edit(old="return left * right", new="return left / right"),
+            successful_edit(old="return left / right"),
+        ]
+    )
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator across multiple modules",
+            max_replans=2,
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    assert result.collaboration_policy.enabled is True
+    assert result.collaboration_policy.max_rounds == 2
+    assert len(result.collaboration_history) == 2
+    assert len(model.calls) == 5
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    assert state.scratchpad["collaboration_budget"] == {
+        "exhausted": True,
+        "used_rounds": 2,
+        "max_rounds": 2,
+        "fallback": "single",
+    }
 
 
 def test_insufficient_retrieval_can_enter_bounded_react_subgraph(

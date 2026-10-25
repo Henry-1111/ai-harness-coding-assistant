@@ -252,10 +252,15 @@ RepairPlan，并在下一轮显式注入 Coder。相同确定性失败第二次�
 
 ## 多 Agent 协作
 
-`complex` 和 `human_gate` 路由会把 Code 阶段展开为 `implementation → test_design → code`：
-Implementer 先生成候选修改，Test/Integrator 再依据验收条件、测试缺口和候选冲突生成唯一的最终决策。
-候选提案不会直接写文件；只有经过整合且不存在同一源文本竞争替换的最终编辑，才能进入权限受控的
-`apply_edits` 整批预检。快速和标准任务仍使用单 Coder 路径，避免额外模型调用。
+多 Agent 不再仅由 `complex` 标签直接触发。`auto` 策略会综合跨模块目标、多路径范围、迁移、高风险和
+未限定范围的复杂任务；没有这些协作收益信号时，即使是单文件重构也走单 Coder，避免无意义地增加 Token
+与尾延迟。`forced` 和 `disabled` 模式仍可用于 A/B 评测。
+
+启用后，Code 阶段展开为 `implementation → test_design → code`：Implementer 先生成候选修改，
+Test/Integrator 再依据验收条件、测试缺口和候选冲突生成唯一最终决策。协作策略会持久化启用原因、最大轮数
+和模型调用预算；默认最多两轮，每轮固定两个角色调用。预算耗尽后，后续自愈自动降级为单 Coder，而不是
+无限重复双 Agent。候选提案不会直接写文件；只有经过整合且不存在竞争替换的最终编辑，才能进入
+`apply_edits` 整批预检。
 
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 
@@ -495,7 +500,7 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 
 - 必须包含 Scout、Code、Verify 和 Review；
 - Standard/Complex/Human Gate 必须包含 Plan，Fast Route 不应产生多余 Plan；
-- Complex/Human Gate 必须包含 Implementer 与 Test/Integrator 协作步骤；
+- 具有跨模块、多路径、迁移或高风险信号的任务必须包含 Implementer 与 Test/Integrator 协作步骤；
 - DAG 必须无环、依赖顺序正确，且每个 Step 都有且只有一个 Assignment。
 
 ```bash

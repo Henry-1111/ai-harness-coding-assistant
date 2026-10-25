@@ -136,6 +136,14 @@ export interface RouteDecision {
   required_roles: Array<"scout" | "planner" | "coder" | "reviewer">;
 }
 
+export interface CollaborationPolicy {
+  enabled: boolean;
+  strategy: "single" | "implementer_reviewer";
+  reasons: string[];
+  max_rounds: number;
+  model_call_budget: number;
+}
+
 export interface TaskMilestone {
   code: `CP${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
   title: string;
@@ -149,6 +157,7 @@ export interface TaskResult {
   status: TaskStatus;
   normalized?: NormalizedTask;
   route?: RouteDecision;
+  collaboration_policy: CollaborationPolicy;
   milestones: TaskMilestone[];
   changed_files: string[];
   verification: CommandResult[];

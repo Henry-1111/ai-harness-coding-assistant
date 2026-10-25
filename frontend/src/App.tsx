@@ -69,6 +69,18 @@ const splitLines = (value: string): string[] =>
 const wait = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
+const collaborationReasonLabel = (reason: string): string => ({
+  cross_module_goal: "跨模块任务",
+  multi_path_scope: "涉及多个路径",
+  broad_unbounded_scope: "复杂任务尚未限定范围",
+  high_risk: "高风险变更",
+  migration: "迁移任务",
+  "collaboration explicitly forced": "已强制启用",
+  "collaboration explicitly disabled": "已手动关闭",
+  "single-agent route: no cross-module, multi-path, migration or high-risk signal":
+    "未发现需要协作的复杂信号",
+})[reason] ?? reason;
+
 export default function App() {
   const [form] = Form.useForm<FormValues>();
   const [running, setRunning] = useState(false);
@@ -528,6 +540,27 @@ export default function App() {
                       {result.normalized.requires_human_approval && (
                         <Tag color="red">需要人工审批</Tag>
                       )}
+                    </Space>
+                  </div>
+                )}
+                {result.collaboration_policy && (
+                  <div className="routing-summary">
+                    <Text strong>Agent 协作策略</Text>
+                    <Space wrap>
+                      <Tag color={result.collaboration_policy.enabled ? "cyan" : "green"}>
+                        {result.collaboration_policy.enabled
+                          ? "Implementer + Reviewer"
+                          : "单 Agent"}
+                      </Tag>
+                      {result.collaboration_policy.enabled && (
+                        <>
+                          <Tag>最多 {result.collaboration_policy.max_rounds} 轮</Tag>
+                          <Tag>调用预算 {result.collaboration_policy.model_call_budget}</Tag>
+                        </>
+                      )}
+                      {result.collaboration_policy.reasons.map((reason) => (
+                        <Tag key={reason}>{collaborationReasonLabel(reason)}</Tag>
+                      ))}
                     </Space>
                   </div>
                 )}

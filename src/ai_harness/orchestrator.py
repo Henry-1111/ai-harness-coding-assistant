@@ -36,7 +36,6 @@ from .models import (
     MilestoneCode,
     MilestoneStatus,
     ReviewFinding,
-    RouteKind,
     TaskMilestone,
     TaskRequest,
     TaskResult,
@@ -122,7 +121,9 @@ class HarnessOrchestrator:
         self.tenant_id = tenant_id
         if collaboration_mode not in {"auto", "disabled", "forced"}:
             raise ValueError("collaboration_mode must be auto, disabled or forced")
-        self.collaboration_mode = collaboration_mode
+        self.collaboration_mode: Literal["auto", "disabled", "forced"] = (
+            collaboration_mode
+        )
         self.workspace_store = workspace_store
         self.promotion_publisher = promotion_publisher
         self.memory = memory_store or LayeredMemoryStore(self.data_directory / "memory.sqlite3")
@@ -154,11 +155,17 @@ class HarnessOrchestrator:
         )
         normalized = self.router.normalizer.normalize(request)
         route = self.router.decide(normalized)
+        collaboration_policy = self.router.collaboration_policy(
+            request,
+            normalized,
+            route,
+            self.collaboration_mode,
+        )
         plan = self.router.build_plan(
             request,
             normalized,
             route,
-            collaboration=self._should_collaborate(route.route),
+            collaboration=collaboration_policy.enabled,
         )
         state = TaskState(
             task_id=task_id,
@@ -166,6 +173,7 @@ class HarnessOrchestrator:
             status=TaskStatus.RUNNING,
             normalized=normalized,
             route=route,
+            collaboration_policy=collaboration_policy,
             plan=plan,
             assignments=self.router.assignments(plan),
             scratchpad={
@@ -802,7 +810,12 @@ class HarnessOrchestrator:
             )
         repair_plan = task.repair_history[-1] if task.repair_history else None
         collaboration_turn = None
-        if task.route and self._should_collaborate(task.route.route):
+        collaboration_policy = task.collaboration_policy
+        within_collaboration_budget = (
+            collaboration_policy.enabled
+            and len(task.collaboration_history) < collaboration_policy.max_rounds
+        )
+        if within_collaboration_budget:
             self._set_assignment_status(task, "implementation", "running")
             self._set_assignment_status(task, "test_design", "running")
             try:
@@ -823,6 +836,13 @@ class HarnessOrchestrator:
             task.collaboration_history.append(collaboration_turn)
             decision = collaboration_turn.integrated_decision
         else:
+            if collaboration_policy.enabled:
+                task.scratchpad["collaboration_budget"] = {
+                    "exhausted": True,
+                    "used_rounds": len(task.collaboration_history),
+                    "max_rounds": collaboration_policy.max_rounds,
+                    "fallback": "single",
+                }
             decision = self.coder.propose(
                 task.request,
                 task.context,
@@ -1115,7 +1135,10 @@ class HarnessOrchestrator:
             "CP3",
             "Plan DAG completed and structurally validated",
             "completed",
-            {"steps": [step.id for step in ordered_steps]},
+            {
+                "steps": [step.id for step in ordered_steps],
+                "collaboration_policy": task.collaboration_policy.model_dump(mode="json"),
+            },
         )
         self._record_milestone(
             task,
@@ -1261,13 +1284,6 @@ class HarnessOrchestrator:
         identity = f"{tenant_id}:{Path(repository).resolve()}"
         return sha256(identity.encode()).hexdigest()[:20]
 
-    def _should_collaborate(self, route: RouteKind) -> bool:
-        if self.collaboration_mode == "forced":
-            return True
-        if self.collaboration_mode == "disabled":
-            return False
-        return route in {RouteKind.COMPLEX, RouteKind.HUMAN_GATE}
-
     @staticmethod
     def _result(state: TaskState) -> TaskResult:
         return TaskResult(
@@ -1275,6 +1291,7 @@ class HarnessOrchestrator:
             status=state.status,
             normalized=state.normalized,
             route=state.route,
+            collaboration_policy=state.collaboration_policy,
             milestones=state.milestones,
             changed_files=state.changed_files,
             verification=state.verification,
