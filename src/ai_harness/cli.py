@@ -13,9 +13,12 @@ from .agent_evaluation import (
     AgentBenchmarkCase,
     AgentBenchmarkEvaluator,
     AgentBenchmarkObservation,
+    AgentBenchmarkReport,
+    aggregate_agent_reports,
     changed_path_metrics,
     dataset_sha256,
     load_agent_cases,
+    render_agent_aggregate_markdown,
 )
 from .agents import OpenAICompatibleModel
 from .api import create_app
@@ -285,6 +288,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_evaluate.add_argument("--output", help="Write the JSON report to this path")
 
+    agent_summary = subparsers.add_parser(
+        "summarize-agent-reports",
+        help="Aggregate compatible agent benchmark JSON reports",
+    )
+    agent_summary.add_argument("reports", nargs="+")
+    agent_summary.add_argument("--output", help="Write the aggregate JSON report")
+    agent_summary.add_argument(
+        "--markdown-output", help="Write a human-readable Markdown report"
+    )
+
     runtime_evaluate = subparsers.add_parser(
         "eval-runtime",
         help="Benchmark durable queue latency, throughput, concurrency and idempotency",
@@ -451,6 +464,21 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         report = run_agent_benchmark(args)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "summarize-agent-reports":
+        reports = [
+            AgentBenchmarkReport.model_validate_json(Path(path).read_text(encoding="utf-8"))
+            for path in args.reports
+        ]
+        aggregate = aggregate_agent_reports(reports)
+        report = aggregate.model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        if args.markdown_output:
+            Path(args.markdown_output).write_text(
+                render_agent_aggregate_markdown(aggregate), encoding="utf-8"
+            )
         print(report)
         return
     if args.command == "eval-runtime":

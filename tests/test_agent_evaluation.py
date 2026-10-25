@@ -8,9 +8,11 @@ from ai_harness.agent_evaluation import (
     AgentBenchmarkCase,
     AgentBenchmarkEvaluator,
     AgentBenchmarkObservation,
+    aggregate_agent_reports,
     changed_path_metrics,
     dataset_sha256,
     load_agent_cases,
+    render_agent_aggregate_markdown,
 )
 from ai_harness.cli import build_parser
 from ai_harness.models import TaskStatus
@@ -119,6 +121,83 @@ def test_repeated_evaluation_counterbalances_variant_order():
     assert {item.run_index for item in report.details} == {1, 2}
 
 
+def test_aggregate_reports_separates_provider_and_agent_failures():
+    cases = [AgentBenchmarkCase(id="case-a", goal="Fix the repeated calculator defect")]
+
+    def first_runner(case, variant, run_index):
+        item = observation(
+            case.id,
+            variant,
+            status=TaskStatus.SUCCEEDED,
+            duration_ms=100 if variant == "single" else 200,
+            model_calls=1 if variant == "single" else 2,
+            total_tokens=20 if variant == "single" else 40,
+        )
+        if variant == "multi":
+            item.status = TaskStatus.FAILED
+            item.error = "ReadTimeout: timed out"
+            item.total_tokens = None
+        return item
+
+    def second_runner(case, variant, run_index):
+        item = observation(
+            case.id,
+            variant,
+            status=TaskStatus.SUCCEEDED,
+            duration_ms=300 if variant == "single" else 400,
+            model_calls=1 if variant == "single" else 2,
+            total_tokens=30 if variant == "single" else 50,
+        )
+        if variant == "single":
+            item.status = TaskStatus.FAILED
+            item.error = "The proposed edit batch could not be applied safely"
+        return item
+
+    evaluator = AgentBenchmarkEvaluator()
+    first = evaluator.evaluate(cases, first_runner, dataset_hash="frozen-dataset")
+    second = evaluator.evaluate(cases, second_runner, dataset_hash="frozen-dataset")
+
+    report = aggregate_agent_reports([first, second])
+
+    assert report.runs == 2
+    assert report.observations_per_variant == 2
+    assert report.single.raw_success_rate == 0.5
+    assert report.single.provider_failures == 0
+    assert report.single.agent_failures == 1
+    assert report.single.failure_classes == {"edit_application": 1}
+    assert report.multi.raw_success_rate == 0.5
+    assert report.multi.provider_failures == 1
+    assert report.multi.agent_failures == 0
+    assert report.multi.provider_adjusted_success_rate == 1.0
+    assert report.multi.known_token_observations == 1
+    assert report.multi.mean_known_tokens == 50.0
+    assert [run.run_index for run in report.per_run] == [1, 2]
+    markdown = render_agent_aggregate_markdown(report)
+    assert "Provider-adjusted success" in markdown
+    assert "`provider_failure`: 1" in markdown
+
+
+def test_aggregate_reports_rejects_mismatched_datasets():
+    case = AgentBenchmarkCase(id="case-a", goal="Fix the repeated calculator defect")
+
+    def runner(current_case, variant, run_index):
+        return observation(
+            current_case.id,
+            variant,
+            status=TaskStatus.SUCCEEDED,
+            duration_ms=10,
+            model_calls=1,
+            total_tokens=10,
+        )
+
+    evaluator = AgentBenchmarkEvaluator()
+    first = evaluator.evaluate([case], runner, dataset_hash="first")
+    second = evaluator.evaluate([case], runner, dataset_hash="second")
+
+    with pytest.raises(ValueError, match="different datasets"):
+        aggregate_agent_reports([first, second])
+
+
 def test_trusted_fixture_approval_is_an_explicit_benchmark_opt_in():
     parser = build_parser()
 
@@ -134,6 +213,24 @@ def test_trusted_fixture_approval_is_an_explicit_benchmark_opt_in():
 
     assert default_args.approve_trusted_fixtures is False
     assert approved_args.approve_trusted_fixtures is True
+
+
+def test_agent_report_summary_cli_accepts_json_and_markdown_outputs():
+    args = build_parser().parse_args(
+        [
+            "summarize-agent-reports",
+            "run-one.json",
+            "run-two.json",
+            "--output",
+            "aggregate.json",
+            "--markdown-output",
+            "aggregate.md",
+        ]
+    )
+
+    assert args.reports == ["run-one.json", "run-two.json"]
+    assert args.output == "aggregate.json"
+    assert args.markdown_output == "aggregate.md"
 
 
 def test_dataset_loading_hash_and_changed_path_metrics(tmp_path: Path):
