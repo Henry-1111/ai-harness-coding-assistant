@@ -188,6 +188,34 @@ def test_aggregate_reports_separates_provider_and_agent_failures():
     assert "single-agent execution achieved 50.00% end-to-end success" in markdown
 
 
+def test_wrapped_tls_disconnect_is_classified_as_provider_failure():
+    case = AgentBenchmarkCase(id="case-a", goal="Fix a defect")
+
+    def runner(current_case, variant, run_index):
+        item = observation(
+            current_case.id,
+            variant,
+            status=TaskStatus.FAILED,
+            duration_ms=10,
+            model_calls=1,
+            total_tokens=10,
+        )
+        item.error = (
+            "CollaborationRoleError: implementer proposal failed: "
+            "[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred"
+        )
+        return item
+
+    report = AgentBenchmarkEvaluator().evaluate([case], runner, dataset_hash="frozen")
+    aggregate = aggregate_agent_reports([report])
+
+    assert aggregate.single.provider_failures == 1
+    assert aggregate.multi.provider_failures == 1
+    assert aggregate.single.agent_failures == 0
+    assert aggregate.multi.agent_failures == 0
+    assert aggregate.multi.failure_classes == {"provider_failure": 1}
+
+
 def test_aggregate_reports_rejects_mismatched_datasets():
     case = AgentBenchmarkCase(id="case-a", goal="Fix the repeated calculator defect")
 

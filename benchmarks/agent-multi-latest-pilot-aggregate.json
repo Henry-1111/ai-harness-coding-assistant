@@ -1,0 +1,73 @@
+{
+  "generated_at": "2026-10-26T13:08:51.746296Z",
+  "dataset_sha256": "c4ae5c097670fce72928795b8a39719f20daef3c7e8556c9a1d0c833f3cd9d0e",
+  "cases": 10,
+  "runs": 1,
+  "observations_per_variant": 10,
+  "single": {
+    "observations": 10,
+    "successes": 0,
+    "raw_success_rate": 0.0,
+    "provider_failures": 7,
+    "agent_failures": 3,
+    "provider_adjusted_observations": 3,
+    "provider_adjusted_success_rate": 0.0,
+    "mean_duration_ms": 18482.1,
+    "p50_duration_ms": 37,
+    "p95_duration_ms": 62244,
+    "mean_model_calls": 1.3,
+    "known_token_observations": 3,
+    "known_total_tokens": 38149,
+    "mean_known_tokens": 12716.333,
+    "mean_changed_path_recall": 0.3,
+    "mean_changed_path_precision": 0.3,
+    "edit_strategies": {
+      "exact_anchor": 5
+    },
+    "edit_failure_codes": {
+      "anchor_not_unique": 1
+    },
+    "failure_classes": {
+      "edit_application": 1,
+      "provider_failure": 7,
+      "repeated_verification": 2
+    }
+  },
+  "multi": {
+    "observations": 10,
+    "successes": 0,
+    "raw_success_rate": 0.0,
+    "provider_failures": 7,
+    "agent_failures": 3,
+    "provider_adjusted_observations": 3,
+    "provider_adjusted_success_rate": 0.0,
+    "mean_duration_ms": 24289.6,
+    "p50_duration_ms": 69,
+    "p95_duration_ms": 70021,
+    "mean_model_calls": 4.7,
+    "known_token_observations": 1,
+    "known_total_tokens": 25892,
+    "mean_known_tokens": 25892.0,
+    "mean_changed_path_recall": 0.3,
+    "mean_changed_path_precision": 0.3,
+    "edit_strategies": {
+      "exact_anchor": 3
+    },
+    "edit_failure_codes": {
+      "anchor_not_unique": 3
+    },
+    "failure_classes": {
+      "edit_application": 3,
+      "provider_failure": 7
+    }
+  },
+  "per_run": [
+    {
+      "run_index": 1,
+      "single_success_rate": 0.0,
+      "multi_success_rate": 0.0,
+      "single_provider_failures": 7,
+      "multi_provider_failures": 7
+    }
+  ]
+}

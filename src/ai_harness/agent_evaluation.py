@@ -279,6 +279,7 @@ def _is_provider_failure(observation: AgentBenchmarkObservation) -> bool:
         "504 Gateway Timeout",
         "upstream_timeout",
         "upstream_connection_error",
+        "SSL: UNEXPECTED_EOF_WHILE_READING",
     )
     return any(marker in error for marker in markers)
 
