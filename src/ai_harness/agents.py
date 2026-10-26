@@ -5,7 +5,7 @@ import json
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional, Protocol
 
 import httpx
@@ -42,22 +42,35 @@ class TaskUsageAccumulator:
     reported_calls: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def record_request(self, request_chars: int) -> None:
+        with self._lock:
+            self.calls += 1
+            self.request_chars += request_chars
+
+    def record_usage(self, prompt_tokens: int, completion_tokens: int) -> None:
+        with self._lock:
+            self.reported_calls += 1
+            self.prompt_tokens += prompt_tokens
+            self.completion_tokens += completion_tokens
 
     def snapshot(self) -> ModelUsage:
-        complete = self.calls == self.reported_calls
-        prompt_tokens = self.prompt_tokens if complete else None
-        completion_tokens = self.completion_tokens if complete else None
-        return ModelUsage(
-            calls=self.calls,
-            request_chars=self.request_chars,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=(
-                prompt_tokens + completion_tokens
-                if prompt_tokens is not None and completion_tokens is not None
-                else None
-            ),
-        )
+        with self._lock:
+            complete = self.calls == self.reported_calls
+            prompt_tokens = self.prompt_tokens if complete else None
+            completion_tokens = self.completion_tokens if complete else None
+            return ModelUsage(
+                calls=self.calls,
+                request_chars=self.request_chars,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=(
+                    prompt_tokens + completion_tokens
+                    if prompt_tokens is not None and completion_tokens is not None
+                    else None
+                ),
+            )
 
 
 _TASK_USAGE: ContextVar[Optional[TaskUsageAccumulator]] = ContextVar(
@@ -99,8 +112,7 @@ class OpenAICompatibleModel:
         encoded_payload = json.dumps(payload, ensure_ascii=False)
         task_usage = _TASK_USAGE.get()
         if task_usage is not None:
-            task_usage.calls += 1
-            task_usage.request_chars += len(system) + len(encoded_payload)
+            task_usage.record_request(len(system) + len(encoded_payload))
         with self._usage_lock:
             self._calls += 1
             self._request_chars += len(system) + len(encoded_payload)
@@ -126,9 +138,7 @@ class OpenAICompatibleModel:
             completion_tokens = usage.get("completion_tokens")
             if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
                 if task_usage is not None:
-                    task_usage.reported_calls += 1
-                    task_usage.prompt_tokens += prompt_tokens
-                    task_usage.completion_tokens += completion_tokens
+                    task_usage.record_usage(prompt_tokens, completion_tokens)
                 with self._usage_lock:
                     self._reported_usage += 1
                     self._prompt_tokens += prompt_tokens

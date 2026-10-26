@@ -818,6 +818,7 @@ class HarnessOrchestrator:
         if within_collaboration_budget:
             self._set_assignment_status(task, "implementation", "running")
             self._set_assignment_status(task, "test_design", "running")
+            self._set_assignment_status(task, "integration", "running")
             try:
                 collaboration_turn = self.collaborative_coder.propose(
                     task.request,
@@ -830,9 +831,11 @@ class HarnessOrchestrator:
             except Exception:
                 self._set_assignment_status(task, "implementation", "failed")
                 self._set_assignment_status(task, "test_design", "failed")
+                self._set_assignment_status(task, "integration", "failed")
                 raise
             self._set_assignment_status(task, "implementation", "completed")
             self._set_assignment_status(task, "test_design", "completed")
+            self._set_assignment_status(task, "integration", "completed")
             task.collaboration_history.append(collaboration_turn)
             decision = collaboration_turn.integrated_decision
         else:
@@ -932,8 +935,16 @@ class HarnessOrchestrator:
                             "candidate_edits": len(
                                 collaboration_turn.implementation_proposal.edits
                             ),
+                            "test_edits": len(
+                                collaboration_turn.test_proposal.edits
+                                if collaboration_turn.test_proposal
+                                else []
+                            ),
                             "integrated_edits": len(collaboration_turn.integrated_decision.edits),
                             "detected_conflicts": collaboration_turn.detected_conflicts,
+                            "parallel_proposals": collaboration_turn.parallel_proposals,
+                            "arbitrated": collaboration_turn.arbitrated,
+                            "model_calls": collaboration_turn.model_calls,
                         }
                         if collaboration_turn
                         else None

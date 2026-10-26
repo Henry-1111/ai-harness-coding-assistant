@@ -45,6 +45,7 @@ def test_planning_evaluator_reports_routing_and_plan_integrity() -> None:
         "plan",
         "implementation",
         "test_design",
+        "integration",
         "code",
         "verify",
         "review",

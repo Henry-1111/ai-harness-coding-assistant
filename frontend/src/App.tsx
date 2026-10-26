@@ -673,8 +673,10 @@ export default function App() {
                     <Space wrap>
                       {result.collaboration_history.map((turn) => (
                         <Tag key={turn.round} color={turn.detected_conflicts.length ? "orange" : "cyan"}>
-                          第 {turn.round} 轮：实现提案 {turn.implementation_proposal.edits.length} 项，
-                          整合后 {turn.integrated_decision.edits.length} 项
+                          第 {turn.round} 轮：并行实现 {turn.implementation_proposal.edits.length} 项，
+                          测试建议 {turn.test_proposal?.edits.length ?? 0} 项，整合后
+                          {turn.integrated_decision.edits.length} 项
+                          {turn.arbitrated ? "，已触发仲裁" : ""}
                         </Tag>
                       ))}
                     </Space>

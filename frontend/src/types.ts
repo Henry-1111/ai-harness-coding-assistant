@@ -82,12 +82,19 @@ export interface CollaborationTurn {
     summary: string;
     edits: Array<{ path: string; old_text: string; new_text: string }>;
   };
+  test_proposal?: {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  };
   integrated_decision: {
     summary: string;
     edits: Array<{ path: string; old_text: string; new_text: string }>;
   };
   detected_conflicts: string[];
-  participants: Array<"implementer" | "test_integrator">;
+  participants: Array<"implementer" | "test_integrator" | "test_specialist" | "arbiter">;
+  parallel_proposals: boolean;
+  arbitrated: boolean;
+  model_calls: number;
   created_at: string;
 }
 

@@ -274,11 +274,17 @@ class CodingDecision(BaseModel):
 class CollaborationTurn(BaseModel):
     round: int = Field(ge=1)
     implementation_proposal: CodingDecision
+    test_proposal: Optional[CodingDecision] = None
     integrated_decision: CodingDecision
     detected_conflicts: List[str] = Field(default_factory=list)
-    participants: List[Literal["implementer", "test_integrator"]] = Field(
-        default_factory=lambda: ["implementer", "test_integrator"]
+    participants: List[
+        Literal["implementer", "test_integrator", "test_specialist", "arbiter"]
+    ] = Field(
+        default_factory=lambda: ["implementer", "test_specialist"]
     )
+    parallel_proposals: bool = False
+    arbitrated: bool = False
+    model_calls: int = Field(default=2, ge=2, le=3)
     created_at: datetime = Field(default_factory=utc_now)
 
 

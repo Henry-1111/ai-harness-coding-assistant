@@ -188,7 +188,7 @@ class PlanningEvaluator:
             return False
         if ("plan" in steps) != requires_planning:
             return False
-        collaboration_steps = {"implementation", "test_design"}
+        collaboration_steps = {"implementation", "test_design", "integration"}
         if collaboration_steps.issubset(steps) != collaborative:
             return False
         positions = {step: index for index, step in enumerate(steps)}

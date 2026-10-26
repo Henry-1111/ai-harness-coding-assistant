@@ -597,6 +597,7 @@ def test_complex_task_executes_plan_node_and_records_assignments(
         "plan",
         "implementation",
         "test_design",
+        "integration",
         "code",
         "verify",
         "review",
@@ -605,7 +606,7 @@ def test_complex_task_executes_plan_node_and_records_assignments(
     assert len(result.collaboration_history) == 1
     assert result.collaboration_history[0].participants == [
         "implementer",
-        "test_integrator",
+        "test_specialist",
     ]
     assert len(model.calls) == 2
 
@@ -689,6 +690,7 @@ def test_collaboration_can_be_forced_for_fast_task(
         "scout",
         "implementation",
         "test_design",
+        "integration",
         "code",
         "verify",
         "review",

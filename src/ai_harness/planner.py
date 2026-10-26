@@ -211,7 +211,7 @@ class TaskRouter:
                 strategy="implementer_reviewer",
                 reasons=["collaboration explicitly forced"],
                 max_rounds=max_rounds,
-                model_call_budget=max_rounds * 2,
+                model_call_budget=max_rounds * 3,
             )
 
         lowered = normalized.normalized_goal.lower()
@@ -245,7 +245,7 @@ class TaskRouter:
             strategy="implementer_reviewer",
             reasons=reasons,
             max_rounds=max_rounds,
-            model_call_budget=max_rounds * 2,
+            model_call_budget=max_rounds * 3,
         )
 
     def build_plan(
@@ -299,16 +299,25 @@ class TaskRouter:
                     ),
                     PlanStep(
                         id="test_design",
-                        title="Review test coverage and integration conflicts",
+                        title="Independently propose tests and integration safeguards",
                         role=AgentRole.REVIEWER,
-                        depends_on=["implementation"],
-                        inputs=["implementation_proposal", "acceptance_criteria"],
+                        depends_on=[code_dependency],
+                        inputs=["context", "goal", "acceptance_criteria"],
+                        outputs=["test_proposal"],
+                        acceptance=["Test proposal is scoped and independently derived"],
+                    ),
+                    PlanStep(
+                        id="integration",
+                        title="Merge proposals or arbitrate conflicting edits",
+                        role=AgentRole.REVIEWER,
+                        depends_on=["implementation", "test_design"],
+                        inputs=["implementation_proposal", "test_proposal"],
                         outputs=["integrated_decision"],
                         acceptance=["Final proposal is conflict-free and test-aware"],
                     ),
                 ]
             )
-            code_dependency = "test_design"
+            code_dependency = "integration"
         steps.extend(
             [
                 PlanStep(

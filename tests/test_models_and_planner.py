@@ -3,6 +3,7 @@ import pytest
 from ai_harness.models import (
     AgentRole,
     CollaborationPolicy,
+    CollaborationTurn,
     PlanDAG,
     PlanStep,
     RiskLevel,
@@ -86,6 +87,7 @@ def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
         "plan",
         "implementation",
         "test_design",
+        "integration",
         "code",
         "verify",
         "review",
@@ -95,6 +97,7 @@ def test_complex_route_inserts_plan_node_and_assigns_every_step(tmp_path):
         "plan",
         "implementation",
         "test_design",
+        "integration",
         "code",
         "verify",
         "review",
@@ -131,7 +134,7 @@ def test_collaboration_policy_uses_explicit_complexity_signals(tmp_path):
     assert policy.strategy == "implementer_reviewer"
     assert policy.reasons == ["cross_module_goal", "multi_path_scope"]
     assert policy.max_rounds == 2
-    assert policy.model_call_budget == 4
+    assert policy.model_call_budget == 6
 
 
 def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
@@ -149,7 +152,7 @@ def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
 
     assert forced.enabled is True
     assert forced.max_rounds == 2
-    assert forced.model_call_budget == 4
+    assert forced.model_call_budget == 6
     assert disabled == CollaborationPolicy(
         reasons=["collaboration explicitly disabled"]
     )
@@ -163,3 +166,20 @@ def test_collaboration_policy_rejects_inconsistent_budget():
             max_rounds=2,
             model_call_budget=3,
         )
+
+
+def test_collaboration_turn_loads_legacy_serialized_state():
+    decision = {"summary": "legacy proposal", "edits": []}
+
+    turn = CollaborationTurn.model_validate(
+        {
+            "round": 1,
+            "implementation_proposal": decision,
+            "integrated_decision": decision,
+            "participants": ["implementer", "test_integrator"],
+        }
+    )
+
+    assert turn.test_proposal is None
+    assert turn.parallel_proposals is False
+    assert turn.arbitrated is False

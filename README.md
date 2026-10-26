@@ -40,7 +40,7 @@ AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。�
 - 受限 ReAct 知识子图：最多 3 次工具调用、Pydantic 参数校验、工具/路径权限过滤、只读 MCP 适配；
 - 基于文件名、符号、依赖与文本命中的渐进式上下文检索；
 - 带 Step ID、依赖、输入、输出和验收条件的 Plan DAG；
-- 复杂任务由 Implementer 与 Test/Integrator 两个 Agent 形成提案、冲突检查和整合决策；
+- 复杂任务由 Implementer 与 Test Specialist 并行形成提案，本地合并并在冲突时调用 Arbiter；
 - LangGraph 驱动的 Scout、Coder、Verify、Reviewer 工作流；
 - OpenAI-compatible JSON 模型适配器；
 - 整批编辑预检、唯一锚点重定位、目录穿越防护、文件范围和权限检查；
@@ -256,11 +256,11 @@ RepairPlan，并在下一轮显式注入 Coder。相同确定性失败第二次�
 未限定范围的复杂任务；没有这些协作收益信号时，即使是单文件重构也走单 Coder，避免无意义地增加 Token
 与尾延迟。`forced` 和 `disabled` 模式仍可用于 A/B 评测。
 
-启用后，Code 阶段展开为 `implementation → test_design → code`：Implementer 先生成候选修改，
-Test/Integrator 再依据验收条件、测试缺口和候选冲突生成唯一最终决策。协作策略会持久化启用原因、最大轮数
-和模型调用预算；默认最多两轮，每轮固定两个角色调用。预算耗尽后，后续自愈自动降级为单 Coder，而不是
-无限重复双 Agent。候选提案不会直接写文件；只有经过整合且不存在竞争替换的最终编辑，才能进入
-`apply_edits` 整批预检。
+启用后，Code 阶段展开为 `implementation ∥ test_design → integration → code`：Implementer 与 Test
+Specialist 基于同一冻结上下文并行生成相互独立的实现和测试提案；没有竞争修改时由本地确定性合并，只有同一
+锚点或重叠行范围出现不同替换时才调用 Arbiter。协作策略会持久化启用原因、最大轮数和最坏情况模型调用预算；
+默认最多两轮，每轮两个并行角色，冲突时允许一次条件仲裁。预算耗尽后，后续自愈自动降级为单 Coder。
+候选提案不会直接写文件；只有经过整合且不存在竞争替换的最终编辑，才能进入 `apply_edits` 整批预检。
 
 需要启用 Python 定义跳转时安装可选 LSP 依赖：
 
@@ -500,7 +500,7 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 
 - 必须包含 Scout、Code、Verify 和 Review；
 - Standard/Complex/Human Gate 必须包含 Plan，Fast Route 不应产生多余 Plan；
-- 具有跨模块、多路径、迁移或高风险信号的任务必须包含 Implementer 与 Test/Integrator 协作步骤；
+- 具有跨模块、多路径、迁移或高风险信号的任务必须包含并行 Implementer、Test Specialist 与 Integration 步骤；
 - DAG 必须无环、依赖顺序正确，且每个 Step 都有且只有一个 Assignment。
 
 ```bash
