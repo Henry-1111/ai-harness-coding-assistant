@@ -72,6 +72,7 @@ class Settings:
     sandbox_image: str
     restricted_react_enabled: bool
     restricted_react_max_tool_calls: int
+    multi_proposal_enabled: bool
     mcp_catalog_path: str
     tenant_id: str
     auth_enabled: bool
@@ -145,6 +146,10 @@ class Settings:
             ),
             restricted_react_max_tool_calls=int(
                 os.getenv("AI_HARNESS_RESTRICTED_REACT_MAX_TOOL_CALLS", "3")
+            ),
+            multi_proposal_enabled=(
+                os.getenv("AI_HARNESS_MULTI_PROPOSAL_ENABLED", "false").lower()
+                in {"1", "true", "yes", "on"}
             ),
             mcp_catalog_path=os.getenv("AI_HARNESS_MCP_CATALOG_PATH", ""),
             tenant_id=os.getenv("AI_HARNESS_TENANT_ID", "local"),

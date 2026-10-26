@@ -218,6 +218,7 @@ def build_orchestrator(
         mcp_tool_catalog=mcp_tool_catalog,
         tenant_id=settings.tenant_id,
         collaboration_mode=collaboration_mode,
+        multi_proposal_enabled=settings.multi_proposal_enabled,
         workspace_store=workspace_store,
         promotion_publisher=promotion_publisher,
     )

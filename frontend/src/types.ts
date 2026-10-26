@@ -108,6 +108,21 @@ export interface CollaborationTurn {
     summary: string;
     edits: Array<{ path: string; old_text: string; new_text: string }>;
   }>;
+  original_proposals: Record<string, {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  }>;
+  competing_proposals: Record<string, {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  }>;
+  proposal_evaluations: Array<{
+    agent: string;
+    score: number;
+    valid: boolean;
+    reasons: string[];
+  }>;
+  selected_variants: Record<string, string>;
   created_at: string;
 }
 

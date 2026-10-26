@@ -99,6 +99,7 @@ class HarnessOrchestrator:
         mcp_tool_catalog: Optional[MCPToolCatalog] = None,
         tenant_id: str = "local",
         collaboration_mode: Literal["auto", "disabled", "forced"] = "auto",
+        multi_proposal_enabled: bool = False,
         workspace_store: Optional[WorkspaceSnapshotStore] = None,
         promotion_publisher: Optional[PromotionPublisher] = None,
     ) -> None:
@@ -124,6 +125,7 @@ class HarnessOrchestrator:
         self.collaboration_mode: Literal["auto", "disabled", "forced"] = (
             collaboration_mode
         )
+        self.multi_proposal_enabled = multi_proposal_enabled
         self.workspace_store = workspace_store
         self.promotion_publisher = promotion_publisher
         self.memory = memory_store or LayeredMemoryStore(self.data_directory / "memory.sqlite3")
@@ -845,6 +847,7 @@ class HarnessOrchestrator:
                         remaining_collaboration_calls,
                         collaboration_policy.max_parallel_agents * 2 + 1,
                     ),
+                    competition_enabled=self.multi_proposal_enabled,
                 )
             except Exception:
                 for step_id in collaboration_step_ids:
@@ -963,6 +966,11 @@ class HarnessOrchestrator:
                             "parallel_proposals": collaboration_turn.parallel_proposals,
                             "arbitrated": collaboration_turn.arbitrated,
                             "model_calls": collaboration_turn.model_calls,
+                            "proposal_evaluations": [
+                                item.model_dump(mode="json")
+                                for item in collaboration_turn.proposal_evaluations
+                            ],
+                            "selected_variants": collaboration_turn.selected_variants,
                             "assignments": [
                                 item.model_dump(mode="json")
                                 for item in collaboration_turn.assignments

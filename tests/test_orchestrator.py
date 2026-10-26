@@ -749,6 +749,54 @@ def test_dynamic_collaboration_steps_complete_with_bounded_agents(
     assert turn.model_calls == 4
 
 
+def test_opt_in_competing_proposals_select_before_verification(
+    tmp_path: Path, sample_repository: Path
+):
+    class CandidateModel:
+        def __init__(self):
+            self.calls = []
+            self.lock = Lock()
+
+        def complete_json(self, *, system, payload):
+            with self.lock:
+                self.calls.append({"system": system, "payload": payload})
+            if "independent test specialist" in system:
+                return empty_decision()
+            if payload.get("variant") == "independent_alternative":
+                return successful_edit()
+            return {
+                "summary": "A larger change",
+                "edits": [
+                    successful_edit(new="return left * right")["edits"][0],
+                    {
+                        "path": "calculator.py",
+                        "old_text": "def add(left, right):",
+                        "new_text": "def add(left, right):  # extra change",
+                    },
+                ],
+            }
+
+    model = CandidateModel()
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+        collaboration_mode="forced",
+        multi_proposal_enabled=True,
+    )
+
+    result = orchestrator.run(request_for(sample_repository, max_replans=0))
+
+    assert result.status == TaskStatus.SUCCEEDED
+    turn = result.collaboration_history[0]
+    assert turn.selected_variants == {"implementer": "implementer_alternative"}
+    assert turn.model_calls == 3
+    assert result.trace[-3].node == "code"
+    assert result.trace[-3].details["collaboration"]["selected_variants"] == (
+        turn.selected_variants
+    )
+
+
 def test_single_file_refactor_uses_single_agent_policy(
     tmp_path: Path, sample_repository: Path
 ):

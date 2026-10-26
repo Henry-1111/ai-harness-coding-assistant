@@ -90,6 +90,14 @@ def test_mcp_catalog_and_tenant_are_loaded_from_trusted_environment(monkeypatch)
     assert settings.tenant_id == "tenant-a"
 
 
+def test_multi_proposal_is_opt_in(monkeypatch):
+    monkeypatch.delenv("AI_HARNESS_MULTI_PROPOSAL_ENABLED", raising=False)
+    assert Settings.from_environment().multi_proposal_enabled is False
+
+    monkeypatch.setenv("AI_HARNESS_MULTI_PROPOSAL_ENABLED", "true")
+    assert Settings.from_environment().multi_proposal_enabled is True
+
+
 def test_job_worker_settings_are_configurable(monkeypatch):
     monkeypatch.setenv("AI_HARNESS_JOB_WORKERS", "4")
     monkeypatch.setenv("AI_HARNESS_JOB_POLL_INTERVAL_SECONDS", "0.5")

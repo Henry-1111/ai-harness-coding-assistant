@@ -296,6 +296,13 @@ class CollaborationRoleAssignment(BaseModel):
         return self
 
 
+class ProposalEvaluation(BaseModel):
+    agent: str
+    score: int
+    valid: bool
+    reasons: List[str] = Field(default_factory=list)
+
+
 class CollaborationTurn(BaseModel):
     round: int = Field(ge=1)
     implementation_proposal: CodingDecision
@@ -311,6 +318,10 @@ class CollaborationTurn(BaseModel):
     assignments: List[CollaborationRoleAssignment] = Field(default_factory=list)
     role_attempts: Dict[str, int] = Field(default_factory=dict)
     subtask_proposals: Dict[str, CodingDecision] = Field(default_factory=dict)
+    original_proposals: Dict[str, CodingDecision] = Field(default_factory=dict)
+    competing_proposals: Dict[str, CodingDecision] = Field(default_factory=dict)
+    proposal_evaluations: List[ProposalEvaluation] = Field(default_factory=list)
+    selected_variants: Dict[str, str] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 

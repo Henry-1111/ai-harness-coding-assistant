@@ -11,6 +11,7 @@ from .models import (
     CollaborationRoleAssignment,
     CollaborationTurn,
     FileEdit,
+    ProposalEvaluation,
     RepairPlan,
     SearchHit,
     TaskRequest,
@@ -72,6 +73,7 @@ or write outside file_scope."""
         repair_plan: Optional[RepairPlan] = None,
         max_parallel_agents: int = 4,
         call_budget: int = 9,
+        competition_enabled: bool = False,
     ) -> CollaborationTurn:
         assignments = self.role_assignments(
             request,
@@ -107,8 +109,18 @@ or write outside file_scope."""
             raise CollaborationRoleError(
                 "collaboration call budget cannot cover every initial subtask"
             )
+        competition_target = next(
+            (item for item in assignments if item.role == "implementer" and item.can_edit),
+            None,
+        )
+        compete = (
+            competition_enabled
+            and competition_target is not None
+            and len(assignments) < max_parallel_agents
+            and call_budget >= 2 * len(assignments) + 2
+        )
         with ThreadPoolExecutor(
-            max_workers=len(assignments),
+            max_workers=len(assignments) + int(compete),
             thread_name_prefix="ai-harness-agent",
         ) as pool:
             futures = {
@@ -120,11 +132,26 @@ or write outside file_scope."""
                 )
                 for assignment in assignments
             }
+            alternative_future = None
+            if compete and competition_target is not None:
+                alternative_future = pool.submit(
+                    copy_context().run,
+                    self.model.complete_json,
+                    system=self.IMPLEMENTER_SYSTEM,
+                    payload={
+                        **role_payloads[competition_target.agent],
+                        "variant": "independent_alternative",
+                        "variant_instruction": (
+                            "Independently devise a different minimal implementation. "
+                            "Do not assume or inspect the other candidate."
+                        ),
+                    },
+                )
             proposals: Dict[str, CodingDecision] = {}
             role_attempts: Dict[str, int] = {
                 assignment.agent: 1 for assignment in assignments
             }
-            model_calls = len(assignments)
+            model_calls = len(assignments) + int(compete)
             for assignment in assignments:
                 agent = assignment.agent
                 try:
@@ -160,6 +187,41 @@ or write outside file_scope."""
                             f"{agent} proposal failed after one isolated retry: {retry_exc}"
                         ) from retry_exc
                 proposals[agent] = proposal
+
+            competing_proposals: Dict[str, CodingDecision] = {}
+            proposal_evaluations: List[ProposalEvaluation] = []
+            selected_variants: Dict[str, str] = {}
+            original_proposals = dict(proposals)
+            if alternative_future is not None and competition_target is not None:
+                agent = competition_target.agent
+                primary = proposals[agent]
+                primary_evaluation = self.evaluate_proposal(agent, primary)
+                proposal_evaluations.append(primary_evaluation)
+                alternative_key = f"{agent}_alternative"
+                try:
+                    alternative = CodingDecision.model_validate(
+                        alternative_future.result()
+                    )
+                    self.validate_assignment(alternative, competition_target)
+                    alternative_evaluation = self.evaluate_proposal(
+                        alternative_key, alternative
+                    )
+                    competing_proposals[alternative_key] = alternative
+                except Exception as exc:
+                    alternative_evaluation = ProposalEvaluation(
+                        agent=alternative_key,
+                        score=0,
+                        valid=False,
+                        reasons=[f"candidate rejected: {type(exc).__name__}: {exc}"[:1000]],
+                    )
+                proposal_evaluations.append(alternative_evaluation)
+                selected_variants[agent] = agent
+                if alternative_evaluation.valid and (
+                    not primary_evaluation.valid
+                    or alternative_evaluation.score > primary_evaluation.score
+                ):
+                    proposals[agent] = competing_proposals[alternative_key]
+                    selected_variants[agent] = alternative_key
 
         implementation = self.merge_decisions(
             [
@@ -222,6 +284,44 @@ or write outside file_scope."""
             assignments=assignments,
             role_attempts=role_attempts,
             subtask_proposals=proposals,
+            original_proposals=original_proposals,
+            competing_proposals=competing_proposals,
+            proposal_evaluations=proposal_evaluations,
+            selected_variants=selected_variants,
+        )
+
+    @classmethod
+    def evaluate_proposal(cls, agent: str, proposal: CodingDecision) -> ProposalEvaluation:
+        """Rank structural patch risk and size, never claim semantic correctness."""
+        conflicts = cls.detect_conflicts(proposal.edits)
+        if conflicts:
+            return ProposalEvaluation(
+                agent=agent,
+                score=0,
+                valid=False,
+                reasons=conflicts,
+            )
+        changed_chars = sum(
+            len(edit.old_text) + len(edit.new_text) for edit in proposal.edits
+        )
+        new_files = sum(not edit.old_text for edit in proposal.edits)
+        score = max(
+            1,
+            100 - 5 * len(proposal.edits) - 8 * new_files
+            - min(40, changed_chars // 100),
+        )
+        if not proposal.edits:
+            score = 1
+        return ProposalEvaluation(
+            agent=agent,
+            score=score,
+            valid=True,
+            reasons=[
+                f"edits={len(proposal.edits)}",
+                f"new_files={new_files}",
+                f"changed_chars={changed_chars}",
+                "static risk/cost proxy; functional correctness requires verification",
+            ],
         )
 
     @staticmethod

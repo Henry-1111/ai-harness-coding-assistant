@@ -683,6 +683,12 @@ export default function App() {
                           测试建议 {turn.test_proposal?.edits.length ?? 0} 项，整合后
                           {turn.integrated_decision.edits.length} 项
                           {turn.arbitrated ? "，已触发仲裁" : ""}
+                          {Object.entries(turn.selected_variants ?? {}).map(
+                            ([agent, selected]) => `，${agent} 选用 ${selected}`
+                          ).join("")}
+                          {(turn.proposal_evaluations ?? []).map(
+                            (evaluation) => `，${evaluation.agent} 静态分 ${evaluation.score}`
+                          ).join("")}
                           {Object.values(turn.role_attempts ?? {}).some((count) => count > 1)
                             ? "，已隔离重试失败角色"
                             : ""}

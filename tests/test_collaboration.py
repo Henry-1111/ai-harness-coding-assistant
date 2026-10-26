@@ -282,6 +282,103 @@ def test_dynamic_subtasks_are_capped_and_merged(tmp_path: Path):
     }
 
 
+def test_competing_proposals_select_lower_risk_valid_candidate(tmp_path: Path):
+    class CandidateModel:
+        def __init__(self):
+            self.calls = []
+            self.lock = Lock()
+
+        def complete_json(self, *, system, payload):
+            with self.lock:
+                self.calls.append({"system": system, "payload": payload})
+            if "independent test specialist" in system:
+                return decision([])
+            if payload.get("variant") == "independent_alternative":
+                return decision([edit("return left + right")])
+            return decision([
+                edit("return left + right"),
+                {
+                    "path": "calculator.py",
+                    "old_text": "def add(left, right):",
+                    "new_text": "def add(left, right):  # revised",
+                },
+            ])
+
+    model = CandidateModel()
+    turn = CollaborativeCoder(model).propose(
+        TaskRequest(
+            repository=str(tmp_path),
+            goal="Refactor calculator architecture across modules",
+            file_scope=["calculator.py", "tests/test_calculator.py"],
+        ),
+        [],
+        round_number=1,
+        competition_enabled=True,
+    )
+
+    assert turn.model_calls == 3
+    assert turn.selected_variants == {
+        "implementer": "implementer_alternative"
+    }
+    assert len(turn.implementation_proposal.edits) == 1
+    assert turn.proposal_evaluations[0].score < turn.proposal_evaluations[1].score
+    assert len(turn.competing_proposals) == 1
+    assert len(turn.original_proposals["implementer"].edits) == 2
+    assert len(turn.subtask_proposals["implementer"].edits) == 1
+
+
+def test_competing_proposal_outside_scope_is_rejected_without_extra_retry(
+    tmp_path: Path,
+):
+    class CandidateModel:
+        def __init__(self):
+            self.calls = []
+
+        def complete_json(self, *, system, payload):
+            self.calls.append(payload)
+            if "independent test specialist" in system:
+                return decision([])
+            if payload.get("variant"):
+                return decision([{"path": "secrets.txt", "old_text": "", "new_text": "x"}])
+            return decision([edit("return left + right")])
+
+    model = CandidateModel()
+    turn = CollaborativeCoder(model).propose(
+        TaskRequest(
+            repository=str(tmp_path),
+            goal="Refactor calculator across modules",
+            file_scope=["calculator.py"],
+        ),
+        [],
+        round_number=1,
+        competition_enabled=True,
+    )
+
+    assert turn.model_calls == 3
+    assert turn.selected_variants == {"implementer": "implementer"}
+    assert turn.proposal_evaluations[1].valid is False
+    assert len(model.calls) == 3
+
+
+def test_competition_respects_parallel_and_call_budget(tmp_path: Path):
+    model = RoleModel(decision([edit("return left + right")]), decision([]))
+    turn = CollaborativeCoder(model).propose(
+        TaskRequest(
+            repository=str(tmp_path),
+            goal="Refactor calculator across modules",
+            file_scope=["calculator.py"],
+        ),
+        [],
+        round_number=1,
+        max_parallel_agents=2,
+        call_budget=5,
+        competition_enabled=True,
+    )
+
+    assert turn.model_calls == 2
+    assert turn.proposal_evaluations == []
+
+
 def test_unresolved_arbiter_conflict_is_rejected(tmp_path: Path):
     conflict = decision([edit("return left + right"), edit("return sum((left, right))")])
     model = RoleModel(conflict, decision([]), conflict)
