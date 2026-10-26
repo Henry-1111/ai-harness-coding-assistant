@@ -95,6 +95,13 @@ export interface CollaborationTurn {
   parallel_proposals: boolean;
   arbitrated: boolean;
   model_calls: number;
+  assignments: Array<{
+    agent: "implementer" | "test_specialist";
+    objective: string;
+    allowed_paths: string[];
+    can_edit: boolean;
+  }>;
+  role_attempts: Record<string, number>;
   created_at: string;
 }
 

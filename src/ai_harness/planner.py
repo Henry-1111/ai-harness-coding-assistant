@@ -155,6 +155,13 @@ class TaskRouter:
         "跨文件",
         "全链路",
     )
+    TEST_PATH_MARKERS = (
+        "_test.",
+        "/tests/",
+        "/test/",
+        ".test.",
+        ".spec.",
+    )
 
     def __init__(self, normalizer: Optional[TaskNormalizer] = None) -> None:
         self.normalizer = normalizer or TaskNormalizer()
@@ -211,7 +218,7 @@ class TaskRouter:
                 strategy="implementer_reviewer",
                 reasons=["collaboration explicitly forced"],
                 max_rounds=max_rounds,
-                model_call_budget=max_rounds * 3,
+                model_call_budget=max_rounds * 5,
             )
 
         lowered = normalized.normalized_goal.lower()
@@ -245,7 +252,7 @@ class TaskRouter:
             strategy="implementer_reviewer",
             reasons=reasons,
             max_rounds=max_rounds,
-            model_call_budget=max_rounds * 3,
+            model_call_budget=max_rounds * 5,
         )
 
     def build_plan(
@@ -286,6 +293,9 @@ class TaskRouter:
             else collaboration
         )
         if collaboration:
+            implementation_paths, test_paths = self.collaboration_scopes(
+                request.file_scope
+            )
             steps.extend(
                 [
                     PlanStep(
@@ -296,6 +306,8 @@ class TaskRouter:
                         inputs=["context", "goal"],
                         outputs=["implementation_proposal"],
                         acceptance=["Proposal is scoped and structurally valid"],
+                        allowed_paths=implementation_paths,
+                        can_edit=bool(implementation_paths) or not request.file_scope,
                     ),
                     PlanStep(
                         id="test_design",
@@ -305,6 +317,8 @@ class TaskRouter:
                         inputs=["context", "goal", "acceptance_criteria"],
                         outputs=["test_proposal"],
                         acceptance=["Test proposal is scoped and independently derived"],
+                        allowed_paths=test_paths,
+                        can_edit=bool(test_paths),
                     ),
                     PlanStep(
                         id="integration",
@@ -358,6 +372,23 @@ class TaskRouter:
                 assignment_id=f"assignment-{index}",
                 step_id=step.id,
                 role=step.role,
+                objective=step.title,
+                allowed_paths=step.allowed_paths,
+                can_edit=step.can_edit,
             )
             for index, step in enumerate(plan.topological_order(), start=1)
         ]
+
+    @classmethod
+    def collaboration_scopes(cls, paths: list[str]) -> tuple[list[str], list[str]]:
+        test_paths = [path for path in paths if cls.is_test_path(path)]
+        implementation_paths = [path for path in paths if path not in test_paths]
+        return implementation_paths, test_paths
+
+    @classmethod
+    def is_test_path(cls, path: str) -> bool:
+        lowered = f"/{path.lower()}"
+        name = path.rsplit("/", 1)[-1].lower()
+        return name.startswith("test_") or any(
+            marker in lowered for marker in cls.TEST_PATH_MARKERS
+        )

@@ -945,6 +945,11 @@ class HarnessOrchestrator:
                             "parallel_proposals": collaboration_turn.parallel_proposals,
                             "arbitrated": collaboration_turn.arbitrated,
                             "model_calls": collaboration_turn.model_calls,
+                            "assignments": [
+                                item.model_dump(mode="json")
+                                for item in collaboration_turn.assignments
+                            ],
+                            "role_attempts": collaboration_turn.role_attempts,
                         }
                         if collaboration_turn
                         else None
@@ -1162,6 +1167,9 @@ class HarnessOrchestrator:
                         "assignment_id": assignment.assignment_id,
                         "step_id": assignment.step_id,
                         "role": assignment.role.value,
+                        "objective": assignment.objective,
+                        "allowed_paths": assignment.allowed_paths,
+                        "can_edit": assignment.can_edit,
                     }
                     for assignment in task.assignments
                 ]

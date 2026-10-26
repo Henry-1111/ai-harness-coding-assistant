@@ -1,5 +1,7 @@
 import shutil
+from collections import deque
 from pathlib import Path
+from threading import Lock
 
 import pytest
 from conftest import ScriptedModel
@@ -28,6 +30,44 @@ def successful_edit(old="return left - right", new="return left + right"):
         "summary": "Correct addition implementation",
         "edits": [{"path": "calculator.py", "old_text": old, "new_text": new}],
     }
+
+
+def empty_decision():
+    return {"summary": "Existing verification covers the behavior", "edits": []}
+
+
+class RoleAwareModel:
+    def __init__(
+        self,
+        implementation_responses,
+        *,
+        test_responses=None,
+        single_responses=None,
+        arbiter_responses=None,
+    ):
+        self.implementation_responses = deque(implementation_responses)
+        self.test_responses = deque(test_responses or [])
+        self.single_responses = deque(single_responses or [])
+        self.arbiter_responses = deque(arbiter_responses or [])
+        self.calls = []
+        self.lock = Lock()
+
+    def complete_json(self, *, system, payload):
+        with self.lock:
+            self.calls.append({"system": system, "payload": payload})
+            if "implementation specialist" in system:
+                responses = self.implementation_responses
+            elif "independent test specialist" in system:
+                if not self.test_responses:
+                    return empty_decision()
+                responses = self.test_responses
+            elif "patch arbiter" in system:
+                responses = self.arbiter_responses
+            else:
+                responses = self.single_responses
+            if not responses:
+                raise AssertionError("unexpected model call")
+            return responses.popleft()
 
 
 def test_execution_control_cancels_before_model_or_tools(
@@ -223,7 +263,7 @@ def test_remote_promotion_does_not_require_original_repository_after_execution(
 def test_high_risk_task_waits_for_explicit_approval_before_execution(
     tmp_path: Path, sample_repository: Path
 ):
-    model = ScriptedModel([successful_edit(), successful_edit()])
+    model = RoleAwareModel([successful_edit()])
     orchestrator = HarnessOrchestrator(
         model,
         tmp_path / "data",
@@ -566,7 +606,7 @@ def test_resume_of_completed_task_is_idempotent(tmp_path: Path, sample_repositor
 def test_complex_task_executes_plan_node_and_records_assignments(
     tmp_path: Path, sample_repository: Path
 ):
-    model = ScriptedModel([successful_edit(), successful_edit()])
+    model = RoleAwareModel([successful_edit()])
     orchestrator = HarnessOrchestrator(
         model,
         tmp_path / "data",
@@ -671,7 +711,7 @@ def test_single_file_refactor_uses_single_agent_policy(
 def test_collaboration_can_be_forced_for_fast_task(
     tmp_path: Path, sample_repository: Path
 ):
-    model = ScriptedModel([successful_edit(), successful_edit()])
+    model = RoleAwareModel([successful_edit()])
     orchestrator = HarnessOrchestrator(
         model,
         tmp_path / "data",
@@ -700,14 +740,12 @@ def test_collaboration_can_be_forced_for_fast_task(
 def test_collaboration_budget_falls_back_to_single_agent(
     tmp_path: Path, sample_repository: Path
 ):
-    model = ScriptedModel(
+    model = RoleAwareModel(
         [
             successful_edit(new="return left * right"),
-            successful_edit(new="return left * right"),
             successful_edit(old="return left * right", new="return left / right"),
-            successful_edit(old="return left * right", new="return left / right"),
-            successful_edit(old="return left / right"),
-        ]
+        ],
+        single_responses=[successful_edit(old="return left / right")],
     )
     orchestrator = HarnessOrchestrator(
         model,
@@ -769,16 +807,15 @@ def test_insufficient_retrieval_can_enter_bounded_react_subgraph(
             }
         )
     )
-    model = ScriptedModel(
-        [
+    model = RoleAwareModel(
+        [successful_edit()],
+        single_responses=[
             {
                 "action": "get_source_detail",
                 "arguments": {"path": "calculator.py", "start_line": 1, "end_line": 2},
             },
             {"action": "finish", "answer": "The implementation defect is confirmed."},
-            successful_edit(),
-            successful_edit(),
-        ]
+        ],
     )
     orchestrator = HarnessOrchestrator(
         model,

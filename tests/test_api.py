@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import ScriptedModel
+from conftest import CollaborationModel, ScriptedModel
 from fastapi.testclient import TestClient
 
 from ai_harness.api import create_app
@@ -317,7 +317,7 @@ def test_api_requires_and_records_human_approval(tmp_path: Path, sample_reposito
             }
         ],
     }
-    model = ScriptedModel([edit, edit])
+    model = CollaborationModel([edit])
     app = create_app(
         HarnessOrchestrator(model, tmp_path / "data", runner_factory=LocalCommandSandbox)
     )
@@ -503,7 +503,7 @@ def test_api_updates_waiting_job_after_approval(tmp_path: Path, sample_repositor
     }
     snapshots = FilesystemWorkspaceSnapshotStore(tmp_path / "shared-snapshots")
     orchestrator = HarnessOrchestrator(
-        ScriptedModel([edit, edit]),
+        CollaborationModel([edit]),
         tmp_path / "data",
         runner_factory=LocalCommandSandbox,
     )
@@ -673,7 +673,7 @@ def test_authenticated_governance_enforces_tenant_rbac_and_separation_of_duties(
     }
     app = create_app(
         HarnessOrchestrator(
-            ScriptedModel([edit, edit]),
+                CollaborationModel([edit]),
             tmp_path / "data",
             runner_factory=LocalCommandSandbox,
         ),

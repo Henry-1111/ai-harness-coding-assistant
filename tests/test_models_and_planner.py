@@ -134,7 +134,7 @@ def test_collaboration_policy_uses_explicit_complexity_signals(tmp_path):
     assert policy.strategy == "implementer_reviewer"
     assert policy.reasons == ["cross_module_goal", "multi_path_scope"]
     assert policy.max_rounds == 2
-    assert policy.model_call_budget == 6
+    assert policy.model_call_budget == 10
 
 
 def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
@@ -152,7 +152,7 @@ def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
 
     assert forced.enabled is True
     assert forced.max_rounds == 2
-    assert forced.model_call_budget == 6
+    assert forced.model_call_budget == 10
     assert disabled == CollaborationPolicy(
         reasons=["collaboration explicitly disabled"]
     )
@@ -166,6 +166,31 @@ def test_collaboration_policy_rejects_inconsistent_budget():
             max_rounds=2,
             model_call_budget=3,
         )
+
+
+def test_collaboration_plan_assigns_disjoint_file_scopes(tmp_path):
+    router = TaskRouter()
+    request = TaskRequest(
+        repository=str(tmp_path),
+        goal="Refactor calculator across multiple modules",
+        file_scope=["calculator.py", "service.py", "tests/test_calculator.py"],
+    )
+
+    plan = router.build_plan(request, collaboration=True)
+    assignments = {item.step_id: item for item in router.assignments(plan)}
+
+    assert assignments["implementation"].allowed_paths == [
+        "calculator.py",
+        "service.py",
+    ]
+    assert assignments["implementation"].can_edit is True
+    assert assignments["test_design"].allowed_paths == [
+        "tests/test_calculator.py"
+    ]
+    assert assignments["test_design"].can_edit is True
+    assert set(assignments["implementation"].allowed_paths).isdisjoint(
+        assignments["test_design"].allowed_paths
+    )
 
 
 def test_collaboration_turn_loads_legacy_serialized_state():

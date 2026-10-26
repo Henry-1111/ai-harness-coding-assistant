@@ -2,20 +2,31 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
+from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
 
 from .agents import AgentModel
 from .models import (
     CodingDecision,
+    CollaborationRoleAssignment,
     CollaborationTurn,
     FileEdit,
     RepairPlan,
     SearchHit,
     TaskRequest,
 )
+from .planner import TaskRouter
 
 
 class CollaborationConflictError(ValueError):
+    pass
+
+
+class CollaborationScopeError(ValueError):
+    pass
+
+
+class CollaborationRoleError(RuntimeError):
     pass
 
 
@@ -28,7 +39,8 @@ Context snippets may show display-only line-number prefixes such as `12: `. Neve
 prefixes in old_text or new_text. For an existing file, copy old_text exactly from the code after
 the prefix and provide the matching start_line and end_line shown in context. Include enough
 surrounding code to make old_text unique. Never use empty old_text for an existing file.
-Design the smallest complete implementation. Do not execute commands or write outside file_scope."""
+Design the smallest complete implementation. Obey assignment.allowed_paths. When assignment.can_edit
+is false, return an empty edits list. Do not execute commands or write outside file_scope."""
 
     TEST_SPECIALIST_SYSTEM = """You are the independent test specialist in a bounded coding team.
 Without seeing another agent's proposal, identify the smallest test or integration edits required
@@ -37,6 +49,7 @@ Remove display-only line-number prefixes from edit text and ensure each non-empt
 exact unique source excerpt. Preserve or correct the 1-based inclusive start_line and end_line for
 existing files. Never use empty old_text to replace an existing file.
 Return an empty edits list when the existing verification already covers the requested behavior.
+Obey assignment.allowed_paths. When assignment.can_edit is false, return an empty edits list.
 Never execute commands or write outside file_scope."""
 
     ARBITER_SYSTEM = """You are the patch arbiter in a bounded coding team.
@@ -58,30 +71,92 @@ or write outside file_scope."""
         memory_context: Optional[List[Dict[str, Any]]] = None,
         repair_plan: Optional[RepairPlan] = None,
     ) -> CollaborationTurn:
+        assignments = self.role_assignments(request, context)
+        assignment_by_agent = {item.agent: item for item in assignments}
         shared = {
             "goal": request.goal,
             "acceptance_criteria": [item.model_dump() for item in request.acceptance_criteria],
-            "file_scope": request.file_scope,
             "context": [item.model_dump() for item in context],
             "previous_failure": previous_failure,
             "memory_context": memory_context or [],
             "repair_plan": repair_plan.model_dump(mode="json") if repair_plan else None,
+        }
+        role_payloads = {
+            "implementer": {
+                **shared,
+                "file_scope": assignment_by_agent["implementer"].allowed_paths,
+                "assignment": assignment_by_agent["implementer"].model_dump(mode="json"),
+            },
+            "test_specialist": {
+                **shared,
+                "file_scope": assignment_by_agent["test_specialist"].allowed_paths,
+                "assignment": assignment_by_agent["test_specialist"].model_dump(
+                    mode="json"
+                ),
+            },
         }
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="ai-harness-agent") as pool:
             implementation_future = pool.submit(
                 copy_context().run,
                 self.model.complete_json,
                 system=self.IMPLEMENTER_SYSTEM,
-                payload=shared,
+                payload=role_payloads["implementer"],
             )
             test_future = pool.submit(
                 copy_context().run,
                 self.model.complete_json,
                 system=self.TEST_SPECIALIST_SYSTEM,
-                payload=shared,
+                payload=role_payloads["test_specialist"],
             )
-            implementation = CodingDecision.model_validate(implementation_future.result())
-            test_proposal = CodingDecision.model_validate(test_future.result())
+            futures = {
+                "implementer": implementation_future,
+                "test_specialist": test_future,
+            }
+            systems = {
+                "implementer": self.IMPLEMENTER_SYSTEM,
+                "test_specialist": self.TEST_SPECIALIST_SYSTEM,
+            }
+            proposals: Dict[str, CodingDecision] = {}
+            role_attempts: Dict[str, int] = {}
+            for role in ("implementer", "test_specialist"):
+                role_attempts[role] = 1
+                try:
+                    proposal = CodingDecision.model_validate(futures[role].result())
+                    self.validate_assignment(
+                        proposal,
+                        assignment_by_agent[role],
+                    )
+                except Exception as exc:
+                    role_attempts[role] = 2
+                    retry_payload = {
+                        **role_payloads[role],
+                        "previous_proposal_error": (
+                            f"{type(exc).__name__}: {exc}"[-1000:]
+                        ),
+                        "retry_instruction": (
+                            "Regenerate only this role's bounded proposal; preserve the other "
+                            "role's completed work."
+                        ),
+                    }
+                    try:
+                        proposal = CodingDecision.model_validate(
+                            self.model.complete_json(
+                                system=systems[role],
+                                payload=retry_payload,
+                            )
+                        )
+                        self.validate_assignment(
+                            proposal,
+                            assignment_by_agent[role],
+                        )
+                    except Exception as retry_exc:
+                        raise CollaborationRoleError(
+                            f"{role} proposal failed after one isolated retry: {retry_exc}"
+                        ) from retry_exc
+                proposals[role] = proposal
+
+        implementation = proposals["implementer"]
+        test_proposal = proposals["test_specialist"]
 
         candidate_conflicts = self.detect_conflicts(
             implementation.edits + test_proposal.edits
@@ -93,12 +168,14 @@ or write outside file_scope."""
                     system=self.ARBITER_SYSTEM,
                     payload={
                         **shared,
+                        "file_scope": request.file_scope,
                         "implementation_proposal": implementation.model_dump(mode="json"),
                         "test_proposal": test_proposal.model_dump(mode="json"),
                         "detected_conflicts": candidate_conflicts,
                     },
                 )
             )
+            self.validate_root_scope(integrated, request.file_scope)
         else:
             integrated = self.merge_proposals(implementation, test_proposal)
         unresolved = self.detect_conflicts(integrated.edits)
@@ -119,8 +196,83 @@ or write outside file_scope."""
             ),
             parallel_proposals=True,
             arbitrated=arbitrated,
-            model_calls=3 if arbitrated else 2,
+            model_calls=sum(role_attempts.values()) + (1 if arbitrated else 0),
+            assignments=assignments,
+            role_attempts=role_attempts,
         )
+
+    @staticmethod
+    def role_assignments(
+        request: TaskRequest,
+        context: List[SearchHit],
+    ) -> List[CollaborationRoleAssignment]:
+        candidate_paths = list(request.file_scope)
+        if not candidate_paths:
+            candidate_paths = list(dict.fromkeys(hit.path for hit in context))
+        implementation_paths, test_paths = TaskRouter.collaboration_scopes(
+            candidate_paths
+        )
+        return [
+            CollaborationRoleAssignment(
+                agent="implementer",
+                objective="Implement the production behavior inside the assigned paths",
+                allowed_paths=implementation_paths,
+                can_edit=bool(implementation_paths) or not candidate_paths,
+            ),
+            CollaborationRoleAssignment(
+                agent="test_specialist",
+                objective="Add or refine deterministic tests inside the assigned test paths",
+                allowed_paths=test_paths,
+                can_edit=bool(test_paths),
+            ),
+        ]
+
+    @classmethod
+    def validate_assignment(
+        cls,
+        proposal: CodingDecision,
+        assignment: CollaborationRoleAssignment,
+    ) -> None:
+        if proposal.edits and not assignment.can_edit:
+            raise CollaborationScopeError(
+                f"{assignment.agent} is advisory-only because no writable paths were assigned"
+            )
+        for edit in proposal.edits:
+            if assignment.allowed_paths and not cls.path_permitted(
+                edit.path, assignment.allowed_paths
+            ):
+                raise CollaborationScopeError(
+                    f"{assignment.agent} proposed an edit outside its assignment: {edit.path}"
+                )
+
+    @classmethod
+    def validate_root_scope(cls, proposal: CodingDecision, paths: List[str]) -> None:
+        for edit in proposal.edits:
+            if paths and not cls.path_permitted(edit.path, paths):
+                raise CollaborationScopeError(
+                    f"arbiter proposed an edit outside the task scope: {edit.path}"
+                )
+
+    @staticmethod
+    def path_permitted(path: str, allowed_paths: List[str]) -> bool:
+        if "\\" in path:
+            return False
+        candidate = PurePosixPath(path)
+        if candidate.is_absolute() or ".." in candidate.parts:
+            return False
+        candidate_path = candidate.as_posix()
+        for scope in allowed_paths:
+            if "\\" in scope:
+                continue
+            boundary = PurePosixPath(scope)
+            if boundary.is_absolute() or ".." in boundary.parts:
+                continue
+            scope_path = boundary.as_posix().rstrip("/")
+            if candidate_path == scope_path or candidate_path.startswith(
+                scope_path + "/"
+            ):
+                return True
+        return False
 
     @staticmethod
     def merge_proposals(

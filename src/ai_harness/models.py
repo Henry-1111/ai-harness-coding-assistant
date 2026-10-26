@@ -101,7 +101,7 @@ class CollaborationPolicy(BaseModel):
     strategy: Literal["single", "implementer_reviewer"] = "single"
     reasons: List[str] = Field(default_factory=list)
     max_rounds: int = Field(default=0, ge=0, le=3)
-    model_call_budget: int = Field(default=1, ge=1, le=6)
+    model_call_budget: int = Field(default=1, ge=1, le=10)
 
     @model_validator(mode="after")
     def consistent_budget(self) -> "CollaborationPolicy":
@@ -119,6 +119,9 @@ class AgentAssignment(BaseModel):
     assignment_id: str
     step_id: str
     role: AgentRole
+    objective: str = ""
+    allowed_paths: List[str] = Field(default_factory=list)
+    can_edit: bool = True
     status: Literal["pending", "running", "completed", "failed"] = "pending"
 
 
@@ -142,6 +145,8 @@ class PlanStep(BaseModel):
     inputs: List[str] = Field(default_factory=list)
     outputs: List[str] = Field(default_factory=list)
     acceptance: List[str] = Field(default_factory=list)
+    allowed_paths: List[str] = Field(default_factory=list)
+    can_edit: bool = True
 
 
 class PlanDAG(BaseModel):
@@ -271,6 +276,13 @@ class CodingDecision(BaseModel):
     edits: List[FileEdit]
 
 
+class CollaborationRoleAssignment(BaseModel):
+    agent: Literal["implementer", "test_specialist"]
+    objective: str
+    allowed_paths: List[str] = Field(default_factory=list)
+    can_edit: bool = True
+
+
 class CollaborationTurn(BaseModel):
     round: int = Field(ge=1)
     implementation_proposal: CodingDecision
@@ -284,7 +296,9 @@ class CollaborationTurn(BaseModel):
     )
     parallel_proposals: bool = False
     arbitrated: bool = False
-    model_calls: int = Field(default=2, ge=2, le=3)
+    model_calls: int = Field(default=2, ge=2, le=5)
+    assignments: List[CollaborationRoleAssignment] = Field(default_factory=list)
+    role_attempts: Dict[str, int] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 

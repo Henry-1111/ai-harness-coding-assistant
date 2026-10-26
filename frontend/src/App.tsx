@@ -672,11 +672,26 @@ export default function App() {
                     <Text strong>多 Agent 协作</Text>
                     <Space wrap>
                       {result.collaboration_history.map((turn) => (
-                        <Tag key={turn.round} color={turn.detected_conflicts.length ? "orange" : "cyan"}>
+                        <Tag
+                          key={turn.round}
+                          color={turn.detected_conflicts.length ? "orange" : "cyan"}
+                        >
                           第 {turn.round} 轮：并行实现 {turn.implementation_proposal.edits.length} 项，
                           测试建议 {turn.test_proposal?.edits.length ?? 0} 项，整合后
                           {turn.integrated_decision.edits.length} 项
                           {turn.arbitrated ? "，已触发仲裁" : ""}
+                          {Object.values(turn.role_attempts ?? {}).some((count) => count > 1)
+                            ? "，已隔离重试失败角色"
+                            : ""}
+                          ；范围：{turn.assignments
+                            .map((assignment) => (
+                              `${assignment.agent}=${
+                                assignment.can_edit
+                                  ? assignment.allowed_paths.join(",") || "动态上下文"
+                                  : "只读建议"
+                              }`
+                            ))
+                            .join("；")}
                         </Tag>
                       ))}
                     </Space>
