@@ -91,17 +91,23 @@ export interface CollaborationTurn {
     edits: Array<{ path: string; old_text: string; new_text: string }>;
   };
   detected_conflicts: string[];
-  participants: Array<"implementer" | "test_integrator" | "test_specialist" | "arbiter">;
+  participants: string[];
   parallel_proposals: boolean;
   arbitrated: boolean;
   model_calls: number;
   assignments: Array<{
-    agent: "implementer" | "test_specialist";
+    agent: string;
+    role: "implementer" | "test_specialist";
     objective: string;
     allowed_paths: string[];
     can_edit: boolean;
+    call_budget: number;
   }>;
   role_attempts: Record<string, number>;
+  subtask_proposals: Record<string, {
+    summary: string;
+    edits: Array<{ path: string; old_text: string; new_text: string }>;
+  }>;
   created_at: string;
 }
 
@@ -155,6 +161,7 @@ export interface CollaborationPolicy {
   strategy: "single" | "implementer_reviewer";
   reasons: string[];
   max_rounds: number;
+  max_parallel_agents: number;
   model_call_budget: number;
 }
 

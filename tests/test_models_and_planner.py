@@ -3,6 +3,7 @@ import pytest
 from ai_harness.models import (
     AgentRole,
     CollaborationPolicy,
+    CollaborationRoleAssignment,
     CollaborationTurn,
     PlanDAG,
     PlanStep,
@@ -134,7 +135,8 @@ def test_collaboration_policy_uses_explicit_complexity_signals(tmp_path):
     assert policy.strategy == "implementer_reviewer"
     assert policy.reasons == ["cross_module_goal", "multi_path_scope"]
     assert policy.max_rounds == 2
-    assert policy.model_call_budget == 10
+    assert policy.max_parallel_agents == 4
+    assert policy.model_call_budget == 18
 
 
 def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
@@ -152,7 +154,8 @@ def test_collaboration_policy_forced_and_disabled_modes(tmp_path):
 
     assert forced.enabled is True
     assert forced.max_rounds == 2
-    assert forced.model_call_budget == 10
+    assert forced.max_parallel_agents == 4
+    assert forced.model_call_budget == 18
     assert disabled == CollaborationPolicy(
         reasons=["collaboration explicitly disabled"]
     )
@@ -179,11 +182,10 @@ def test_collaboration_plan_assigns_disjoint_file_scopes(tmp_path):
     plan = router.build_plan(request, collaboration=True)
     assignments = {item.step_id: item for item in router.assignments(plan)}
 
-    assert assignments["implementation"].allowed_paths == [
-        "calculator.py",
-        "service.py",
-    ]
+    assert assignments["implementation"].allowed_paths == ["calculator.py"]
     assert assignments["implementation"].can_edit is True
+    assert assignments["implementation_2"].allowed_paths == ["service.py"]
+    assert assignments["implementation_2"].can_edit is True
     assert assignments["test_design"].allowed_paths == [
         "tests/test_calculator.py"
     ]
@@ -191,6 +193,12 @@ def test_collaboration_plan_assigns_disjoint_file_scopes(tmp_path):
     assert set(assignments["implementation"].allowed_paths).isdisjoint(
         assignments["test_design"].allowed_paths
     )
+    integration = next(step for step in plan.steps if step.id == "integration")
+    assert integration.depends_on == [
+        "implementation",
+        "implementation_2",
+        "test_design",
+    ]
 
 
 def test_collaboration_turn_loads_legacy_serialized_state():
@@ -208,3 +216,14 @@ def test_collaboration_turn_loads_legacy_serialized_state():
     assert turn.test_proposal is None
     assert turn.parallel_proposals is False
     assert turn.arbitrated is False
+
+    assignment = CollaborationRoleAssignment.model_validate(
+        {
+            "agent": "test_specialist",
+            "objective": "legacy test review",
+            "allowed_paths": [],
+            "can_edit": False,
+        }
+    )
+    assert assignment.role == "test_specialist"
+    assert assignment.call_budget == 2

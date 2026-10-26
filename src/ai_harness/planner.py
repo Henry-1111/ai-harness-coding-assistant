@@ -7,6 +7,7 @@ from .models import (
     AgentAssignment,
     AgentRole,
     CollaborationPolicy,
+    CollaborationRoleAssignment,
     NormalizedTask,
     PlanDAG,
     PlanStep,
@@ -162,6 +163,7 @@ class TaskRouter:
         ".test.",
         ".spec.",
     )
+    MAX_PARALLEL_AGENTS = 4
 
     def __init__(self, normalizer: Optional[TaskNormalizer] = None) -> None:
         self.normalizer = normalizer or TaskNormalizer()
@@ -218,7 +220,8 @@ class TaskRouter:
                 strategy="implementer_reviewer",
                 reasons=["collaboration explicitly forced"],
                 max_rounds=max_rounds,
-                model_call_budget=max_rounds * 5,
+                max_parallel_agents=self.MAX_PARALLEL_AGENTS,
+                model_call_budget=max_rounds * 9,
             )
 
         lowered = normalized.normalized_goal.lower()
@@ -252,7 +255,8 @@ class TaskRouter:
             strategy="implementer_reviewer",
             reasons=reasons,
             max_rounds=max_rounds,
-            model_call_budget=max_rounds * 5,
+            max_parallel_agents=self.MAX_PARALLEL_AGENTS,
+            model_call_budget=max_rounds * 9,
         )
 
     def build_plan(
@@ -293,39 +297,47 @@ class TaskRouter:
             else collaboration
         )
         if collaboration:
-            implementation_paths, test_paths = self.collaboration_scopes(
-                request.file_scope
+            collaboration_assignments = self.collaboration_assignments(
+                request.file_scope,
+                max_parallel_agents=self.MAX_PARALLEL_AGENTS,
             )
-            steps.extend(
-                [
+            proposal_steps: list[PlanStep] = []
+            for assignment in collaboration_assignments:
+                if assignment.role == "test_specialist":
+                    step_id = "test_design"
+                    role = AgentRole.REVIEWER
+                else:
+                    suffix = assignment.agent.removeprefix("implementer")
+                    if suffix == "_1":
+                        suffix = ""
+                    step_id = f"implementation{suffix}"
+                    role = AgentRole.CODER
+                proposal_steps.append(
                     PlanStep(
-                        id="implementation",
-                        title="Produce an implementation proposal",
-                        role=AgentRole.CODER,
-                        depends_on=[code_dependency],
-                        inputs=["context", "goal"],
-                        outputs=["implementation_proposal"],
-                        acceptance=["Proposal is scoped and structurally valid"],
-                        allowed_paths=implementation_paths,
-                        can_edit=bool(implementation_paths) or not request.file_scope,
-                    ),
-                    PlanStep(
-                        id="test_design",
-                        title="Independently propose tests and integration safeguards",
-                        role=AgentRole.REVIEWER,
+                        id=step_id,
+                        title=assignment.objective,
+                        role=role,
                         depends_on=[code_dependency],
                         inputs=["context", "goal", "acceptance_criteria"],
-                        outputs=["test_proposal"],
-                        acceptance=["Test proposal is scoped and independently derived"],
-                        allowed_paths=test_paths,
-                        can_edit=bool(test_paths),
-                    ),
+                        outputs=[f"{assignment.agent}_proposal"],
+                        acceptance=["Subtask proposal is scoped and structurally valid"],
+                        allowed_paths=assignment.allowed_paths,
+                        can_edit=assignment.can_edit,
+                    )
+                )
+            proposal_step_ids = [step.id for step in proposal_steps]
+            steps.extend(
+                proposal_steps
+                + [
                     PlanStep(
                         id="integration",
                         title="Merge proposals or arbitrate conflicting edits",
                         role=AgentRole.REVIEWER,
-                        depends_on=["implementation", "test_design"],
-                        inputs=["implementation_proposal", "test_proposal"],
+                        depends_on=proposal_step_ids,
+                        inputs=[
+                            f"{item.agent}_proposal"
+                            for item in collaboration_assignments
+                        ],
                         outputs=["integrated_decision"],
                         acceptance=["Final proposal is conflict-free and test-aware"],
                     ),
@@ -384,6 +396,50 @@ class TaskRouter:
         test_paths = [path for path in paths if cls.is_test_path(path)]
         implementation_paths = [path for path in paths if path not in test_paths]
         return implementation_paths, test_paths
+
+    @classmethod
+    def collaboration_assignments(
+        cls,
+        paths: list[str],
+        *,
+        max_parallel_agents: int,
+        call_budget_per_agent: int = 2,
+    ) -> list[CollaborationRoleAssignment]:
+        implementation_paths, test_paths = cls.collaboration_scopes(paths)
+        implementation_slots = max(1, max_parallel_agents - 1)
+        group_count = min(len(implementation_paths), implementation_slots)
+        groups: list[list[str]] = [[] for _ in range(group_count or 1)]
+        for index, path in enumerate(implementation_paths):
+            groups[index % len(groups)].append(path)
+
+        assignments: list[CollaborationRoleAssignment] = []
+        multiple_implementers = len(groups) > 1
+        for index, group in enumerate(groups, start=1):
+            agent = f"implementer_{index}" if multiple_implementers else "implementer"
+            assignments.append(
+                CollaborationRoleAssignment(
+                    agent=agent,
+                    role="implementer",
+                    objective=(
+                        "Implement the production behavior inside the assigned paths "
+                        f"(subtask {index}/{len(groups)})"
+                    ),
+                    allowed_paths=group,
+                    can_edit=bool(group) or not paths,
+                    call_budget=call_budget_per_agent,
+                )
+            )
+        assignments.append(
+            CollaborationRoleAssignment(
+                agent="test_specialist",
+                role="test_specialist",
+                objective="Add or refine deterministic tests inside the assigned test paths",
+                allowed_paths=test_paths,
+                can_edit=bool(test_paths),
+                call_budget=call_budget_per_agent,
+            )
+        )
+        return assignments
 
     @classmethod
     def is_test_path(cls, path: str) -> bool:

@@ -101,7 +101,8 @@ class CollaborationPolicy(BaseModel):
     strategy: Literal["single", "implementer_reviewer"] = "single"
     reasons: List[str] = Field(default_factory=list)
     max_rounds: int = Field(default=0, ge=0, le=3)
-    model_call_budget: int = Field(default=1, ge=1, le=10)
+    max_parallel_agents: int = Field(default=2, ge=2, le=4)
+    model_call_budget: int = Field(default=1, ge=1, le=18)
 
     @model_validator(mode="after")
     def consistent_budget(self) -> "CollaborationPolicy":
@@ -277,10 +278,22 @@ class CodingDecision(BaseModel):
 
 
 class CollaborationRoleAssignment(BaseModel):
-    agent: Literal["implementer", "test_specialist"]
+    agent: str = Field(pattern=r"^(implementer(?:_[1-9][0-9]*)?|test_specialist)$")
+    role: Optional[Literal["implementer", "test_specialist"]] = None
     objective: str
     allowed_paths: List[str] = Field(default_factory=list)
     can_edit: bool = True
+    call_budget: int = Field(default=2, ge=1, le=2)
+
+    @model_validator(mode="after")
+    def infer_legacy_role(self) -> "CollaborationRoleAssignment":
+        if self.role is None:
+            self.role = (
+                "test_specialist"
+                if self.agent == "test_specialist"
+                else "implementer"
+            )
+        return self
 
 
 class CollaborationTurn(BaseModel):
@@ -289,16 +302,15 @@ class CollaborationTurn(BaseModel):
     test_proposal: Optional[CodingDecision] = None
     integrated_decision: CodingDecision
     detected_conflicts: List[str] = Field(default_factory=list)
-    participants: List[
-        Literal["implementer", "test_integrator", "test_specialist", "arbiter"]
-    ] = Field(
+    participants: List[str] = Field(
         default_factory=lambda: ["implementer", "test_specialist"]
     )
     parallel_proposals: bool = False
     arbitrated: bool = False
-    model_calls: int = Field(default=2, ge=2, le=5)
+    model_calls: int = Field(default=2, ge=2, le=9)
     assignments: List[CollaborationRoleAssignment] = Field(default_factory=list)
     role_attempts: Dict[str, int] = Field(default_factory=dict)
+    subtask_proposals: Dict[str, CodingDecision] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 

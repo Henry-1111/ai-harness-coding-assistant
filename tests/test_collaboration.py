@@ -216,6 +216,72 @@ def test_role_scope_rejects_non_canonical_paths(path: str):
     assert CollaborativeCoder.path_permitted(path, ["src"]) is False
 
 
+def test_dynamic_subtasks_are_capped_and_merged(tmp_path: Path):
+    class DynamicRoleModel:
+        def __init__(self):
+            self.calls = []
+            self.lock = Lock()
+
+        def complete_json(self, *, system, payload):
+            with self.lock:
+                self.calls.append({"system": system, "payload": payload})
+            assignment = payload["assignment"]
+            paths = assignment["allowed_paths"]
+            if not assignment["can_edit"]:
+                return decision([])
+            path = paths[0]
+            return decision(
+                [
+                    {
+                        "path": path,
+                        "old_text": "",
+                        "new_text": f"# owned by {assignment['agent']}\n",
+                    }
+                ]
+            )
+
+    model = DynamicRoleModel()
+    turn = CollaborativeCoder(model).propose(
+        TaskRequest(
+            repository=str(tmp_path),
+            goal="Refactor services across multiple modules",
+            file_scope=[
+                "src/a.py",
+                "src/b.py",
+                "src/c.py",
+                "src/d.py",
+                "tests/test_services.py",
+            ],
+        ),
+        [],
+        round_number=1,
+        max_parallel_agents=4,
+        call_budget=9,
+    )
+
+    assert [item.agent for item in turn.assignments] == [
+        "implementer_1",
+        "implementer_2",
+        "implementer_3",
+        "test_specialist",
+    ]
+    assert [item.allowed_paths for item in turn.assignments] == [
+        ["src/a.py", "src/d.py"],
+        ["src/b.py"],
+        ["src/c.py"],
+        ["tests/test_services.py"],
+    ]
+    assert all(item.call_budget == 2 for item in turn.assignments)
+    assert turn.model_calls == 4
+    assert set(turn.subtask_proposals) == set(turn.participants)
+    assert {item.path for item in turn.integrated_decision.edits} == {
+        "src/a.py",
+        "src/b.py",
+        "src/c.py",
+        "tests/test_services.py",
+    }
+
+
 def test_unresolved_arbiter_conflict_is_rejected(tmp_path: Path):
     conflict = decision([edit("return left + right"), edit("return sum((left, right))")])
     model = RoleModel(conflict, decision([]), conflict)

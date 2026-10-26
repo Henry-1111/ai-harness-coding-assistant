@@ -555,6 +555,9 @@ export default function App() {
                       {result.collaboration_policy.enabled && (
                         <>
                           <Tag>最多 {result.collaboration_policy.max_rounds} 轮</Tag>
+                          <Tag>
+                            最多并行 {result.collaboration_policy.max_parallel_agents} Agent
+                          </Tag>
                           <Tag>调用预算 {result.collaboration_policy.model_call_budget}</Tag>
                         </>
                       )}
@@ -689,7 +692,9 @@ export default function App() {
                                 assignment.can_edit
                                   ? assignment.allowed_paths.join(",") || "动态上下文"
                                   : "只读建议"
-                              }`
+                              }(${turn.role_attempts?.[assignment.agent] ?? 1}/${
+                                assignment.call_budget
+                              } 次)`
                             ))
                             .join("；")}
                         </Tag>

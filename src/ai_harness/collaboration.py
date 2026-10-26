@@ -70,9 +70,15 @@ or write outside file_scope."""
         previous_failure: str = "",
         memory_context: Optional[List[Dict[str, Any]]] = None,
         repair_plan: Optional[RepairPlan] = None,
+        max_parallel_agents: int = 4,
+        call_budget: int = 9,
     ) -> CollaborationTurn:
-        assignments = self.role_assignments(request, context)
-        assignment_by_agent = {item.agent: item for item in assignments}
+        assignments = self.role_assignments(
+            request,
+            context,
+            max_parallel_agents=max_parallel_agents,
+            call_budget=call_budget,
+        )
         shared = {
             "goal": request.goal,
             "acceptance_criteria": [item.model_dump() for item in request.acceptance_criteria],
@@ -82,54 +88,57 @@ or write outside file_scope."""
             "repair_plan": repair_plan.model_dump(mode="json") if repair_plan else None,
         }
         role_payloads = {
-            "implementer": {
+            assignment.agent: {
                 **shared,
-                "file_scope": assignment_by_agent["implementer"].allowed_paths,
-                "assignment": assignment_by_agent["implementer"].model_dump(mode="json"),
-            },
-            "test_specialist": {
-                **shared,
-                "file_scope": assignment_by_agent["test_specialist"].allowed_paths,
-                "assignment": assignment_by_agent["test_specialist"].model_dump(
-                    mode="json"
-                ),
-            },
-        }
-        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="ai-harness-agent") as pool:
-            implementation_future = pool.submit(
-                copy_context().run,
-                self.model.complete_json,
-                system=self.IMPLEMENTER_SYSTEM,
-                payload=role_payloads["implementer"],
-            )
-            test_future = pool.submit(
-                copy_context().run,
-                self.model.complete_json,
-                system=self.TEST_SPECIALIST_SYSTEM,
-                payload=role_payloads["test_specialist"],
-            )
-            futures = {
-                "implementer": implementation_future,
-                "test_specialist": test_future,
+                "file_scope": assignment.allowed_paths,
+                "assignment": assignment.model_dump(mode="json"),
             }
-            systems = {
-                "implementer": self.IMPLEMENTER_SYSTEM,
-                "test_specialist": self.TEST_SPECIALIST_SYSTEM,
+            for assignment in assignments
+        }
+        systems = {
+            assignment.agent: (
+                self.IMPLEMENTER_SYSTEM
+                if assignment.role == "implementer"
+                else self.TEST_SPECIALIST_SYSTEM
+            )
+            for assignment in assignments
+        }
+        if len(assignments) > call_budget:
+            raise CollaborationRoleError(
+                "collaboration call budget cannot cover every initial subtask"
+            )
+        with ThreadPoolExecutor(
+            max_workers=len(assignments),
+            thread_name_prefix="ai-harness-agent",
+        ) as pool:
+            futures = {
+                assignment.agent: pool.submit(
+                    copy_context().run,
+                    self.model.complete_json,
+                    system=systems[assignment.agent],
+                    payload=role_payloads[assignment.agent],
+                )
+                for assignment in assignments
             }
             proposals: Dict[str, CodingDecision] = {}
-            role_attempts: Dict[str, int] = {}
-            for role in ("implementer", "test_specialist"):
-                role_attempts[role] = 1
+            role_attempts: Dict[str, int] = {
+                assignment.agent: 1 for assignment in assignments
+            }
+            model_calls = len(assignments)
+            for assignment in assignments:
+                agent = assignment.agent
                 try:
-                    proposal = CodingDecision.model_validate(futures[role].result())
-                    self.validate_assignment(
-                        proposal,
-                        assignment_by_agent[role],
-                    )
+                    proposal = CodingDecision.model_validate(futures[agent].result())
+                    self.validate_assignment(proposal, assignment)
                 except Exception as exc:
-                    role_attempts[role] = 2
+                    if assignment.call_budget < 2 or model_calls >= call_budget:
+                        raise CollaborationRoleError(
+                            f"{agent} proposal failed with no isolated retry budget: {exc}"
+                        ) from exc
+                    role_attempts[agent] = 2
+                    model_calls += 1
                     retry_payload = {
-                        **role_payloads[role],
+                        **role_payloads[agent],
                         "previous_proposal_error": (
                             f"{type(exc).__name__}: {exc}"[-1000:]
                         ),
@@ -141,28 +150,43 @@ or write outside file_scope."""
                     try:
                         proposal = CodingDecision.model_validate(
                             self.model.complete_json(
-                                system=systems[role],
+                                system=systems[agent],
                                 payload=retry_payload,
                             )
                         )
-                        self.validate_assignment(
-                            proposal,
-                            assignment_by_agent[role],
-                        )
+                        self.validate_assignment(proposal, assignment)
                     except Exception as retry_exc:
                         raise CollaborationRoleError(
-                            f"{role} proposal failed after one isolated retry: {retry_exc}"
+                            f"{agent} proposal failed after one isolated retry: {retry_exc}"
                         ) from retry_exc
-                proposals[role] = proposal
+                proposals[agent] = proposal
 
-        implementation = proposals["implementer"]
-        test_proposal = proposals["test_specialist"]
+        implementation = self.merge_decisions(
+            [
+                proposals[item.agent]
+                for item in assignments
+                if item.role == "implementer"
+            ],
+            fallback_summary="No implementation edits proposed",
+        )
+        test_proposal = self.merge_decisions(
+            [
+                proposals[item.agent]
+                for item in assignments
+                if item.role == "test_specialist"
+            ],
+            fallback_summary="No test edits proposed",
+        )
 
         candidate_conflicts = self.detect_conflicts(
             implementation.edits + test_proposal.edits
         )
         arbitrated = bool(candidate_conflicts)
         if arbitrated:
+            if model_calls >= call_budget:
+                raise CollaborationConflictError(
+                    "conflicting proposals require arbitration but the round budget is exhausted"
+                )
             integrated = CodingDecision.model_validate(
                 self.model.complete_json(
                     system=self.ARBITER_SYSTEM,
@@ -175,6 +199,7 @@ or write outside file_scope."""
                     },
                 )
             )
+            model_calls += 1
             self.validate_root_scope(integrated, request.file_scope)
         else:
             integrated = self.merge_proposals(implementation, test_proposal)
@@ -189,43 +214,54 @@ or write outside file_scope."""
             test_proposal=test_proposal,
             integrated_decision=integrated,
             detected_conflicts=candidate_conflicts,
-            participants=(
-                ["implementer", "test_specialist", "arbiter"]
-                if arbitrated
-                else ["implementer", "test_specialist"]
-            ),
+            participants=[item.agent for item in assignments]
+            + (["arbiter"] if arbitrated else []),
             parallel_proposals=True,
             arbitrated=arbitrated,
-            model_calls=sum(role_attempts.values()) + (1 if arbitrated else 0),
+            model_calls=model_calls,
             assignments=assignments,
             role_attempts=role_attempts,
+            subtask_proposals=proposals,
         )
 
     @staticmethod
     def role_assignments(
         request: TaskRequest,
         context: List[SearchHit],
+        *,
+        max_parallel_agents: int = 4,
+        call_budget: int = 9,
     ) -> List[CollaborationRoleAssignment]:
         candidate_paths = list(request.file_scope)
         if not candidate_paths:
             candidate_paths = list(dict.fromkeys(hit.path for hit in context))
-        implementation_paths, test_paths = TaskRouter.collaboration_scopes(
-            candidate_paths
+        initial_agent_limit = min(max_parallel_agents, max(2, call_budget - 1))
+        assignments = TaskRouter.collaboration_assignments(
+            candidate_paths,
+            max_parallel_agents=initial_agent_limit,
+            call_budget_per_agent=1,
         )
+        retry_slots = max(0, call_budget - len(assignments) - 1)
         return [
-            CollaborationRoleAssignment(
-                agent="implementer",
-                objective="Implement the production behavior inside the assigned paths",
-                allowed_paths=implementation_paths,
-                can_edit=bool(implementation_paths) or not candidate_paths,
-            ),
-            CollaborationRoleAssignment(
-                agent="test_specialist",
-                objective="Add or refine deterministic tests inside the assigned test paths",
-                allowed_paths=test_paths,
-                can_edit=bool(test_paths),
-            ),
+            assignment.model_copy(
+                update={"call_budget": 2 if index < retry_slots else 1}
+            )
+            for index, assignment in enumerate(assignments)
         ]
+
+    @classmethod
+    def merge_decisions(
+        cls,
+        decisions: List[CodingDecision],
+        *,
+        fallback_summary: str,
+    ) -> CodingDecision:
+        if not decisions:
+            return CodingDecision(summary=fallback_summary, edits=[])
+        merged = decisions[0]
+        for decision in decisions[1:]:
+            merged = cls.merge_proposals(merged, decision)
+        return merged
 
     @classmethod
     def validate_assignment(

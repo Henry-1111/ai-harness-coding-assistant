@@ -811,14 +811,27 @@ class HarnessOrchestrator:
         repair_plan = task.repair_history[-1] if task.repair_history else None
         collaboration_turn = None
         collaboration_policy = task.collaboration_policy
+        used_collaboration_calls = sum(
+            turn.model_calls for turn in task.collaboration_history
+        )
+        remaining_collaboration_calls = max(
+            0,
+            collaboration_policy.model_call_budget - used_collaboration_calls,
+        )
         within_collaboration_budget = (
             collaboration_policy.enabled
             and len(task.collaboration_history) < collaboration_policy.max_rounds
+            and remaining_collaboration_calls >= 2
         )
         if within_collaboration_budget:
-            self._set_assignment_status(task, "implementation", "running")
-            self._set_assignment_status(task, "test_design", "running")
-            self._set_assignment_status(task, "integration", "running")
+            collaboration_step_ids = [
+                assignment.step_id
+                for assignment in task.assignments
+                if assignment.step_id.startswith("implementation")
+                or assignment.step_id in {"test_design", "integration"}
+            ]
+            for step_id in collaboration_step_ids:
+                self._set_assignment_status(task, step_id, "running")
             try:
                 collaboration_turn = self.collaborative_coder.propose(
                     task.request,
@@ -827,15 +840,18 @@ class HarnessOrchestrator:
                     previous_failure=previous_failure,
                     memory_context=memory_context,
                     repair_plan=repair_plan,
+                    max_parallel_agents=collaboration_policy.max_parallel_agents,
+                    call_budget=min(
+                        remaining_collaboration_calls,
+                        collaboration_policy.max_parallel_agents * 2 + 1,
+                    ),
                 )
             except Exception:
-                self._set_assignment_status(task, "implementation", "failed")
-                self._set_assignment_status(task, "test_design", "failed")
-                self._set_assignment_status(task, "integration", "failed")
+                for step_id in collaboration_step_ids:
+                    self._set_assignment_status(task, step_id, "failed")
                 raise
-            self._set_assignment_status(task, "implementation", "completed")
-            self._set_assignment_status(task, "test_design", "completed")
-            self._set_assignment_status(task, "integration", "completed")
+            for step_id in collaboration_step_ids:
+                self._set_assignment_status(task, step_id, "completed")
             task.collaboration_history.append(collaboration_turn)
             decision = collaboration_turn.integrated_decision
         else:
@@ -844,6 +860,8 @@ class HarnessOrchestrator:
                     "exhausted": True,
                     "used_rounds": len(task.collaboration_history),
                     "max_rounds": collaboration_policy.max_rounds,
+                    "used_model_calls": used_collaboration_calls,
+                    "model_call_budget": collaboration_policy.model_call_budget,
                     "fallback": "single",
                 }
             decision = self.coder.propose(

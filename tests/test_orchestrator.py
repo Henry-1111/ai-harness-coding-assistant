@@ -683,6 +683,72 @@ def test_collaboration_can_be_disabled_for_complex_task(
     ]
 
 
+def test_dynamic_collaboration_steps_complete_with_bounded_agents(
+    tmp_path: Path, sample_repository: Path
+):
+    (sample_repository / "service.py").write_text("SERVICE = True\n", encoding="utf-8")
+    (sample_repository / "helpers.py").write_text("HELPER = True\n", encoding="utf-8")
+
+    class ScopedCollaborationModel:
+        def __init__(self):
+            self.calls = []
+            self.lock = Lock()
+
+        def complete_json(self, *, system, payload):
+            with self.lock:
+                self.calls.append({"system": system, "payload": payload})
+            assignment = payload["assignment"]
+            if "calculator.py" in assignment["allowed_paths"]:
+                return successful_edit()
+            return empty_decision()
+
+    model = ScopedCollaborationModel()
+    orchestrator = HarnessOrchestrator(
+        model,
+        tmp_path / "data",
+        runner_factory=LocalCommandSandbox,
+    )
+
+    result = orchestrator.run(
+        request_for(
+            sample_repository,
+            goal="Refactor calculator services across multiple modules",
+            file_scope=[
+                "calculator.py",
+                "service.py",
+                "helpers.py",
+                "test_calculator.py",
+            ],
+        )
+    )
+
+    assert result.status == TaskStatus.SUCCEEDED
+    state = orchestrator.get(result.task_id)
+    assert state is not None
+    collaboration_steps = [
+        item
+        for item in state.assignments
+        if item.step_id.startswith("implementation")
+        or item.step_id in {"test_design", "integration"}
+    ]
+    assert [item.step_id for item in collaboration_steps] == [
+        "implementation",
+        "implementation_2",
+        "implementation_3",
+        "test_design",
+        "integration",
+    ]
+    assert all(item.status == "completed" for item in collaboration_steps)
+    turn = result.collaboration_history[0]
+    assert turn.participants == [
+        "implementer_1",
+        "implementer_2",
+        "implementer_3",
+        "test_specialist",
+    ]
+    assert turn.model_calls == 4
+
+
 def test_single_file_refactor_uses_single_agent_policy(
     tmp_path: Path, sample_repository: Path
 ):
@@ -772,6 +838,8 @@ def test_collaboration_budget_falls_back_to_single_agent(
         "exhausted": True,
         "used_rounds": 2,
         "max_rounds": 2,
+        "used_model_calls": 4,
+        "model_call_budget": 18,
         "fallback": "single",
     }
 
