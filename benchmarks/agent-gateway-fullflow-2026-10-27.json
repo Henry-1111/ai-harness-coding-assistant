@@ -1,0 +1,1565 @@
+{
+  "generated_at": "2026-10-27T02:22:19.248482Z",
+  "dataset_sha256": "6f9d43944a941efd78d2ae6534f62eed5a4a5e794820687c5c79ae1b6c72e167",
+  "cases": 30,
+  "repetitions": 1,
+  "observations_per_variant": 30,
+  "single": {
+    "cases": 30,
+    "success_rate": 0.666667,
+    "mean_duration_ms": 25787.933,
+    "mean_model_calls": 1.433,
+    "mean_request_chars": 3512.933,
+    "mean_total_tokens": null,
+    "mean_repair_rounds": 0.667,
+    "mean_collaboration_rounds": 0.0,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 0.966667,
+    "mean_changed_path_precision": 0.966667
+  },
+  "multi": {
+    "cases": 30,
+    "success_rate": 0.766667,
+    "mean_duration_ms": 40501.4,
+    "mean_model_calls": 4.533,
+    "mean_request_chars": 13188.133,
+    "mean_total_tokens": null,
+    "mean_repair_rounds": 0.667,
+    "mean_collaboration_rounds": 1.433,
+    "mean_detected_conflicts": 0.0,
+    "mean_changed_path_recall": 0.966667,
+    "mean_changed_path_precision": 0.966667
+  },
+  "multi_minus_single": {
+    "success_rate": 0.1,
+    "mean_duration_ms": 14713.467,
+    "mean_model_calls": 3.1,
+    "mean_total_tokens": null,
+    "mean_repair_rounds": 0.0
+  },
+  "pairwise_success": {
+    "multi_wins": 4,
+    "ties": 25,
+    "single_wins": 1
+  },
+  "details": [
+    {
+      "case_id": "calculator-add",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1002,
+      "model_calls": 1,
+      "request_chars": 1393,
+      "prompt_tokens": 423,
+      "completion_tokens": 94,
+      "total_tokens": 517,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "calculator.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "calculator-add",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1414,
+      "model_calls": 3,
+      "request_chars": 5257,
+      "prompt_tokens": 1503,
+      "completion_tokens": 340,
+      "total_tokens": 1843,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "calculator.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "quota-boundary",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2250,
+      "model_calls": 3,
+      "request_chars": 5576,
+      "prompt_tokens": 1522,
+      "completion_tokens": 554,
+      "total_tokens": 2076,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "quota.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "quota-boundary",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2291,
+      "model_calls": 1,
+      "request_chars": 1501,
+      "prompt_tokens": 429,
+      "completion_tokens": 187,
+      "total_tokens": 616,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "quota.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "slug-normalization",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2263,
+      "model_calls": 1,
+      "request_chars": 1497,
+      "prompt_tokens": 436,
+      "completion_tokens": 249,
+      "total_tokens": 685,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "text_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "slug-normalization",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2343,
+      "model_calls": 3,
+      "request_chars": 5569,
+      "prompt_tokens": 1544,
+      "completion_tokens": 804,
+      "total_tokens": 2348,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "text_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "deduplicate-order",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 20391,
+      "model_calls": 3,
+      "request_chars": 6398,
+      "prompt_tokens": 1857,
+      "completion_tokens": 6884,
+      "total_tokens": 8741,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "line_range": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "deduplicate-order",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 13127,
+      "model_calls": 1,
+      "request_chars": 1771,
+      "prompt_tokens": 540,
+      "completion_tokens": 2236,
+      "total_tokens": 2776,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "line_range": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "chunk-empty-tail",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2436,
+      "model_calls": 1,
+      "request_chars": 1772,
+      "prompt_tokens": 538,
+      "completion_tokens": 354,
+      "total_tokens": 892,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "chunk-empty-tail",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 10305,
+      "model_calls": 3,
+      "request_chars": 6401,
+      "prompt_tokens": 1851,
+      "completion_tokens": 2312,
+      "total_tokens": 4163,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "flatten-all-items",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2932,
+      "model_calls": 3,
+      "request_chars": 6344,
+      "prompt_tokens": 1848,
+      "completion_tokens": 810,
+      "total_tokens": 2658,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "flatten-all-items",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1290,
+      "model_calls": 1,
+      "request_chars": 1753,
+      "prompt_tokens": 537,
+      "completion_tokens": 122,
+      "total_tokens": 659,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "rotate-large-count",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 3556,
+      "model_calls": 1,
+      "request_chars": 1763,
+      "prompt_tokens": 535,
+      "completion_tokens": 504,
+      "total_tokens": 1039,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "rotate-large-count",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 3183,
+      "model_calls": 3,
+      "request_chars": 6374,
+      "prompt_tokens": 1842,
+      "completion_tokens": 1086,
+      "total_tokens": 2928,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "clamp-bounds",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 30641,
+      "model_calls": 6,
+      "request_chars": 18994,
+      "prompt_tokens": 5451,
+      "completion_tokens": 8554,
+      "total_tokens": 14005,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "clamp-bounds",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 15250,
+      "model_calls": 2,
+      "request_chars": 5610,
+      "prompt_tokens": 1669,
+      "completion_tokens": 2509,
+      "total_tokens": 4178,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "moving-average-window",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 3085,
+      "model_calls": 1,
+      "request_chars": 1772,
+      "prompt_tokens": 535,
+      "completion_tokens": 439,
+      "total_tokens": 974,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "moving-average-window",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2250,
+      "model_calls": 3,
+      "request_chars": 6401,
+      "prompt_tokens": 1842,
+      "completion_tokens": 647,
+      "total_tokens": 2489,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "pagination-one-based",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 33114,
+      "model_calls": 6,
+      "request_chars": 23515,
+      "prompt_tokens": 7122,
+      "completion_tokens": 9267,
+      "total_tokens": 16389,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "line_range_guard_mismatch": 1
+      },
+      "error": null
+    },
+    {
+      "case_id": "pagination-one-based",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 77090,
+      "model_calls": 2,
+      "request_chars": 5958,
+      "prompt_tokens": 1813,
+      "completion_tokens": 14155,
+      "total_tokens": 15968,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "intersection-order",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 52295,
+      "model_calls": 2,
+      "request_chars": 5774,
+      "prompt_tokens": 1745,
+      "completion_tokens": 8394,
+      "total_tokens": 10139,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "intersection-order",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 24025,
+      "model_calls": 6,
+      "request_chars": 23119,
+      "prompt_tokens": 7002,
+      "completion_tokens": 6160,
+      "total_tokens": 13162,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "line_range_guard_mismatch": 1
+      },
+      "error": null
+    },
+    {
+      "case_id": "top-n-largest",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1989,
+      "model_calls": 3,
+      "request_chars": 5870,
+      "prompt_tokens": 1659,
+      "completion_tokens": 587,
+      "total_tokens": 2246,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "top-n-largest",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1657,
+      "model_calls": 1,
+      "request_chars": 1595,
+      "prompt_tokens": 474,
+      "completion_tokens": 194,
+      "total_tokens": 668,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "collections_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "parse-bool-false",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 3169,
+      "model_calls": 1,
+      "request_chars": 1612,
+      "prompt_tokens": 488,
+      "completion_tokens": 542,
+      "total_tokens": 1030,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "parse-bool-false",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 6879,
+      "model_calls": 3,
+      "request_chars": 5917,
+      "prompt_tokens": 1701,
+      "completion_tokens": 1759,
+      "total_tokens": 3460,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "email-trim",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2166,
+      "model_calls": 3,
+      "request_chars": 5881,
+      "prompt_tokens": 1683,
+      "completion_tokens": 549,
+      "total_tokens": 2232,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "email-trim",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 1275,
+      "model_calls": 1,
+      "request_chars": 1600,
+      "prompt_tokens": 482,
+      "completion_tokens": 88,
+      "total_tokens": 570,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "duration-units",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 58865,
+      "model_calls": 2,
+      "request_chars": 5944,
+      "prompt_tokens": 1826,
+      "completion_tokens": 10628,
+      "total_tokens": 12454,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "duration-units",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 83818,
+      "model_calls": 7,
+      "request_chars": 25000,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_parse_duration_supports_ms_and_seconds"
+    },
+    {
+      "case_id": "url-base-path",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 15383,
+      "model_calls": 3,
+      "request_chars": 5944,
+      "prompt_tokens": 1704,
+      "completion_tokens": 4543,
+      "total_tokens": 6247,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "url-base-path",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 9254,
+      "model_calls": 1,
+      "request_chars": 1621,
+      "prompt_tokens": 489,
+      "completion_tokens": 1491,
+      "total_tokens": 1980,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "tag-normalization",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 16459,
+      "model_calls": 2,
+      "request_chars": 6217,
+      "prompt_tokens": 1821,
+      "completion_tokens": 2597,
+      "total_tokens": 4418,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "tag-normalization",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 82261,
+      "model_calls": 6,
+      "request_chars": 20810,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "final-file-extension",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 61635,
+      "model_calls": 6,
+      "request_chars": 18542,
+      "prompt_tokens": 5361,
+      "completion_tokens": 17601,
+      "total_tokens": 22962,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_file_extension_uses_final_suffix_lowercase; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "final-file-extension",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 97748,
+      "model_calls": 2,
+      "request_chars": 5462,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": "ReadTimeout: timed out"
+    },
+    {
+      "case_id": "token-redaction",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 68716,
+      "model_calls": 2,
+      "request_chars": 5626,
+      "prompt_tokens": 1665,
+      "completion_tokens": 11811,
+      "total_tokens": 13476,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "token-redaction",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 93858,
+      "model_calls": 6,
+      "request_chars": 19034,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_redact_token_handles_punctuation; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "header-case-insensitive",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 73155,
+      "model_calls": 6,
+      "request_chars": 20894,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 2,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": "The proposed edit batch could not be applied safely"
+    },
+    {
+      "case_id": "header-case-insensitive",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 52514,
+      "model_calls": 2,
+      "request_chars": 6245,
+      "prompt_tokens": 1802,
+      "completion_tokens": 8696,
+      "total_tokens": 10498,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_merge_headers_is_case_insensitive; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "optional-int-none",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 15009,
+      "model_calls": 2,
+      "request_chars": 5310,
+      "prompt_tokens": 1556,
+      "completion_tokens": 2409,
+      "total_tokens": 3965,
+      "repair_rounds": 2,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": "Verification failed with exit code 1: python -m unittest -q test_parsing_utils.ParsingUtilsTest.test_optional_int_preserves_missing_value; The same deterministic failure repeated; self-healing stopped early"
+    },
+    {
+      "case_id": "optional-int-none",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 141046,
+      "model_calls": 7,
+      "request_chars": 22310,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "parsing_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "state-transition-graph",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 5744,
+      "model_calls": 3,
+      "request_chars": 6231,
+      "prompt_tokens": 1763,
+      "completion_tokens": 1797,
+      "total_tokens": 3560,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "state-transition-graph",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 5145,
+      "model_calls": 1,
+      "request_chars": 1717,
+      "prompt_tokens": 509,
+      "completion_tokens": 925,
+      "total_tokens": 1434,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "exponential-backoff",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 2527,
+      "model_calls": 1,
+      "request_chars": 1691,
+      "prompt_tokens": 508,
+      "completion_tokens": 337,
+      "total_tokens": 845,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "exponential-backoff",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 7498,
+      "model_calls": 3,
+      "request_chars": 6153,
+      "prompt_tokens": 1760,
+      "completion_tokens": 1391,
+      "total_tokens": 3151,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "quota-percentage",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 8139,
+      "model_calls": 3,
+      "request_chars": 5883,
+      "prompt_tokens": 1715,
+      "completion_tokens": 1594,
+      "total_tokens": 3309,
+      "repair_rounds": 0,
+      "collaboration_rounds": 1,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "quota-percentage",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 7497,
+      "model_calls": 1,
+      "request_chars": 1601,
+      "prompt_tokens": 493,
+      "completion_tokens": 1435,
+      "total_tokens": 1928,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "inventory-exact-reservation",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 63405,
+      "model_calls": 2,
+      "request_chars": 5566,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": "HTTPStatusError: Server error '504 Gateway Timeout' for url 'http://127.0.0.1:8000/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504"
+    },
+    {
+      "case_id": "inventory-exact-reservation",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 130411,
+      "model_calls": 4,
+      "request_chars": 8358,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [],
+      "changed_path_recall": 0.0,
+      "changed_path_precision": 0.0,
+      "edit_strategies": {},
+      "edit_failure_codes": {},
+      "error": "CollaborationRoleError: implementer proposal failed after one isolated retry: Server error '504 Gateway Timeout' for url 'http://127.0.0.1:8000/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504"
+    },
+    {
+      "case_id": "cache-ttl-boundary",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 65319,
+      "model_calls": 6,
+      "request_chars": 22347,
+      "prompt_tokens": 6553,
+      "completion_tokens": 19287,
+      "total_tokens": 25840,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": null
+    },
+    {
+      "case_id": "cache-ttl-boundary",
+      "variant": "single",
+      "run_index": 1,
+      "status": "failed",
+      "duration_ms": 60206,
+      "model_calls": 1,
+      "request_chars": 1687,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [],
+      "changed_path_recall": 0.0,
+      "changed_path_precision": 0.0,
+      "edit_strategies": {},
+      "edit_failure_codes": {},
+      "error": "HTTPStatusError: Server error '504 Gateway Timeout' for url 'http://127.0.0.1:8000/v1/chat/completions'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/504"
+    },
+    {
+      "case_id": "timeout-cap",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 39225,
+      "model_calls": 1,
+      "request_chars": 1708,
+      "prompt_tokens": 506,
+      "completion_tokens": 6683,
+      "total_tokens": 7189,
+      "repair_rounds": 0,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "timeout-cap",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 76346,
+      "model_calls": 6,
+      "request_chars": 18846,
+      "prompt_tokens": 5302,
+      "completion_tokens": 19402,
+      "total_tokens": 24704,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "retryable-http-status",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 48161,
+      "model_calls": 6,
+      "request_chars": 18756,
+      "prompt_tokens": 5395,
+      "completion_tokens": 17479,
+      "total_tokens": 22874,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "retryable-http-status",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 38201,
+      "model_calls": 2,
+      "request_chars": 6747,
+      "prompt_tokens": 2038,
+      "completion_tokens": 6579,
+      "total_tokens": 8617,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": null
+    },
+    {
+      "case_id": "setting-precedence",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 47154,
+      "model_calls": 2,
+      "request_chars": 6759,
+      "prompt_tokens": 2016,
+      "completion_tokens": 8573,
+      "total_tokens": 10589,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 1
+      },
+      "edit_failure_codes": {
+        "anchor_not_unique": 1
+      },
+      "error": null
+    },
+    {
+      "case_id": "setting-precedence",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 163928,
+      "model_calls": 7,
+      "request_chars": 24424,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "safe-divide-zero",
+      "variant": "multi",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 14458,
+      "model_calls": 6,
+      "request_chars": 20496,
+      "prompt_tokens": 6058,
+      "completion_tokens": 4170,
+      "total_tokens": 10228,
+      "repair_rounds": 1,
+      "collaboration_rounds": 2,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    },
+    {
+      "case_id": "safe-divide-zero",
+      "variant": "single",
+      "run_index": 1,
+      "status": "succeeded",
+      "duration_ms": 11927,
+      "model_calls": 2,
+      "request_chars": 6116,
+      "prompt_tokens": 1879,
+      "completion_tokens": 1870,
+      "total_tokens": 3749,
+      "repair_rounds": 1,
+      "collaboration_rounds": 0,
+      "detected_conflicts": 0,
+      "changed_paths": [
+        "policy_utils.py"
+      ],
+      "changed_path_recall": 1.0,
+      "changed_path_precision": 1.0,
+      "edit_strategies": {
+        "exact_anchor": 2
+      },
+      "edit_failure_codes": {},
+      "error": null
+    }
+  ]
+}

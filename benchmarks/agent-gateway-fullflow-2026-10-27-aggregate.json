@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-10-27T02:22:33.313659Z",
+  "dataset_sha256": "6f9d43944a941efd78d2ae6534f62eed5a4a5e794820687c5c79ae1b6c72e167",
+  "cases": 30,
+  "runs": 1,
+  "observations_per_variant": 30,
+  "single": {
+    "observations": 30,
+    "successes": 20,
+    "raw_success_rate": 0.666667,
+    "provider_failures": 3,
+    "agent_failures": 7,
+    "provider_adjusted_observations": 27,
+    "provider_adjusted_success_rate": 0.740741,
+    "mean_duration_ms": 25787.933,
+    "p50_duration_ms": 11927,
+    "p95_duration_ms": 68716,
+    "mean_model_calls": 1.433,
+    "known_token_observations": 27,
+    "known_total_tokens": 121853,
+    "mean_known_tokens": 4513.074,
+    "mean_changed_path_recall": 0.966667,
+    "mean_changed_path_precision": 0.966667,
+    "edit_strategies": {
+      "exact_anchor": 33,
+      "line_range": 1
+    },
+    "edit_failure_codes": {
+      "anchor_not_unique": 7
+    },
+    "failure_classes": {
+      "edit_application": 5,
+      "provider_failure": 3,
+      "repeated_verification": 2
+    }
+  },
+  "multi": {
+    "observations": 30,
+    "successes": 23,
+    "raw_success_rate": 0.766667,
+    "provider_failures": 1,
+    "agent_failures": 6,
+    "provider_adjusted_observations": 29,
+    "provider_adjusted_success_rate": 0.793103,
+    "mean_duration_ms": 40501.4,
+    "p50_duration_ms": 15383,
+    "p95_duration_ms": 130411,
+    "mean_model_calls": 4.533,
+    "known_token_observations": 23,
+    "known_total_tokens": 201615,
+    "mean_known_tokens": 8765.87,
+    "mean_changed_path_recall": 0.966667,
+    "mean_changed_path_precision": 0.966667,
+    "edit_strategies": {
+      "exact_anchor": 36,
+      "line_range": 1
+    },
+    "edit_failure_codes": {
+      "anchor_not_unique": 4,
+      "line_range_guard_mismatch": 2
+    },
+    "failure_classes": {
+      "edit_application": 3,
+      "provider_failure": 1,
+      "repeated_verification": 2,
+      "verification": 1
+    }
+  },
+  "per_run": [
+    {
+      "run_index": 1,
+      "single_success_rate": 0.666667,
+      "multi_success_rate": 0.766667,
+      "single_provider_failures": 3,
+      "multi_provider_failures": 1
+    }
+  ]
+}
