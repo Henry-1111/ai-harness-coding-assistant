@@ -183,6 +183,8 @@ Worker 会把 OpenAI-compatible Provider 返回的 `usage.prompt_tokens` 和 `us
 
 ## 本地开发
 
+真实 API Key 只放在本机环境变量、未跟踪的 `.env` 或 Secret 文件中；不要提交明文密钥或运行时数据库。
+
 ```bash
 python -m venv .venv
 . .venv/bin/activate
@@ -622,6 +624,12 @@ Token、时延和失败类型，而不能只挑最佳轮次。补丁前 30 Case�
 升至 30%，编辑应用失败从 5 个降至 1 个；单 Agent 原始成功率仍为 30%，结果并不支持宣称整体成功率已稳定
 提升。后续评测报告会额外记录精确锚点、规范化锚点、行范围和新文件策略的实际次数，以及具体拒绝码。
 
+新版并行提案多 Agent 经本地 LLM Gateway 的完整 30 Case 单轮测试见
+[`benchmarks/AGENT_GATEWAY_FULLFLOW_2026-10-27.md`](benchmarks/AGENT_GATEWAY_FULLFLOW_2026-10-27.md)：
+单 Agent 成功 20/30，多 Agent 成功 23/30，成对比较为多 Agent 4 胜、单 Agent 1 胜、25 平；
+但多 Agent 的 P95 耗时和模型调用次数更高，且 Gateway 有 5 次上游请求超时。这个单轮结果只是正向信号，
+不能与历史三轮结果直接合并，也不能证明稳定提升；仍需在相同配置下补足重复实验。
+
 ## 系统级验证与运行时基准
 
 自动化测试中的 `tests/test_system_e2e.py` 会启动一个本地 OpenAI-compatible HTTP Stub，验证完整链路：
@@ -793,4 +801,9 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Promote
   S3/MinIO，但当前 Compose 编排仍是单主机。
 - CLI 默认使用 Docker Sandbox。`AI_HARNESS_SANDBOX_MODE=local` 仅适合测试，或 Harness 本身已经运行在受限容器
   中的场景；不要对不可信请求在宿主机启用本地模式。
-- 当前数据不能支持简历中的准确率、召回率、成功率等数字；必须建立固定任务集并真实评测后才能写入。
+- 固定任务集已有可复核的检索与 Agent 评测数据，但仅支持注明数据集、运行轮数与 Provider 故障口径的有限结论；
+  不可将仓库内 Fixture 的结果泛化为真实外部项目，也不可把新版多 Agent 的单轮成绩写成稳定成功率。
+
+## 许可证
+
+本项目代码采用 [MIT License](LICENSE)。
