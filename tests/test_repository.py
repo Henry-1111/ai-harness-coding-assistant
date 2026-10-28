@@ -136,6 +136,69 @@ def test_repo_map_skips_oversized_javascript_file(tmp_path: Path):
     assert item.symbols == []
 
 
+def test_repo_map_extracts_go_types_methods_and_imports(tmp_path: Path):
+    (tmp_path / "gateway.go").write_text(
+        "package gateway\n"
+        "// func fake() {}\n"
+        'import ("context"; quota "example.com/project/quota")\n'
+        "type Gateway struct{}\n"
+        "type Runner interface { Run() error }\n"
+        "type Alias = string\n"
+        "func NewGateway() *Gateway { return nil }\n"
+        "func (g *Gateway) Reserve() {}\n",
+        encoding="utf-8",
+    )
+
+    item = RepoMapBuilder().build(Repository(tmp_path))[0]
+
+    assert [(symbol.name, symbol.kind, symbol.line) for symbol in item.symbols] == [
+        ("Gateway", "struct", 4),
+        ("Runner", "interface", 5),
+        ("Runner.Run", "method", 5),
+        ("Alias", "type", 6),
+        ("NewGateway", "function", 7),
+        ("Gateway.Reserve", "method", 8),
+    ]
+    assert item.imports == ["context", "example.com/project/quota"]
+
+
+def test_repo_map_extracts_java_types_methods_and_imports(tmp_path: Path):
+    (tmp_path / "Gateway.java").write_text(
+        "package com.example;\n"
+        "// class Fake {}\n"
+        "import java.util.List;\n"
+        "import static com.example.Quota.reserve;\n"
+        "import com.example.*;\n"
+        "class Gateway { Gateway() {} void reserve() {} }\n"
+        "interface Service { void run(); }\n"
+        "record Item(String id) {}\n"
+        "enum State { READY; }\n",
+        encoding="utf-8",
+    )
+
+    item = RepoMapBuilder().build(Repository(tmp_path))[0]
+
+    assert [(symbol.name, symbol.kind) for symbol in item.symbols] == [
+        ("Gateway", "class"),
+        ("Gateway.Gateway", "method"),
+        ("Gateway.reserve", "method"),
+        ("Service", "interface"),
+        ("Service.run", "method"),
+        ("Item", "record"),
+        ("State", "enum"),
+    ]
+    assert item.imports == ["com.example.*", "com.example.Quota", "java.util.List"]
+
+
+@pytest.mark.parametrize("suffix", [".go", ".java"])
+def test_repo_map_skips_oversized_go_and_java_files(tmp_path: Path, suffix: str):
+    (tmp_path / f"large{suffix}").write_text("class Ignore {}\n" * 10, encoding="utf-8")
+
+    item = RepoMapBuilder(max_file_bytes=10).build(Repository(tmp_path))[0]
+
+    assert item.symbols == []
+
+
 def test_context_search_ranks_symbol_and_text_matches(tmp_path: Path):
     (tmp_path / "quota.py").write_text(
         "class QuotaManager:\n    def reserve_tokens(self):\n        return 'quota reservation'\n",
@@ -224,6 +287,58 @@ def test_typescript_symbol_retrieval_expands_relative_imports(tmp_path: Path):
     assert hits[0].path == "src/quota.ts"
     assert "structure" in hits[0].source
     assert "src/consumer.ts" in next(
+        stage.selected_paths for stage in index.last_trace.stages if stage.stage == "deepen"
+    )
+
+
+@pytest.mark.parametrize(
+    ("target_name", "target_source", "consumer_name", "consumer_source"),
+    [
+        (
+            "quota.go",
+            "package quota\nfunc ReserveTokens() {}\n",
+            "handler.go",
+            'package handler\nimport "example.com/acme/quota"\n',
+        ),
+        (
+            "Quota.java",
+            "package com.acme;\nclass Quota { void reserveTokens() {} }\n",
+            "Handler.java",
+            "package com.acme;\nimport com.acme.Quota;\nclass Handler {}\n",
+        ),
+    ],
+)
+def test_go_java_retrieval_expands_imported_modules(
+    tmp_path: Path,
+    target_name: str,
+    target_source: str,
+    consumer_name: str,
+    consumer_source: str,
+):
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / target_name).write_text(target_source, encoding="utf-8")
+    (source / consumer_name).write_text(consumer_source, encoding="utf-8")
+    repository = Repository(tmp_path)
+    index = ContextIndex(repository, RepoMapBuilder().build(repository))
+
+    hits = index.search("reserveTokens", limit=2)
+
+    assert hits[0].path == f"src/{target_name}"
+    assert f"src/{consumer_name}" in next(
+        stage.selected_paths for stage in index.last_trace.stages if stage.stage == "deepen"
+    )
+
+
+def test_java_fixture_retrieves_symbol_and_dependent_file():
+    fixture = Path(__file__).parent / "fixtures" / "multilang" / "java"
+    repository = Repository(fixture)
+    index = ContextIndex(repository, RepoMapBuilder().build(repository))
+
+    hits = index.search("reserveTokens", limit=2)
+
+    assert hits[0].path == "example/Quota.java"
+    assert "example/Handler.java" in next(
         stage.selected_paths for stage in index.last_trace.stages if stage.stage == "deepen"
     )
 

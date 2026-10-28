@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
 from .embeddings import EmbeddingProvider
+from .go_java_structure import go_java_structure
 from .javascript_structure import javascript_structure
 from .models import RepoFile, RepoSymbol, RetrievalStageTrace, RetrievalTrace, SearchHit
 
@@ -140,6 +141,8 @@ class RepoMapBuilder:
                     ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"
                 }:
                     symbols, imports = javascript_structure(path)
+                elif path.suffix.lower() in {".go", ".java"}:
+                    symbols, imports = go_java_structure(path)
             result.append(
                 RepoFile(
                     path=relative,

@@ -44,7 +44,7 @@ Docker Compose 主要面向单主机。检索和任务成功率来自仓库内�
 
 - FastAPI 与 CLI 两种入口；
 - React + TypeScript + Ant Design 控制台，使用 Monaco 展示待发布 diff；
-- Python AST Repo Map，以及基于 Tree-sitter 的 JavaScript/TypeScript（含 JSX、TSX）符号与静态导入解析；
+- Python AST Repo Map，以及基于 Tree-sitter 的 JavaScript/TypeScript、Go、Java 符号与静态导入解析；
 - Git 分支、提交历史、工作区状态与 diff 的只读上下文；
 - JSON-RPC LSP Client，并可将定义跳转结果接入 Scout 召回；
 - 确定性 Query Rewrite、标准 BM25、可选 OpenAI-compatible Embedding、多路候选召回和
@@ -800,9 +800,9 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Promote
 ## 项目边界
 
 - 当前 Repo Map 对 Python 提供 AST 级符号解析，对 JavaScript/TypeScript（含 JSX、TSX、
-  `.mjs/.cjs/.mts/.cts`）提供 Tree-sitter 符号与静态导入解析。Go、Java 等其他语言仍主要依赖
-  文件和文本级索引；LSP 定义召回已接入 Scout，但具体语言服务器仍需部署方通过
-  `AI_HARNESS_LSP_COMMAND` 配置。动态导入和计算属性名不计入静态结构索引。
+  `.mjs/.cjs/.mts/.cts`）、Go 和 Java 提供 Tree-sitter 符号与静态导入解析。其他语言仍主要依赖文件和
+  文本级索引；LSP 定义召回已接入 Scout，但具体语言服务器仍需部署方通过
+  `AI_HARNESS_LSP_COMMAND` 配置。动态导入、计算属性名和无法静态确定的依赖不计入结构索引。
 - Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭。配置
   `AI_HARNESS_EMBEDDING_MODEL`、`AI_HARNESS_EMBEDDING_BASE_URL` 和
   `AI_HARNESS_EMBEDDING_API_KEY` 后，可与聊天请求一样统一经过 LLM Gateway。

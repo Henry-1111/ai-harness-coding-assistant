@@ -186,7 +186,10 @@ class PlanDAG(BaseModel):
 
 class RepoSymbol(BaseModel):
     name: str
-    kind: Literal["class", "function", "async_function", "method", "interface", "type"]
+    kind: Literal[
+        "class", "function", "async_function", "method", "interface", "type",
+        "struct", "enum", "record",
+    ]
     line: int
 
 
