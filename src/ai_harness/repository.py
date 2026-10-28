@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Protocol, Sequence, Set, Tuple
 
 from .embeddings import EmbeddingProvider
+from .javascript_structure import javascript_structure
 from .models import RepoFile, RepoSymbol, RetrievalStageTrace, RetrievalTrace, SearchHit
 
 DEFAULT_EXCLUDES = {
@@ -33,8 +34,12 @@ TEXT_EXTENSIONS = {
     ".py",
     ".js",
     ".jsx",
+    ".mjs",
+    ".cjs",
     ".ts",
     ".tsx",
+    ".mts",
+    ".cts",
     ".java",
     ".go",
     ".rs",
@@ -128,8 +133,13 @@ class RepoMapBuilder:
             relative = path.relative_to(repository.root).as_posix()
             symbols: List[RepoSymbol] = []
             imports: List[str] = []
-            if path.suffix == ".py" and size <= self.max_file_bytes:
-                symbols, imports = self._python_structure(path)
+            if size <= self.max_file_bytes:
+                if path.suffix.lower() == ".py":
+                    symbols, imports = self._python_structure(path)
+                elif path.suffix.lower() in {
+                    ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"
+                }:
+                    symbols, imports = javascript_structure(path)
             result.append(
                 RepoFile(
                     path=relative,
@@ -168,8 +178,12 @@ class RepoMapBuilder:
             ".py": "python",
             ".js": "javascript",
             ".jsx": "javascript",
+            ".mjs": "javascript",
+            ".cjs": "javascript",
             ".ts": "typescript",
             ".tsx": "typescript",
+            ".mts": "typescript",
+            ".cts": "typescript",
             ".go": "go",
             ".rs": "rust",
             ".java": "java",
@@ -442,7 +456,10 @@ class ContextIndex:
             item.path
             for item in self.repo_map
             if item.path not in seed_paths
-            and (set(item.imports) & seed_modules or Path(item.path).stem in seed_modules)
+            and (
+                {self._import_module_name(name) for name in item.imports} & seed_modules
+                or Path(item.path).stem in seed_modules
+            )
         ]
         git_rank = [path for path in self.changed_paths if path in texts]
         deepen_rank = list(dict.fromkeys(git_rank + sorted(dependency_rank)))
@@ -598,6 +615,15 @@ class ContextIndex:
             3.0 if term in path else 2.0 if term in symbols else 0.5 if term in imports else 0.0
             for term in terms
         )
+
+    @staticmethod
+    def _import_module_name(specifier: str) -> str:
+        """Reduce a Python module or JS/TS import path to the indexed file stem."""
+        if "/" in specifier:
+            return Path(specifier).stem
+        if specifier.endswith((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")):
+            return Path(specifier).stem
+        return specifier.rsplit(".", 1)[-1]
 
     @staticmethod
     def _cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:

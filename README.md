@@ -44,7 +44,7 @@ Docker Compose 主要面向单主机。检索和任务成功率来自仓库内�
 
 - FastAPI 与 CLI 两种入口；
 - React + TypeScript + Ant Design 控制台，使用 Monaco 展示待发布 diff；
-- Python AST Repo Map，提取 class、function、async function 和 import；
+- Python AST Repo Map，以及基于 Tree-sitter 的 JavaScript/TypeScript（含 JSX、TSX）符号与静态导入解析；
 - Git 分支、提交历史、工作区状态与 diff 的只读上下文；
 - JSON-RPC LSP Client，并可将定义跳转结果接入 Scout 召回；
 - 确定性 Query Rewrite、标准 BM25、可选 OpenAI-compatible Embedding、多路候选召回和
@@ -522,10 +522,10 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 - 每个 Case 的 `rounds` 与 `stop_reason`：验证迭代检索是否按证据或预算停止。
 - `dataset_sha256`：规范化 Case 集指纹，用于确认不同实验使用相同标签。
 
-`tests/test_retrieval_benchmark.py` 同时设置数量、覆盖面、数据指纹和指标回归下限。当前 40 Case 冻结集的
-实测结果为 Recall@5 `97.5%`、MRR `85.08%`、NDCG@5 `87.95%`、Hit Rate `97.5%`，原始逐 Case
-结果见 [`benchmarks/latest-report.json`](benchmarks/latest-report.json)。这些数字只描述本仓库的文件级检索，
-不能表述成跨仓库或跨语言的通用准确率；报告保留了失败 Case，便于后续盲测改进。
+`tests/test_retrieval_benchmark.py` 同时设置数量、覆盖面、数据指纹和指标回归下限。仓库附带的历史
+40 Case 报告记录 Recall@5 `97.5%`、MRR `85.08%`、NDCG@5 `87.95%`、Hit Rate `97.5%`，原始逐 Case
+结果见 [`benchmarks/latest-report.json`](benchmarks/latest-report.json)。代码和索引文件变化后，指标需要重新
+运行上面的命令核对；这些数字只描述本仓库的 Python 文件级检索，不能表述成跨仓库或跨语言的通用准确率。
 
 ## 路由与 Plan DAG 评测
 
@@ -799,8 +799,10 @@ HTTP RPS/P95 延迟、任务状态、快照容量与额度对账失败。Promote
 
 ## 项目边界
 
-- 当前 Repo Map 对 Python 提供 AST 级符号解析，其他语言提供文件和文本级索引；LSP 定义召回已接入
-  Scout，但具体语言服务器仍需部署方通过 `AI_HARNESS_LSP_COMMAND` 配置。
+- 当前 Repo Map 对 Python 提供 AST 级符号解析，对 JavaScript/TypeScript（含 JSX、TSX、
+  `.mjs/.cjs/.mts/.cts`）提供 Tree-sitter 符号与静态导入解析。Go、Java 等其他语言仍主要依赖
+  文件和文本级索引；LSP 定义召回已接入 Scout，但具体语言服务器仍需部署方通过
+  `AI_HARNESS_LSP_COMMAND` 配置。动态导入和计算属性名不计入静态结构索引。
 - Embedding 召回通过 OpenAI-compatible `/embeddings` 接口接入；默认关闭。配置
   `AI_HARNESS_EMBEDDING_MODEL`、`AI_HARNESS_EMBEDDING_BASE_URL` 和
   `AI_HARNESS_EMBEDDING_API_KEY` 后，可与聊天请求一样统一经过 LLM Gateway。

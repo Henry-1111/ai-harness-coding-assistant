@@ -44,6 +44,98 @@ def test_repo_map_extracts_python_symbols_and_imports(tmp_path: Path):
     assert repo_map[0].imports == ["json", "pathlib"]
 
 
+def test_repo_map_extracts_javascript_declarations_and_static_imports(tmp_path: Path):
+    (tmp_path / "gateway.js").write_text(
+        '// function fake() {}\n'
+        'const example = "class NotAClass {}";\n'
+        'import { quota } from "./quota";\n'
+        'export async function processTask() {}\n'
+        'const retryRequest = async () => true;\n'
+        'class Gateway { async send() {} }\n'
+        'const Created = class {};\n'
+        'const helper = require("../shared/format");\n'
+        'export { quota } from "./quota-public";\n',
+        encoding="utf-8",
+    )
+
+    item = RepoMapBuilder().build(Repository(tmp_path))[0]
+
+    assert [(symbol.name, symbol.kind, symbol.line) for symbol in item.symbols] == [
+        ("processTask", "async_function", 4),
+        ("retryRequest", "async_function", 5),
+        ("Gateway", "class", 6),
+        ("Gateway.send", "method", 6),
+        ("Created", "class", 7),
+    ]
+    assert item.imports == ["../shared/format", "./quota", "./quota-public"]
+
+
+def test_repo_map_omits_dynamic_javascript_imports(tmp_path: Path):
+    (tmp_path / "dynamic.js").write_text(
+        'const lazy = import("./lazy");\n'
+        "const unknown = require(moduleName);\n",
+        encoding="utf-8",
+    )
+
+    item = RepoMapBuilder().build(Repository(tmp_path))[0]
+
+    assert item.imports == []
+
+
+@pytest.mark.parametrize(
+    ("suffix", "source", "expected"),
+    [
+        (".mjs", "export function load() {}\n", [("load", "function")]),
+        (".cjs", "const load = () => true;\n", [("load", "function")]),
+        (
+            ".jsx",
+            "export default function Dashboard() { return <main />; }\n",
+            [("Dashboard", "function")],
+        ),
+        (
+            ".ts",
+            "import type { Config } from './types';\n"
+            "export interface Service { run(): void }\n"
+            "export type Result = string;\n"
+            "export const createService = (): Service => ({ run() {} });\n",
+            [
+                ("Service", "interface"),
+                ("Service.run", "method"),
+                ("Result", "type"),
+                ("createService", "function"),
+                ("run", "method"),
+            ],
+        ),
+        (
+            ".tsx",
+            "export const Widget = () => <span />;\n",
+            [("Widget", "function")],
+        ),
+        (".mts", "export function load(): void {}\n", [("load", "function")]),
+        (".cts", "export function load(): void {}\n", [("load", "function")]),
+    ],
+)
+def test_repo_map_extracts_jsx_and_typescript_symbols(
+    tmp_path: Path, suffix: str, source: str, expected: list[tuple[str, str]]
+):
+    target = tmp_path / f"component{suffix}"
+    target.write_text(source, encoding="utf-8")
+
+    item = RepoMapBuilder().build(Repository(tmp_path))[0]
+
+    assert [(symbol.name, symbol.kind) for symbol in item.symbols] == expected
+    if suffix == ".ts":
+        assert item.imports == ["./types"]
+
+
+def test_repo_map_skips_oversized_javascript_file(tmp_path: Path):
+    (tmp_path / "large.js").write_text("function shouldNotIndex() {}\n", encoding="utf-8")
+
+    item = RepoMapBuilder(max_file_bytes=10).build(Repository(tmp_path))[0]
+
+    assert item.symbols == []
+
+
 def test_context_search_ranks_symbol_and_text_matches(tmp_path: Path):
     (tmp_path / "quota.py").write_text(
         "class QuotaManager:\n    def reserve_tokens(self):\n        return 'quota reservation'\n",
@@ -113,6 +205,27 @@ def test_hybrid_retrieval_fuses_structure_lexical_and_git_context(tmp_path: Path
     assert "lexical" in hits[0].source
     assert index.last_trace.stages[-1].selected_paths[0] == "quota.py"
     assert index.last_trace.context_reduction_ratio > 0
+
+
+def test_typescript_symbol_retrieval_expands_relative_imports(tmp_path: Path):
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "quota.ts").write_text("export function reserveTokens() {}\n", encoding="utf-8")
+    (source / "consumer.ts").write_text(
+        'import * as quota from "./quota";\nexport const run = () => quota;\n',
+        encoding="utf-8",
+    )
+    (source / "unrelated.ts").write_text("export const value = 1;\n", encoding="utf-8")
+    repository = Repository(tmp_path)
+    index = ContextIndex(repository, RepoMapBuilder().build(repository))
+
+    hits = index.search("reserveTokens", limit=3)
+
+    assert hits[0].path == "src/quota.ts"
+    assert "structure" in hits[0].source
+    assert "src/consumer.ts" in next(
+        stage.selected_paths for stage in index.last_trace.stages if stage.stage == "deepen"
+    )
 
 
 def test_retrieval_cache_hits_and_repository_change_invalidates_it(tmp_path: Path):
