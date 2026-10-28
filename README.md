@@ -1,10 +1,26 @@
 # AI Harness 编程助手
 
-AI Harness 是一个面向真实代码仓库的多 Agent 编程执行框架。它把模型的非确定性决策与文件、命令等副作用
-隔离开：模型只生成结构化计划和编辑意图，Harness 负责路径边界、工具权限、隔离工作区、验证命令、Reviewer
-验收和 Checkpoint 恢复。
+## 项目介绍
 
-## 已实现的闭环
+AI Harness 是一个帮助开发者在代码仓库中完成修改任务的编程助手。你可以告诉它要解决什么问题、允许修改
+哪些文件、怎样验证结果；它会查找相关代码、提出修改、运行测试，并把结果和差异展示给你检查。
+
+例如，提交“修复订单重复扣款，并补充回归测试”后，你可以查看它的计划、改动和测试结果。改动先保存在
+独立工作区，不会直接覆盖原仓库；只有通过检查并由人明确确认后，才会发布。任务失败时，也可以查看原因，
+在限制范围内尝试修复或从记录的进度继续。
+
+项目目前支持命令行、HTTP API 和网页控制台。简单任务可以由单个编程 Agent 完成；符合协作条件的任务
+可以由实现与测试角色分别提出方案，再整合结果。它还提供任务队列、权限与额度管理、审计记录和运行监控，
+便于管理多个任务。模型可通过兼容 OpenAI API 的服务接入，也可以连接本项目的 LLM Gateway。
+
+想动手试用，可从[本地开发](#本地开发)安装，按 [CLI 示例](#cli)运行一个任务，或启动
+[Web 控制台](#web-控制台)。下面的章节提供实现细节、配置方式和评测记录。
+
+当前默认采用本地 SQLite 模式；多实例所需的 PostgreSQL、Redis、共享存储等需要另行配置，现有
+Docker Compose 主要面向单主机。检索和任务成功率来自仓库内固定测试集，不代表在任意真实项目中都有
+相同表现。
+
+## 技术实现概览
 
 ```text
 需求输入
@@ -601,12 +617,11 @@ SHA-256，便于确认不同实验使用的是同一版本。`--repetitions` 会
 `needs_input` 并写入审批记录，然后由评测执行器以 `benchmark-runner` 身份显式批准。评测外的任务以及未提供
 该开关的评测仍必须由正常治理接口审批。
 
-这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。正式对外引用时必须同时报告成功率、
+这 30 个任务仍是仓库内可控 Fixture，不等于外部真实项目泛化能力。引用时应同时报告成功率、
 Token、时延和失败类型，而不能只挑最佳轮次。补丁前 30 Case、3 次重复的 DeepSeek 基线结果见
 [`benchmarks/AGENT_RESULTS.md`](benchmarks/AGENT_RESULTS.md)，对应的 180 条原始观测见
-[`benchmarks/agent-report.json`](benchmarks/agent-report.json)。本次实测成功率约为 48%，并未达到项目描述中
-75%–80% 的目标；文档同时保留了精确编辑失败、验证失败、审批暂停和上游超时的完整分布，不能只引用
-早期 3 Case 冒烟测试的 100% 结果。
+[`benchmarks/agent-report.json`](benchmarks/agent-report.json)。本次实测成功率约为 48%；报告同时保留了
+精确编辑失败、验证失败、审批暂停和上游超时的分布。早期 3 Case 冒烟测试不代表完整任务集表现。
 
 针对历史编辑失败 Case 的补丁回归结果见
 [`benchmarks/AGENT_REGRESSION_RESULTS.md`](benchmarks/AGENT_REGRESSION_RESULTS.md)：10 Case 单轮相对同一
@@ -617,7 +632,7 @@ Token、时延和失败类型，而不能只挑最佳轮次。补丁前 30 Case�
 补丁后三轮正式结果见 [`benchmarks/AGENT_THREE_RUN_RESULTS.md`](benchmarks/AGENT_THREE_RUN_RESULTS.md)，聚合 JSON
 见 `benchmarks/agent-report-three-runs.json`：每个变体共 90 个观测，单 Agent 原始成功率 74.44%、Provider 调整后
 诊断成功率 87.01%、P95 66.5 秒、平均已知 Token 3,601；多 Agent 原始成功率 65.56%，成本和尾延迟均更高。
-简历应优先引用 74.44% 的端到端数字，并注明这是固定 30 Case 本地冻结任务集的三轮结果。
+这些数字仅适用于固定 30 Case 本地冻结任务集和对应的三轮运行配置。
 
 针对 AST/行范围安全重定位的同一 10 Case 单轮回归见
 [`benchmarks/AGENT_LINE_RANGE_RESULTS.md`](benchmarks/AGENT_LINE_RANGE_RESULTS.md)。多 Agent 原始成功率从 20%
