@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "dataset_id": "ai-harness-real-issue-retrieval-2026-10-v1",
+  "scope": "unseen public issue or PR descriptions at pre-fix base commits; production-file localization only",
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "023767fe9872e029271df1418f73401bff20ff40",
+      "language": "javascript",
+      "repository_sha256": "5793140f6962e67b6eadb028788e618995366ba1693994e2ee3f7636056560f9",
+      "source_url": "https://github.com/expressjs/express/pull/7459",
+      "fix_url": "https://github.com/expressjs/express/pull/7459",
+      "cases": [
+        {"id":"issue-express-etag-transfer","query":"An HTTP response with Transfer-Encoding should still generate an automatic ETag when sending a body, without adding Content-Length.","relevant_paths":["lib/response.js"],"language":"javascript","task_type":"bug","split":"test"}
+      ]
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "70dd11f35ae1853f002e017f3ed06a2497715d99",
+      "language": "typescript",
+      "repository_sha256": "66b880674c9407a990345f3bb23f707404a2b458751d398d441d0b742c414631",
+      "source_url": "https://github.com/sindresorhus/p-queue/issues/219",
+      "fix_url": "https://github.com/sindresorhus/p-queue/pull/220",
+      "cases": [
+        {"id":"issue-pqueue-aborted-cap","query":"Aborted queued jobs still consume interval-cap slots, delaying a later live task; cancellation should not count against the interval limit.","relevant_paths":["source/index.ts"],"language":"typescript","task_type":"bug","split":"test"}
+      ]
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "60755706125129a9f9dfb99ac22f7ba016a1b60c",
+      "language": "go",
+      "repository_sha256": "877390b7cfed41197715b942164821587be13a104e0797793dbe4df5dbb1f0f1",
+      "source_url": "https://github.com/go-chi/chi/pull/1220",
+      "fix_url": "https://github.com/go-chi/chi/pull/1220",
+      "cases": [
+        {"id":"issue-chi-route-context","query":"A not-found suppression preflight mutates the live route context, causing mounted routes to miss or bypass subrouter middleware; the preflight must isolate its context.","relevant_paths":["middleware/supress_notfound.go"],"language":"go","task_type":"bug","split":"test"}
+      ]
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "ed6813d3bbe2da4d67892f73e641fa80ab4d126e",
+      "language": "java",
+      "repository_sha256": "31f184de1c849c5ace2db944d32bdc2d4b9471f376c7de4cbc8348aaa5a64b0d",
+      "source_url": "https://github.com/junit-team/junit4/pull/1517",
+      "fix_url": "https://github.com/junit-team/junit4/pull/1517",
+      "cases": [
+        {"id":"issue-junit-timeout-group","query":"Repeated timeout rules retain ThreadGroup instances and their application context; the group should be destroyed after test execution without changing timeout behavior.","relevant_paths":["src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"],"language":"java","task_type":"bug","split":"test"}
+      ]
+    }
+  ]
+}

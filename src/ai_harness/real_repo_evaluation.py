@@ -4,7 +4,7 @@ import json
 import subprocess
 from hashlib import sha256
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +20,12 @@ class RealRepositorySpec(BaseModel):
     commit: str = Field(pattern=r"^[a-f0-9]{40}$")
     language: str
     repository_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    source_url: Optional[str] = Field(
+        default=None, pattern=r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[0-9]+$"
+    )
+    fix_url: Optional[str] = Field(
+        default=None, pattern=r"^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+$"
+    )
     cases: List[RetrievalCase] = Field(min_length=1)
 
 
@@ -37,6 +43,8 @@ class RealRepositoryResult(BaseModel):
     github: str
     commit: str
     language: str
+    source_url: Optional[str] = None
+    fix_url: Optional[str] = None
     comparison: StructureComparison
 
 
@@ -108,6 +116,8 @@ def evaluate_real_repositories(
                 github=spec.github,
                 commit=spec.commit,
                 language=spec.language,
+                source_url=spec.source_url,
+                fix_url=spec.fix_url,
                 comparison=comparison,
             )
         )
