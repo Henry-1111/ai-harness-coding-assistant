@@ -44,6 +44,7 @@ class CaseMetrics(BaseModel):
     stop_reason: str
     baseline_recall_at_k: float
     baseline_reciprocal_rank: float
+    stage_relevant_ranks: Dict[str, Dict[str, Optional[int]]] = Field(default_factory=dict)
 
 
 class BadCase(BaseModel):
@@ -184,6 +185,18 @@ class RetrievalEvaluator:
                 ),
                 None,
             )
+            stage_relevant_ranks = {
+                f"{stage.stage}@{stage.round}": {
+                    path: (
+                        stage.selected_paths.index(path) + 1
+                        if path in stage.selected_paths
+                        else None
+                    )
+                    for path in case.relevant_paths
+                }
+                for stage in index.last_trace.stages
+                if stage.stage in {"forge", "focus", "deepen", "select"}
+            }
             dcg = sum(
                 1 / math.log2(rank + 1)
                 for rank, path in enumerate(retrieved, start=1)
@@ -212,6 +225,7 @@ class RetrievalEvaluator:
                     baseline_reciprocal_rank=(
                         round(1 / baseline_first_rank, 6) if baseline_first_rank else 0.0
                     ),
+                    stage_relevant_ranks=stage_relevant_ranks,
                 )
             )
         count = len(details)

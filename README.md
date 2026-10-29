@@ -535,7 +535,8 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 进一步在 Express、p-queue、chi、JUnit 4 四个固定版本的真实开源仓库上做了 12 个维护场景的
 结构索引消融评测；逐任务结果、复现命令和失败分析见
 [`benchmarks/REAL_REPO_RETRIEVAL.md`](benchmarks/REAL_REPO_RETRIEVAL.md)。这些小样本只用于定位检索缺口，
-不代表跨仓库通用 Recall 或 Agent 端到端成功率。
+不代表跨仓库通用 Recall 或 Agent 端到端成功率。报告另列失败归因、一次排序先验修正和预先冻结的
+8 题留出集结果；留出集 Recall@3 未上升，MRR 有所改善。
 
 ## 路由与 Plan DAG 评测
 

@@ -27,6 +27,20 @@ class FakeDefinitions:
         return ["src/policy.py"]
 
 
+def test_test_path_prior_distinguishes_implementation_from_test_intent():
+    assert ContextIndex._is_test_path("src/test/java/example/TimeoutTest.java")
+    assert ContextIndex._is_test_path("source/queue.test.ts")
+    assert ContextIndex._is_test_path("mux_test.go")
+    assert not ContextIndex._is_test_path("src/main/java/example/Timeout.java")
+    assert not ContextIndex._is_test_path("src/main/java/example/Contest.java")
+    assert not ContextIndex._query_wants_test_files(
+        "Stop a test method when its timeout expires"
+    )
+    assert ContextIndex._query_wants_test_files("Find the test file for timeout")
+    assert not ContextIndex._query_wants_test_files("Fix failing tests for timeout")
+    assert ContextIndex._query_wants_test_files("Update unit tests for timeout")
+
+
 def test_repo_map_extracts_python_symbols_and_imports(tmp_path: Path):
     (tmp_path / "service.py").write_text(
         "import json\n"

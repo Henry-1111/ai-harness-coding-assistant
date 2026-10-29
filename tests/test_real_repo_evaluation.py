@@ -25,6 +25,17 @@ def test_real_repo_manifest_keeps_four_languages_and_twelve_cases():
     assert all(len(spec.commit) == 40 for spec in manifest.repositories)
     assert all(len(spec.repository_sha256) == 64 for spec in manifest.repositories)
 
+    holdout = load_real_repo_manifest(
+        root / "benchmarks" / "real_repo_retrieval_holdout.json"
+    )
+    assert sum(len(spec.cases) for spec in holdout.repositories) == 8
+    assert {spec.id: spec.commit for spec in holdout.repositories} == {
+        spec.id: spec.commit for spec in manifest.repositories
+    }
+    assert {case.id for spec in manifest.repositories for case in spec.cases}.isdisjoint(
+        {case.id for spec in holdout.repositories for case in spec.cases}
+    )
+
 
 def test_real_repo_runner_checks_content_and_scores_without_network(tmp_path: Path):
     repository_root = tmp_path / "repository"
@@ -63,6 +74,7 @@ def test_real_repo_runner_checks_content_and_scores_without_network(tmp_path: Pa
     assert report.cases == 1
     assert report.structured_recall_at_k == 1.0
     assert report.repositories[0].comparison.repository_sha256 == digest.repository_sha256
+    assert report.repositories[0].comparison.structured.details[0].stage_relevant_ranks
 
     (repository_root / "implementation.js").write_text(
         "export function changed() { return true; }\n", encoding="utf-8"

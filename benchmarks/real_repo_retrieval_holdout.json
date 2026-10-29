@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "dataset_id": "ai-harness-real-repo-retrieval-holdout-v1",
+  "scope": "fixed held-out file-localization tasks in pinned public repositories",
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "language": "javascript",
+      "repository_sha256": "3e19d8f502ee8e1363fd6bd98e5fb0a625d1a5fcc380a9cde51a866935745841",
+      "cases": [
+        {"id":"express-request-header","query":"Return the value of a named incoming HTTP header while treating the header name case insensitively","relevant_paths":["lib/request.js"],"language":"javascript","task_type":"behavior","split":"test"},
+        {"id":"express-cookie-response","query":"Serialize a response cookie with options and clear an existing cookie using an expiration date","relevant_paths":["lib/response.js"],"language":"javascript","task_type":"behavior","split":"test"}
+      ]
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "7f272ab5ff2254c0dc2537b7977e88ede1cd55e8",
+      "language": "typescript",
+      "repository_sha256": "742b26f9b53566b1709ec41f5ab247894a062a49e90bf8d49206dbb8034d8393",
+      "cases": [
+        {"id":"pqueue-abort-waiting","query":"Remove a pending task when its AbortSignal fires before execution and release the listener","relevant_paths":["source/index.ts"],"language":"typescript","task_type":"behavior","split":"test"},
+        {"id":"pqueue-custom-queue-contract","query":"Find the interface a custom queue implementation must satisfy for enqueue dequeue filter and priority updates","relevant_paths":["source/queue.ts"],"language":"typescript","task_type":"interface","split":"test"}
+      ]
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf",
+      "language": "go",
+      "repository_sha256": "f0a37e53ba6d108f98d291d426a4589518c3586cad5292956aba543229bd8e4d",
+      "cases": [
+        {"id":"chi-middleware-chain","query":"Compose middleware functions around an HTTP handler in the correct wrapping order","relevant_paths":["chain.go"],"language":"go","task_type":"behavior","split":"test"},
+        {"id":"chi-request-identifier","query":"Attach or propagate a unique request identifier in middleware for downstream logging","relevant_paths":["middleware/request_id.go"],"language":"go","task_type":"behavior","split":"test"}
+      ]
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "890f3c972647de378f25e7271d8fbbd9d3456b79",
+      "language": "java",
+      "repository_sha256": "152bf0517c1a52bc155adad7d9edf59a0a4354baa07c5898e114dcff1df528ad",
+      "cases": [
+        {"id":"junit-expected-exception","query":"Declare an expected exception and verify its message as a test rule evaluates a statement","relevant_paths":["src/main/java/org/junit/rules/ExpectedException.java"],"language":"java","task_type":"behavior","split":"test"},
+        {"id":"junit-parameterized-runner","query":"Create test instances from supplied parameter sets and select the runner factory for each instance","relevant_paths":["src/main/java/org/junit/runners/Parameterized.java"],"language":"java","task_type":"behavior","split":"test"}
+      ]
+    }
+  ]
+}

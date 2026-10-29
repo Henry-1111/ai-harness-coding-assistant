@@ -1,6 +1,6 @@
 # 真实开源仓库多语言检索评测（2026-10-29）
 
-这是一组**文件级检索**任务，不调用模型、不执行下载仓库的代码，也不衡量 Agent 修改代码的成功率。人工阅读固定提交中的实现后，为每个仓库标注 3 个维护任务和目标文件；JUnit 4 的超时任务标注了配置规则和实际执行超时的两个文件。查询不包含目标文件路径。数据见 [`real_repo_retrieval_cases.json`](real_repo_retrieval_cases.json)，逐 Case 排名见 [`real_repo_retrieval_report.json`](real_repo_retrieval_report.json)。
+这是一组**文件级检索**任务，不调用模型、不执行下载仓库的代码，也不衡量 Agent 修改代码的成功率。人工阅读固定提交中的实现后，为每个仓库标注 3 个维护任务和目标文件；JUnit 4 的超时任务标注了配置规则和实际执行超时的两个文件。查询不包含目标文件路径。数据见 [`real_repo_retrieval_cases.json`](real_repo_retrieval_cases.json)，初始逐 Case 排名见 [`real_repo_retrieval_report.json`](real_repo_retrieval_report.json)。
 
 | 语言 | 仓库 | 固定版本 | 任务数 | 结构 Recall@3 | 去符号/导入 Recall@3 |
 | --- | --- | --- | ---: | ---: | ---: |
@@ -26,3 +26,18 @@ ai-harness eval-real-repos benchmarks/real_repo_retrieval_cases.json \
 ```
 
 本地下载失败时可重试单个固定版本压缩包；不要把缺失仓库、不同提交或不完整下载产生的分数与本报告混用。下一轮应扩大独立标注任务，覆盖跨文件定位、同名符号、长期维护中的真实 issue，并预先冻结标签后再比较算法。
+
+## 错误归因与一次小范围修正
+
+初始阶段轨迹显示：p-queue 的稳定优先级及二分插入目标文件在全文阶段均排第 1，但被结构匹配中的泛化符号/测试候选挤低；JUnit 4 的超时配置文件在全文阶段排第 1，融合后仍未进入 Top 3。原路径先验只识别 `tests/`，没有识别 `test/`、`src/test/`、`*_test.go` 等常见测试路径；查询中偶然出现 “test method” 还会取消测试文件降权。
+
+修改后的逐 Case JSON 增加 `stage_relevant_ranks`，记录每轮 Forge、Focus、Deepen、Select 阶段的目标文件名次。`null` 表示该阶段**记录的前 20 个候选**未包含目标，不能解读为完整候选集中绝不存在。
+
+因此仅修正测试路径识别和“明确寻找测试文件”的意图判断，并给常见生产源码目录一致的轻量先验。没有针对具体仓库名或目标文件写规则。为了防止只优化已见任务，修改前另行冻结了 8 个不同任务作为[留出集](real_repo_retrieval_holdout.json)，没有用其结果选择排序参数。
+
+| 固定任务集 | 结构索引修改前 Recall@3 / MRR | 结构索引修改后 Recall@3 / MRR | 去符号/导入修改前 | 去符号/导入修改后 |
+| --- | ---: | ---: | ---: | ---: |
+| 原 12 题（用于诊断） | 83.3% / 0.736 | 91.7% / 0.819 | 58.3% / 0.486 | 87.5% / 0.764 |
+| 留出 8 题 | 87.5% / 0.667 | 87.5% / 0.813 | 75.0% / 0.438 | 75.0% / 0.625 |
+
+详细结果：[原题修改后](real_repo_retrieval_after.json)、[留出集修改前](real_repo_retrieval_holdout_before.json)、[留出集修改后](real_repo_retrieval_holdout_after.json)。结构索引的原题表现有所改善，但纯文本对照也受益，**不能把全部增益归功于结构解析**。留出集 Recall 没有提升，只改善了相关文件的排序。p-queue 的稳定优先级任务仍从第 1 降为第 2；JUnit 4 的超时任务仍未命中。两处仍需进一步归因，不能宣称问题已经全部解决。

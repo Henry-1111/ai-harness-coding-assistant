@@ -1,0 +1,1254 @@
+{
+  "dataset_id": "ai-harness-real-repo-retrieval-holdout-v1",
+  "manifest_sha256": "3f3a906020e52e87e4d7068a907f1596d23a7ff4e98069c2a671524035ec1364",
+  "k": 3,
+  "cases": 8,
+  "structured_recall_at_k": 0.875,
+  "without_symbols_recall_at_k": 0.75,
+  "structured_mrr": 0.8125,
+  "without_symbols_mrr": 0.625,
+  "structured_wins": 3,
+  "ties": 3,
+  "without_symbols_wins": 2,
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "language": "javascript",
+      "comparison": {
+        "dataset_sha256": "c2c3ff490f11a5fbd25cd7b16b19fbab3a1ac067e80d1d804d6ac5f7f6c90877",
+        "repository_sha256": "3e19d8f502ee8e1363fd6bd98e5fb0a625d1a5fcc380a9cde51a866935745841",
+        "cases": 2,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "c2c3ff490f11a5fbd25cd7b16b19fbab3a1ac067e80d1d804d6ac5f7f6c90877",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.998579,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-request-header",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "lib/utils.js"
+              ]
+            },
+            {
+              "id": "express-cookie-response",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.clearCookie.js",
+                "examples/cookies/index.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "express-request-header",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "lib/utils.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998639,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/request.js": 12
+                },
+                "focus@1": {
+                  "lib/request.js": 1
+                },
+                "deepen@1": {
+                  "lib/request.js": null
+                },
+                "select@1": {
+                  "lib/request.js": 1
+                },
+                "forge@2": {
+                  "lib/request.js": 2
+                },
+                "focus@2": {
+                  "lib/request.js": 1
+                },
+                "deepen@2": {
+                  "lib/request.js": null
+                },
+                "select@2": {
+                  "lib/request.js": 2
+                },
+                "forge@3": {
+                  "lib/request.js": 3
+                },
+                "focus@3": {
+                  "lib/request.js": 4
+                },
+                "deepen@3": {
+                  "lib/request.js": null
+                },
+                "select@3": {
+                  "lib/request.js": 3
+                }
+              }
+            },
+            {
+              "id": "express-cookie-response",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.clearCookie.js",
+                "examples/cookies/index.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998519,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 2
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                },
+                "forge@2": {
+                  "lib/response.js": 1
+                },
+                "focus@2": {
+                  "lib/response.js": 1
+                },
+                "deepen@2": {
+                  "lib/response.js": null
+                },
+                "select@2": {
+                  "lib/response.js": 1
+                },
+                "forge@3": {
+                  "lib/response.js": 1
+                },
+                "focus@3": {
+                  "lib/response.js": 1
+                },
+                "deepen@3": {
+                  "lib/response.js": null
+                },
+                "select@3": {
+                  "lib/response.js": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "c2c3ff490f11a5fbd25cd7b16b19fbab3a1ac067e80d1d804d6ac5f7f6c90877",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.9987,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-request-header",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/req.hostname.js"
+              ]
+            },
+            {
+              "id": "express-cookie-response",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.clearCookie.js",
+                "examples/cookies/index.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "express-request-header",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/req.hostname.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998849,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/request.js": null
+                },
+                "focus@1": {
+                  "lib/request.js": 1
+                },
+                "deepen@1": {
+                  "lib/request.js": null
+                },
+                "select@1": {
+                  "lib/request.js": 1
+                }
+              }
+            },
+            {
+              "id": "express-cookie-response",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.clearCookie.js",
+                "examples/cookies/index.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998551,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 4
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 2,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "7f272ab5ff2254c0dc2537b7977e88ede1cd55e8",
+      "language": "typescript",
+      "comparison": {
+        "dataset_sha256": "4ff07fad24da484cfd3dfb938233b3dd15728cce7d16075dbb58b5280a48fe47",
+        "repository_sha256": "742b26f9b53566b1709ec41f5ab247894a062a49e90bf8d49206dbb8034d8393",
+        "cases": 2,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "4ff07fad24da484cfd3dfb938233b3dd15728cce7d16075dbb58b5280a48fe47",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 0.5,
+          "precision_at_k": 0.166666,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.5,
+          "hit_rate": 0.5,
+          "mean_context_reduction_ratio": 0.994164,
+          "baseline_recall_at_k": 0.5,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-custom-queue-contract",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "source/queue.ts"
+              ],
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "source/options.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            },
+            "interface": {
+              "cases": 1,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-abort-waiting",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/options.ts",
+                "source/priority-queue.ts"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.99356,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": 1
+                },
+                "focus@1": {
+                  "source/index.ts": 3
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 1
+                }
+              }
+            },
+            {
+              "id": "pqueue-custom-queue-contract",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "source/options.ts"
+              ],
+              "relevant_paths": [
+                "source/queue.ts"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.994768,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/queue.ts": 8
+                },
+                "focus@1": {
+                  "source/queue.ts": 8
+                },
+                "deepen@1": {
+                  "source/queue.ts": null
+                },
+                "select@1": {
+                  "source/queue.ts": 5
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "4ff07fad24da484cfd3dfb938233b3dd15728cce7d16075dbb58b5280a48fe47",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.63093,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.994531,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-abort-waiting",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/options.ts",
+                "source/index.ts",
+                "source/priority-queue.ts"
+              ]
+            },
+            {
+              "id": "pqueue-custom-queue-contract",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/queue.ts",
+                "test/priority-queue.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 0.5,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.5,
+              "hit_rate": 1.0
+            },
+            "interface": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.5,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-abort-waiting",
+              "retrieved_paths": [
+                "source/options.ts",
+                "source/index.ts",
+                "source/priority-queue.ts"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.99356,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": 6
+                },
+                "focus@1": {
+                  "source/index.ts": 3
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 2
+                }
+              }
+            },
+            {
+              "id": "pqueue-custom-queue-contract",
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/queue.ts",
+                "test/priority-queue.ts"
+              ],
+              "relevant_paths": [
+                "source/queue.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.995502,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/queue.ts": 3
+                },
+                "focus@1": {
+                  "source/queue.ts": 8
+                },
+                "deepen@1": {
+                  "source/queue.ts": null
+                },
+                "select@1": {
+                  "source/queue.ts": 2
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": -0.5,
+        "mrr_delta": 0.0,
+        "structured_wins": 1,
+        "ties": 0,
+        "without_symbols_wins": 1
+      }
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf",
+      "language": "go",
+      "comparison": {
+        "dataset_sha256": "2241d30543a0eee1173c100c7d6f8d7e4c977e69001768c8b8c2f7607342fce9",
+        "repository_sha256": "f0a37e53ba6d108f98d291d426a4589518c3586cad5292956aba543229bd8e4d",
+        "cases": 2,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "2241d30543a0eee1173c100c7d6f8d7e4c977e69001768c8b8c2f7607342fce9",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.75,
+          "ndcg_at_k": 0.815465,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.99715,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.75,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "chi-request-identifier",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "middleware/logger.go",
+                "middleware/request_id.go",
+                "middleware/url_format.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 0.75,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 0.75,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "chi-middleware-chain",
+              "retrieved_paths": [
+                "chain.go",
+                "mux.go",
+                "middleware/compress.go"
+              ],
+              "relevant_paths": [
+                "chain.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996707,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "chain.go": 2
+                },
+                "focus@1": {
+                  "chain.go": 1
+                },
+                "deepen@1": {
+                  "chain.go": null
+                },
+                "select@1": {
+                  "chain.go": 1
+                }
+              }
+            },
+            {
+              "id": "chi-request-identifier",
+              "retrieved_paths": [
+                "middleware/logger.go",
+                "middleware/request_id.go",
+                "middleware/url_format.go"
+              ],
+              "relevant_paths": [
+                "middleware/request_id.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.997592,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/request_id.go": 2
+                },
+                "focus@1": {
+                  "middleware/request_id.go": 7
+                },
+                "deepen@1": {
+                  "middleware/request_id.go": null
+                },
+                "select@1": {
+                  "middleware/request_id.go": 2
+                },
+                "forge@2": {
+                  "middleware/request_id.go": 3
+                },
+                "focus@2": {
+                  "middleware/request_id.go": 4
+                },
+                "deepen@2": {
+                  "middleware/request_id.go": null
+                },
+                "select@2": {
+                  "middleware/request_id.go": 2
+                },
+                "forge@3": {
+                  "middleware/request_id.go": 2
+                },
+                "focus@3": {
+                  "middleware/request_id.go": 3
+                },
+                "deepen@3": {
+                  "middleware/request_id.go": null
+                },
+                "select@3": {
+                  "middleware/request_id.go": 2
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "2241d30543a0eee1173c100c7d6f8d7e4c977e69001768c8b8c2f7607342fce9",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 0.5,
+          "precision_at_k": 0.166666,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.5,
+          "hit_rate": 0.5,
+          "mean_context_reduction_ratio": 0.997098,
+          "baseline_recall_at_k": 0.5,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "chi-middleware-chain",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "chain.go"
+              ],
+              "retrieved_paths": [
+                "middleware/compress.go",
+                "middleware/wrap_writer.go",
+                "middleware/basic_auth.go"
+              ]
+            },
+            {
+              "id": "chi-request-identifier",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "middleware/request_id.go",
+                "middleware/url_format.go",
+                "middleware/request_size.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            }
+          },
+          "details": [
+            {
+              "id": "chi-middleware-chain",
+              "retrieved_paths": [
+                "middleware/compress.go",
+                "middleware/wrap_writer.go",
+                "middleware/basic_auth.go"
+              ],
+              "relevant_paths": [
+                "chain.go"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.996775,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "chain.go": null
+                },
+                "focus@1": {
+                  "chain.go": 1
+                },
+                "deepen@1": {
+                  "chain.go": null
+                },
+                "select@1": {
+                  "chain.go": null
+                }
+              }
+            },
+            {
+              "id": "chi-request-identifier",
+              "retrieved_paths": [
+                "middleware/request_id.go",
+                "middleware/url_format.go",
+                "middleware/request_size.go"
+              ],
+              "relevant_paths": [
+                "middleware/request_id.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.997422,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/request_id.go": 1
+                },
+                "focus@1": {
+                  "middleware/request_id.go": 7
+                },
+                "deepen@1": {
+                  "middleware/request_id.go": null
+                },
+                "select@1": {
+                  "middleware/request_id.go": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.5,
+        "mrr_delta": 0.25,
+        "structured_wins": 1,
+        "ties": 0,
+        "without_symbols_wins": 1
+      }
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "890f3c972647de378f25e7271d8fbbd9d3456b79",
+      "language": "java",
+      "comparison": {
+        "dataset_sha256": "facacb48d85ead21fdf557451fbc54b6fcdc31c7b424bcaa48f32c786a661537",
+        "repository_sha256": "152bf0517c1a52bc155adad7d9edf59a0a4354baa07c5898e114dcff1df528ad",
+        "cases": 2,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "facacb48d85ead21fdf557451fbc54b6fcdc31c7b424bcaa48f32c786a661537",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.999154,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-expected-exception",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java",
+                "src/main/java/org/junit/runners/BlockJUnit4ClassRunner.java",
+                "src/main/java/org/junit/rules/ExpectedExceptionMatcherBuilder.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "junit-expected-exception",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java",
+                "src/main/java/org/junit/runners/BlockJUnit4ClassRunner.java",
+                "src/main/java/org/junit/rules/ExpectedExceptionMatcherBuilder.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999109,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 2
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "forge@2": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "focus@2": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "deepen@2": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": null
+                },
+                "select@2": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "forge@3": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "focus@3": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "deepen@3": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": null
+                },
+                "select@3": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                }
+              }
+            },
+            {
+              "id": "junit-parameterized-runner",
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/Parameterized.java",
+                "src/main/java/org/junit/runners/parameterized/BlockJUnit4ClassRunnerWithParametersFactory.java",
+                "src/main/java/org/junit/runners/parameterized/ParametersRunnerFactory.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/Parameterized.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.9992,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": 2
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "facacb48d85ead21fdf557451fbc54b6fcdc31c7b424bcaa48f32c786a661537",
+          "split": null,
+          "cases": 2,
+          "k": 3,
+          "recall_at_k": 0.5,
+          "precision_at_k": 0.166666,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.5,
+          "hit_rate": 0.5,
+          "mean_context_reduction_ratio": 0.999236,
+          "baseline_recall_at_k": 0.5,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 2,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-expected-exception",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java",
+                "src/main/java/org/junit/internal/runners/statements/ExpectException.java",
+                "src/main/java/org/junit/rules/ExpectedExceptionMatcherBuilder.java"
+              ]
+            },
+            {
+              "id": "junit-parameterized-runner",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "src/main/java/org/junit/runners/Parameterized.java"
+              ],
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/parameterized/BlockJUnit4ClassRunnerWithParametersFactory.java",
+                "src/main/java/org/junit/experimental/theories/ParametersSuppliedBy.java",
+                "src/main/java/org/junit/runners/parameterized/ParametersRunnerFactory.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            }
+          },
+          "details": [
+            {
+              "id": "junit-expected-exception",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java",
+                "src/main/java/org/junit/internal/runners/statements/ExpectException.java",
+                "src/main/java/org/junit/rules/ExpectedExceptionMatcherBuilder.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/ExpectedException.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999293,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 2
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/ExpectedException.java": 1
+                }
+              }
+            },
+            {
+              "id": "junit-parameterized-runner",
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/parameterized/BlockJUnit4ClassRunnerWithParametersFactory.java",
+                "src/main/java/org/junit/experimental/theories/ParametersSuppliedBy.java",
+                "src/main/java/org/junit/runners/parameterized/ParametersRunnerFactory.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/Parameterized.java"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.999179,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": null
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/runners/Parameterized.java": 4
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.5,
+        "mrr_delta": 0.5,
+        "structured_wins": 1,
+        "ties": 1,
+        "without_symbols_wins": 0
+      }
+    }
+  ]
+}

@@ -482,15 +482,14 @@ class ContextIndex:
             for rank, path in enumerate(ranking, start=1):
                 fused[path] = fused.get(path, 0.0) + weight / (60 + rank)
                 sources.setdefault(path, []).append(source)
-        query_mentions_tests = any(
-            term in {"test", "tests", "pytest", "unittest"} for term in terms
-        )
+        query_wants_test_files = self._query_wants_test_files(query)
         for path in fused:
             fused[path] += min(lexical_scores.get(path, 0.0), 20.0) * 0.001
             fused[path] += min(structure_scores.get(path, 0.0), 10.0) * 0.003
-            if path.startswith("src/"):
+            is_test_path = self._is_test_path(path)
+            if path.startswith(("src/", "source/", "lib/")) and not is_test_path:
                 fused[path] += 0.012
-            if path.startswith("tests/") and not query_mentions_tests:
+            if is_test_path and not query_wants_test_files:
                 fused[path] -= 0.012
             if path.startswith("benchmarks/") or path.endswith("package-lock.json"):
                 fused[path] -= 0.025
@@ -617,6 +616,32 @@ class ContextIndex:
         return sum(
             3.0 if term in path else 2.0 if term in symbols else 0.5 if term in imports else 0.0
             for term in terms
+        )
+
+    @staticmethod
+    def _is_test_path(path: str) -> bool:
+        parts = Path(path.lower()).parts
+        name = Path(path).name
+        lower_name = name.lower()
+        return (
+            any(part in {"test", "tests", "__tests__", "test-d"} for part in parts[:-1])
+            or lower_name.startswith("test_")
+            or lower_name.endswith("_test.go")
+            or name.endswith(("Test.java", "Tests.java"))
+            or ".test." in lower_name
+            or ".spec." in lower_name
+        )
+
+    @staticmethod
+    def _query_wants_test_files(query: str) -> bool:
+        lowered = query.lower()
+        return bool(
+            re.search(
+                r"\b(?:tests?|specs?)\s+(?:files?|suites?|cases?|fixtures?|coverage)\b"
+                r"|\b(?:write|add|update|fix|run|find|locate)\s+(?:the\s+)?"
+                r"(?:unit\s+|integration\s+)?(?:tests?|specs?)\b",
+                lowered,
+            )
         )
 
     @staticmethod
