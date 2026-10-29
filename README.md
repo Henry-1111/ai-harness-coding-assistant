@@ -532,6 +532,11 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 可在同一路径与全文检索条件下，对比保留和去除符号/静态导入信息的结果；当前结果及限制见
 [`benchmarks/MULTILANG_RETRIEVAL_PILOT.md`](benchmarks/MULTILANG_RETRIEVAL_PILOT.md)。
 
+进一步在 Express、p-queue、chi、JUnit 4 四个固定版本的真实开源仓库上做了 12 个维护场景的
+结构索引消融评测；逐任务结果、复现命令和失败分析见
+[`benchmarks/REAL_REPO_RETRIEVAL.md`](benchmarks/REAL_REPO_RETRIEVAL.md)。这些小样本只用于定位检索缺口，
+不代表跨仓库通用 Recall 或 Agent 端到端成功率。
+
 ## 路由与 Plan DAG 评测
 
 项目提供 30 个冻结任务，人工标注 Task Type、复杂度、风险等级和预期 Route，并对每个生成 Plan 验证：

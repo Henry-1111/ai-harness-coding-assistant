@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "dataset_id": "ai-harness-real-repo-retrieval-v1",
+  "scope": "file-level retrieval in pinned public repositories; no model calls",
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "language": "javascript",
+      "repository_sha256": "3e19d8f502ee8e1363fd6bd98e5fb0a625d1a5fcc380a9cde51a866935745841",
+      "cases": [
+        {"id":"express-content-negotiation","query":"Investigate how a request checks whether the Accept header permits a response media type and chooses a preferred format","relevant_paths":["lib/request.js"],"language":"javascript","task_type":"behavior","split":"test"},
+        {"id":"express-view-rendering","query":"Fix application view rendering so merged locals and view cache are passed to the template engine correctly","relevant_paths":["lib/application.js"],"language":"javascript","task_type":"behavior","split":"test"},
+        {"id":"express-file-transfer","query":"Reject invalid file transfer paths and invoke the completion callback after streaming a file in the HTTP response","relevant_paths":["lib/response.js"],"language":"javascript","task_type":"behavior","split":"test"}
+      ]
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "7f272ab5ff2254c0dc2537b7977e88ede1cd55e8",
+      "language": "typescript",
+      "repository_sha256": "742b26f9b53566b1709ec41f5ab247894a062a49e90bf8d49206dbb8034d8393",
+      "cases": [
+        {"id":"pqueue-stable-priority","query":"Preserve insertion order for waiting tasks with equal priority when adding them to the queue","relevant_paths":["source/priority-queue.ts"],"language":"typescript","task_type":"behavior","split":"test"},
+        {"id":"pqueue-rate-cap","query":"Validate the strict sliding window interval cap and reject invalid rate limit settings before tasks start","relevant_paths":["source/index.ts"],"language":"typescript","task_type":"behavior","split":"test"},
+        {"id":"pqueue-binary-insertion","query":"Find the binary search helper that chooses an insertion position using a comparator","relevant_paths":["source/lower-bound.ts"],"language":"typescript","task_type":"symbol","split":"test"}
+      ]
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf",
+      "language": "go",
+      "repository_sha256": "f0a37e53ba6d108f98d291d426a4589518c3586cad5292956aba543229bd8e4d",
+      "cases": [
+        {"id":"chi-route-tree","query":"Trace how the router inserts a method and URL pattern into its tree and later finds the matching handler","relevant_paths":["tree.go"],"language":"go","task_type":"behavior","split":"test"},
+        {"id":"chi-url-param","query":"Read a named URL route parameter from request context after a route has matched","relevant_paths":["context.go"],"language":"go","task_type":"behavior","split":"test"},
+        {"id":"chi-throttle-backlog","query":"Configure middleware that limits concurrent HTTP requests and queues overflow with a backlog timeout","relevant_paths":["middleware/throttle.go"],"language":"go","task_type":"behavior","split":"test"}
+      ]
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "890f3c972647de378f25e7271d8fbbd9d3456b79",
+      "language": "java",
+      "repository_sha256": "152bf0517c1a52bc155adad7d9edf59a0a4354baa07c5898e114dcff1df528ad",
+      "cases": [
+        {"id":"junit-temporary-files","query":"Create an isolated temporary folder before a test and remove its files after the test completes","relevant_paths":["src/main/java/org/junit/rules/TemporaryFolder.java"],"language":"java","task_type":"behavior","split":"test"},
+        {"id":"junit-test-timeout","query":"Stop a test method when a configured timeout expires and surface the timeout failure","relevant_paths":["src/main/java/org/junit/rules/Timeout.java","src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"],"language":"java","task_type":"behavior","split":"test"},
+        {"id":"junit-child-scheduling","query":"Control child test execution order filtering and scheduler behavior in the parent runner","relevant_paths":["src/main/java/org/junit/runners/ParentRunner.java"],"language":"java","task_type":"behavior","split":"test"}
+      ]
+    }
+  ]
+}

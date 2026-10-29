@@ -1,0 +1,1169 @@
+{
+  "dataset_id": "ai-harness-real-repo-retrieval-v1",
+  "manifest_sha256": "e8d4fe1f9ed1db64944293cd1778c6277c4da00cd126958e92ff78afd26e207f",
+  "k": 3,
+  "cases": 12,
+  "structured_recall_at_k": 0.833334,
+  "without_symbols_recall_at_k": 0.583334,
+  "structured_mrr": 0.736111,
+  "without_symbols_mrr": 0.486111,
+  "structured_wins": 5,
+  "ties": 5,
+  "without_symbols_wins": 2,
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "language": "javascript",
+      "comparison": {
+        "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+        "repository_sha256": "3e19d8f502ee8e1363fd6bd98e5fb0a625d1a5fcc380a9cde51a866935745841",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.9986,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-content-negotiation",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/res.sendFile.js"
+              ]
+            },
+            {
+              "id": "express-file-transfer",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "express-content-negotiation",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/res.sendFile.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998658,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "express-view-rendering",
+              "retrieved_paths": [
+                "lib/application.js",
+                "lib/view.js",
+                "examples/view-constructor/index.js"
+              ],
+              "relevant_paths": [
+                "lib/application.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998629,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "express-file-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998513,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.666667,
+          "precision_at_k": 0.222222,
+          "mrr": 0.666667,
+          "ndcg_at_k": 0.666667,
+          "hit_rate": 0.666667,
+          "mean_context_reduction_ratio": 0.998374,
+          "baseline_recall_at_k": 0.666667,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.666667,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-content-negotiation",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/app.response.js"
+              ]
+            },
+            {
+              "id": "express-view-rendering",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "lib/application.js"
+              ],
+              "retrieved_paths": [
+                "examples/view-constructor/index.js",
+                "examples/view-locals/index.js",
+                "lib/view.js"
+              ]
+            },
+            {
+              "id": "express-file-transfer",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.666667,
+              "hit_rate": 0.666667
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.666667,
+              "hit_rate": 0.666667
+            }
+          },
+          "details": [
+            {
+              "id": "express-content-negotiation",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998342,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "express-view-rendering",
+              "retrieved_paths": [
+                "examples/view-constructor/index.js",
+                "examples/view-locals/index.js",
+                "lib/view.js"
+              ],
+              "relevant_paths": [
+                "lib/application.js"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.99847,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            },
+            {
+              "id": "express-file-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.99831,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            }
+          ]
+        },
+        "recall_delta": 0.333333,
+        "mrr_delta": 0.333333,
+        "structured_wins": 1,
+        "ties": 2,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "7f272ab5ff2254c0dc2537b7977e88ede1cd55e8",
+      "language": "typescript",
+      "comparison": {
+        "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+        "repository_sha256": "742b26f9b53566b1709ec41f5ab247894a062a49e90bf8d49206dbb8034d8393",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.666667,
+          "precision_at_k": 0.222222,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.543643,
+          "hit_rate": 0.666667,
+          "mean_context_reduction_ratio": 0.995694,
+          "baseline_recall_at_k": 0.666667,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-stable-priority",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "test/debug.ts"
+              ]
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first",
+                "max_rounds"
+              ],
+              "missing_paths": [
+                "source/lower-bound.ts"
+              ],
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "test/basic.ts",
+                "test/helpers.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.5,
+              "hit_rate": 0.666667
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 0.75,
+              "hit_rate": 1.0
+            },
+            "symbol": {
+              "cases": 1,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-stable-priority",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "test/debug.ts"
+              ],
+              "relevant_paths": [
+                "source/priority-queue.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.995798,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "retrieved_paths": [
+                "source/index.ts",
+                "test/rate-limit.ts",
+                "test/strict.ts"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.995151,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "test/basic.ts",
+                "test/helpers.ts"
+              ],
+              "relevant_paths": [
+                "source/lower-bound.ts"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.996133,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.666667,
+          "precision_at_k": 0.222222,
+          "mrr": 0.5,
+          "ndcg_at_k": 0.543643,
+          "hit_rate": 0.666667,
+          "mean_context_reduction_ratio": 0.995598,
+          "baseline_recall_at_k": 0.666667,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.5,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-stable-priority",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "test/priority-queue.ts",
+                "source/queue.ts"
+              ]
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "source/index.ts"
+              ],
+              "retrieved_paths": [
+                "test/rate-limit.ts",
+                "test/strict.ts",
+                "readme.md"
+              ]
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "test/helpers.ts",
+                "source/lower-bound.ts",
+                "source/priority-queue.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.5,
+              "hit_rate": 0.666667
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            },
+            "symbol": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.5,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-stable-priority",
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "test/priority-queue.ts",
+                "source/queue.ts"
+              ],
+              "relevant_paths": [
+                "source/priority-queue.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.995958,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "retrieved_paths": [
+                "test/rate-limit.ts",
+                "test/strict.ts",
+                "readme.md"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.994408,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "retrieved_paths": [
+                "test/helpers.ts",
+                "source/lower-bound.ts",
+                "source/priority-queue.ts"
+              ],
+              "relevant_paths": [
+                "source/lower-bound.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.996429,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 1,
+        "ties": 0,
+        "without_symbols_wins": 2
+      }
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf",
+      "language": "go",
+      "comparison": {
+        "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+        "repository_sha256": "f0a37e53ba6d108f98d291d426a4589518c3586cad5292956aba543229bd8e4d",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.996745,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [],
+          "by_language": {
+            "go": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "chi-route-tree",
+              "retrieved_paths": [
+                "tree.go",
+                "mux_test.go",
+                "tree_test.go"
+              ],
+              "relevant_paths": [
+                "tree.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996237,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "chi-url-param",
+              "retrieved_paths": [
+                "context.go",
+                "mux_test.go",
+                "README.md"
+              ],
+              "relevant_paths": [
+                "context.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996991,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "chi-throttle-backlog",
+              "retrieved_paths": [
+                "middleware/throttle.go",
+                "middleware/timeout.go",
+                "middleware/throttle_test.go"
+              ],
+              "relevant_paths": [
+                "middleware/throttle.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.997007,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.777778,
+          "ndcg_at_k": 0.833333,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.996878,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.777778,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "chi-throttle-backlog",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "middleware/timeout.go",
+                "_examples/limits/main.go",
+                "middleware/throttle.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.777778,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.777778,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "chi-route-tree",
+              "retrieved_paths": [
+                "tree.go",
+                "_examples/custom-handler/main.go",
+                "tree_test.go"
+              ],
+              "relevant_paths": [
+                "tree.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996592,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "chi-url-param",
+              "retrieved_paths": [
+                "context.go",
+                "README.md",
+                "middleware/wrap_writer_readfrom_test.go"
+              ],
+              "relevant_paths": [
+                "context.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.997176,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            },
+            {
+              "id": "chi-throttle-backlog",
+              "retrieved_paths": [
+                "middleware/timeout.go",
+                "_examples/limits/main.go",
+                "middleware/throttle.go"
+              ],
+              "relevant_paths": [
+                "middleware/throttle.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.333333,
+              "ndcg_at_k": 0.5,
+              "hit": true,
+              "context_reduction_ratio": 0.996865,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.333333
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.222222,
+        "structured_wins": 1,
+        "ties": 2,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "890f3c972647de378f25e7271d8fbbd9d3456b79",
+      "language": "java",
+      "comparison": {
+        "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+        "repository_sha256": "152bf0517c1a52bc155adad7d9edf59a0a4354baa07c5898e114dcff1df528ad",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.666667,
+          "precision_at_k": 0.222222,
+          "mrr": 0.444444,
+          "ndcg_at_k": 0.5,
+          "hit_rate": 0.666667,
+          "mean_context_reduction_ratio": 0.999088,
+          "baseline_recall_at_k": 0.666667,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.444444,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-temporary-files",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/test/java/org/junit/rules/TemporaryFolderUsageTest.java",
+                "src/test/java/org/junit/rules/TempFolderRuleTest.java",
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ]
+            },
+            {
+              "id": "junit-test-timeout",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/rules/Timeout.java"
+              ],
+              "retrieved_paths": [
+                "src/test/java/org/junit/internal/runners/statements/FailOnTimeoutTest.java",
+                "src/test/java/org/junit/tests/experimental/theories/runner/WithOnlyTestAnnotations.java",
+                "src/test/java/org/junit/tests/running/classes/ClassLevelMethodsWithIgnoredTestsTest.java"
+              ]
+            },
+            {
+              "id": "junit-child-scheduling",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerTest.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerFilteringTest.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.444444,
+              "hit_rate": 0.666667
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.444444,
+              "hit_rate": 0.666667
+            }
+          },
+          "details": [
+            {
+              "id": "junit-temporary-files",
+              "retrieved_paths": [
+                "src/test/java/org/junit/rules/TemporaryFolderUsageTest.java",
+                "src/test/java/org/junit/rules/TempFolderRuleTest.java",
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.333333,
+              "ndcg_at_k": 0.5,
+              "hit": true,
+              "context_reduction_ratio": 0.99904,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.333333
+            },
+            {
+              "id": "junit-test-timeout",
+              "retrieved_paths": [
+                "src/test/java/org/junit/internal/runners/statements/FailOnTimeoutTest.java",
+                "src/test/java/org/junit/tests/experimental/theories/runner/WithOnlyTestAnnotations.java",
+                "src/test/java/org/junit/tests/running/classes/ClassLevelMethodsWithIgnoredTestsTest.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.999134,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            },
+            {
+              "id": "junit-child-scheduling",
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerTest.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerFilteringTest.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999089,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.0,
+          "precision_at_k": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_k": 0.0,
+          "hit_rate": 0.0,
+          "mean_context_reduction_ratio": 0.999182,
+          "baseline_recall_at_k": 0.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-temporary-files",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "retrieved_paths": [
+                "src/test/java/org/junit/rules/TemporaryFolderUsageTest.java",
+                "src/test/java/org/junit/rules/TemporaryFolderRuleAssuredDeletionTest.java",
+                "src/test/java/org/junit/rules/TempFolderRuleTest.java"
+              ]
+            },
+            {
+              "id": "junit-test-timeout",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/rules/Timeout.java"
+              ],
+              "retrieved_paths": [
+                "src/test/java/org/junit/tests/running/methods/TimeoutTest.java",
+                "src/test/java/org/junit/internal/runners/statements/FailOnTimeoutTest.java",
+                "src/test/java/org/junit/tests/experimental/theories/runner/WithDataPointMethod.java"
+              ]
+            },
+            {
+              "id": "junit-child-scheduling",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "retrieved_paths": [
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerFilteringTest.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerTest.java",
+                "src/test/java/org/junit/runner/JUnitCommandLineParseResultTest.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 3,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "details": [
+            {
+              "id": "junit-temporary-files",
+              "retrieved_paths": [
+                "src/test/java/org/junit/rules/TemporaryFolderUsageTest.java",
+                "src/test/java/org/junit/rules/TemporaryFolderRuleAssuredDeletionTest.java",
+                "src/test/java/org/junit/rules/TempFolderRuleTest.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.99921,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            },
+            {
+              "id": "junit-test-timeout",
+              "retrieved_paths": [
+                "src/test/java/org/junit/tests/running/methods/TimeoutTest.java",
+                "src/test/java/org/junit/internal/runners/statements/FailOnTimeoutTest.java",
+                "src/test/java/org/junit/tests/experimental/theories/runner/WithDataPointMethod.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.999218,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            },
+            {
+              "id": "junit-child-scheduling",
+              "retrieved_paths": [
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerFilteringTest.java",
+                "src/test/java/org/junit/tests/running/classes/ParentRunnerTest.java",
+                "src/test/java/org/junit/runner/JUnitCommandLineParseResultTest.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.999119,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0
+            }
+          ]
+        },
+        "recall_delta": 0.666667,
+        "mrr_delta": 0.444444,
+        "structured_wins": 2,
+        "ties": 1,
+        "without_symbols_wins": 0
+      }
+    }
+  ]
+}

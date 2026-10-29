@@ -44,6 +44,7 @@ from .promotion import (
     GitLabMergeRequestPublisher,
     PromotionPublisher,
 )
+from .real_repo_evaluation import evaluate_real_repositories
 from .repository import DefinitionProvider, Repository
 from .runtime_evaluation import run_runtime_benchmark
 from .sandbox import CommandRunner, DockerSandbox, LocalCommandSandbox
@@ -276,6 +277,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compare the full index against the same retriever without symbols/imports",
     )
 
+    real_repos = subparsers.add_parser(
+        "eval-real-repos", help="Compare retrieval on pinned external repositories"
+    )
+    real_repos.add_argument("manifest")
+    real_repos.add_argument(
+        "--repository", action="append", required=True, dest="repository_roots",
+        metavar="ID=PATH", help="Root of a pinned repository; repeat for each ID"
+    )
+    real_repos.add_argument("--k", type=int, default=3)
+    real_repos.add_argument("--output", help="Write the JSON report to this path")
+
     agent_evaluate = subparsers.add_parser(
         "eval-agents",
         help="Compare single-agent and multi-agent execution on the same task dataset",
@@ -486,6 +498,21 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             evaluation = RetrievalEvaluator(repository).evaluate(
                 cases, k=args.k, split=args.split
             )
+        report = evaluation.model_dump_json(indent=2)
+        if args.output:
+            Path(args.output).write_text(report + "\n", encoding="utf-8")
+        print(report)
+        return
+    if args.command == "eval-real-repos":
+        roots = {}
+        for entry in args.repository_roots:
+            if "=" not in entry:
+                raise SystemExit("--repository must be ID=PATH")
+            repository_id, raw_path = entry.split("=", 1)
+            if repository_id in roots or not repository_id or not raw_path:
+                raise SystemExit("repository IDs and paths must be unique and non-empty")
+            roots[repository_id] = Path(raw_path)
+        evaluation = evaluate_real_repositories(Path(args.manifest), roots, k=args.k)
         report = evaluation.model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")
