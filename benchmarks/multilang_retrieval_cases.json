@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "dataset_id": "ai-harness-multilang-retrieval-pilot-v1",
+  "scope": "repository-internal synthetic fixtures; file-level retrieval only",
+  "cases": [
+    {"id":"js-register","query":"locate the SessionRegistry registerSession owner operation","relevant_paths":["javascript/session.js"],"language":"javascript","task_type":"symbol","split":"test"},
+    {"id":"js-audit","query":"find recordSessionAudit validation before audit recording","relevant_paths":["javascript/audit.js"],"language":"javascript","task_type":"symbol","split":"test"},
+    {"id":"ts-reserve","query":"find QuotaLedger reserveTokens remaining balance calculation","relevant_paths":["typescript/quota.ts"],"language":"typescript","task_type":"symbol","split":"test"},
+    {"id":"ts-dispatch","query":"locate dispatchWork that calls a ledger to reserve an amount","relevant_paths":["typescript/worker.ts"],"language":"typescript","task_type":"symbol","split":"test"},
+    {"id":"go-renew","query":"find LeaseManager RenewLease owner check","relevant_paths":["go/lease.go"],"language":"go","task_type":"symbol","split":"test"},
+    {"id":"go-retry","query":"find RetryPolicy NextDelay and RetryAfterFailure","relevant_paths":["go/retry.go"],"language":"go","task_type":"symbol","split":"test"},
+    {"id":"java-promote","query":"find ApprovalGate canPromote reviewed testsPassed decision","relevant_paths":["java/example/ApprovalGate.java"],"language":"java","task_type":"symbol","split":"test"},
+    {"id":"java-checkpoint","query":"find CheckpointRecord isCurrent latestSequence check","relevant_paths":["java/example/CheckpointRecord.java"],"language":"java","task_type":"symbol","split":"test"}
+  ]
+}

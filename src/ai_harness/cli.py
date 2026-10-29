@@ -28,7 +28,7 @@ from .distributed_governance import DistributedGovernanceStore
 from .distributed_memory import PostgresLayeredMemoryStore
 from .distributed_runtime import PostgresCheckpointStore, PostgresTaskJobStore
 from .embeddings import OpenAICompatibleEmbeddingProvider
-from .evaluation import RetrievalEvaluator, load_cases
+from .evaluation import RetrievalEvaluator, compare_structure_index, load_cases
 from .governance import APIKeyAuthenticator, GovernanceStore
 from .lsp import LSPDefinitionEnricher
 from .mcp import MCPToolCatalog
@@ -270,6 +270,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--k", type=int, default=5)
     evaluate.add_argument("--split", choices=["train", "validation", "test"])
     evaluate.add_argument("--output", help="Write the JSON report to this path")
+    evaluate.add_argument(
+        "--compare-structure",
+        action="store_true",
+        help="Compare the full index against the same retriever without symbols/imports",
+    )
 
     agent_evaluate = subparsers.add_parser(
         "eval-agents",
@@ -471,11 +476,16 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     args = build_parser().parse_args(argv)
     if args.command == "eval-retrieval":
         repository_root = Path(args.repository).resolve()
-        evaluation = RetrievalEvaluator(Repository(repository_root)).evaluate(
-            load_cases(Path(args.dataset), repository_root=repository_root),
-            k=args.k,
-            split=args.split,
-        )
+        repository = Repository(repository_root)
+        cases = load_cases(Path(args.dataset), repository_root=repository_root)
+        if args.compare_structure:
+            evaluation = compare_structure_index(
+                repository, cases, k=args.k, split=args.split
+            )
+        else:
+            evaluation = RetrievalEvaluator(repository).evaluate(
+                cases, k=args.k, split=args.split
+            )
         report = evaluation.model_dump_json(indent=2)
         if args.output:
             Path(args.output).write_text(report + "\n", encoding="utf-8")

@@ -527,6 +527,11 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 结果见 [`benchmarks/latest-report.json`](benchmarks/latest-report.json)。代码和索引文件变化后，指标需要重新
 运行上面的命令核对；这些数字只描述本仓库的 Python 文件级检索，不能表述成跨仓库或跨语言的通用准确率。
 
+另有 8 Case 的 JavaScript、TypeScript、Go、Java 小规模固定样例评测。使用
+`ai-harness eval-retrieval benchmarks/fixtures/multilang_retrieval benchmarks/multilang_retrieval_cases.json --k 1 --compare-structure`
+可在同一路径与全文检索条件下，对比保留和去除符号/静态导入信息的结果；当前结果及限制见
+[`benchmarks/MULTILANG_RETRIEVAL_PILOT.md`](benchmarks/MULTILANG_RETRIEVAL_PILOT.md)。
+
 ## 路由与 Plan DAG 评测
 
 项目提供 30 个冻结任务，人工标注 Task Type、复杂度、风险等级和预期 Route，并对每个生成 Plan 验证：

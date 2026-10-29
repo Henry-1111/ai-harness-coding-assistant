@@ -1,0 +1,555 @@
+{
+  "dataset_sha256": "267274715224d469541f84b586b588d7bf0bd015ac16bbb26761478aa8abee45",
+  "repository_sha256": "aa8e3b3eaeac43565c4c42d1c981b6afe4212e557143a32d34271588618f3fdc",
+  "cases": 8,
+  "k": 1,
+  "structured": {
+    "dataset_sha256": "267274715224d469541f84b586b588d7bf0bd015ac16bbb26761478aa8abee45",
+    "split": null,
+    "cases": 8,
+    "k": 1,
+    "recall_at_k": 1.0,
+    "precision_at_k": 1.0,
+    "mrr": 1.0,
+    "ndcg_at_k": 1.0,
+    "hit_rate": 1.0,
+    "mean_context_reduction_ratio": 0.867225,
+    "baseline_recall_at_k": 1.0,
+    "recall_delta": 0.0,
+    "baseline_mrr": 1.0,
+    "mrr_delta": 0.0,
+    "pairwise": {
+      "metric": "reciprocal_rank",
+      "progressive_wins": 0,
+      "ties": 8,
+      "baseline_wins": 0
+    },
+    "bad_cases": [
+      {
+        "id": "js-register",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "javascript/session.js"
+        ]
+      },
+      {
+        "id": "js-audit",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "javascript/audit.js"
+        ]
+      },
+      {
+        "id": "ts-reserve",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "typescript/quota.ts"
+        ]
+      },
+      {
+        "id": "ts-dispatch",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "typescript/worker.ts"
+        ]
+      },
+      {
+        "id": "go-renew",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "go/lease.go"
+        ]
+      },
+      {
+        "id": "go-retry",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "go/retry.go"
+        ]
+      }
+    ],
+    "by_language": {
+      "go": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "java": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "javascript": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "typescript": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      }
+    },
+    "by_task_type": {
+      "symbol": {
+        "cases": 8,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      }
+    },
+    "details": [
+      {
+        "id": "js-register",
+        "retrieved_paths": [
+          "javascript/session.js"
+        ],
+        "relevant_paths": [
+          "javascript/session.js"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.871981,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "js-audit",
+        "retrieved_paths": [
+          "javascript/audit.js"
+        ],
+        "relevant_paths": [
+          "javascript/audit.js"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.860507,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "ts-reserve",
+        "retrieved_paths": [
+          "typescript/quota.ts"
+        ],
+        "relevant_paths": [
+          "typescript/quota.ts"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.856884,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "ts-dispatch",
+        "retrieved_paths": [
+          "typescript/worker.ts"
+        ],
+        "relevant_paths": [
+          "typescript/worker.ts"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.890097,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "go-renew",
+        "retrieved_paths": [
+          "go/lease.go"
+        ],
+        "relevant_paths": [
+          "go/lease.go"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.893116,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "go-retry",
+        "retrieved_paths": [
+          "go/retry.go"
+        ],
+        "relevant_paths": [
+          "go/retry.go"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.881039,
+        "rounds": 2,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "java-promote",
+        "retrieved_paths": [
+          "java/example/ApprovalGate.java"
+        ],
+        "relevant_paths": [
+          "java/example/ApprovalGate.java"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.888285,
+        "rounds": 1,
+        "stop_reason": "evidence_sufficient",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "java-checkpoint",
+        "retrieved_paths": [
+          "java/example/CheckpointRecord.java"
+        ],
+        "relevant_paths": [
+          "java/example/CheckpointRecord.java"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.795894,
+        "rounds": 1,
+        "stop_reason": "evidence_sufficient",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      }
+    ]
+  },
+  "without_symbols": {
+    "dataset_sha256": "267274715224d469541f84b586b588d7bf0bd015ac16bbb26761478aa8abee45",
+    "split": null,
+    "cases": 8,
+    "k": 1,
+    "recall_at_k": 1.0,
+    "precision_at_k": 1.0,
+    "mrr": 1.0,
+    "ndcg_at_k": 1.0,
+    "hit_rate": 1.0,
+    "mean_context_reduction_ratio": 0.867225,
+    "baseline_recall_at_k": 1.0,
+    "recall_delta": 0.0,
+    "baseline_mrr": 1.0,
+    "mrr_delta": 0.0,
+    "pairwise": {
+      "metric": "reciprocal_rank",
+      "progressive_wins": 0,
+      "ties": 8,
+      "baseline_wins": 0
+    },
+    "bad_cases": [
+      {
+        "id": "js-register",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "javascript/session.js"
+        ]
+      },
+      {
+        "id": "js-audit",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "javascript/audit.js"
+        ]
+      },
+      {
+        "id": "ts-reserve",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "typescript/quota.ts"
+        ]
+      },
+      {
+        "id": "ts-dispatch",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "typescript/worker.ts"
+        ]
+      },
+      {
+        "id": "go-renew",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "go/lease.go"
+        ]
+      },
+      {
+        "id": "go-retry",
+        "reasons": [
+          "no_new_evidence"
+        ],
+        "missing_paths": [],
+        "retrieved_paths": [
+          "go/retry.go"
+        ]
+      }
+    ],
+    "by_language": {
+      "go": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "java": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "javascript": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      },
+      "typescript": {
+        "cases": 2,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      }
+    },
+    "by_task_type": {
+      "symbol": {
+        "cases": 8,
+        "recall_at_k": 1.0,
+        "mrr": 1.0,
+        "hit_rate": 1.0
+      }
+    },
+    "details": [
+      {
+        "id": "js-register",
+        "retrieved_paths": [
+          "javascript/session.js"
+        ],
+        "relevant_paths": [
+          "javascript/session.js"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.871981,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "js-audit",
+        "retrieved_paths": [
+          "javascript/audit.js"
+        ],
+        "relevant_paths": [
+          "javascript/audit.js"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.860507,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "ts-reserve",
+        "retrieved_paths": [
+          "typescript/quota.ts"
+        ],
+        "relevant_paths": [
+          "typescript/quota.ts"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.856884,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "ts-dispatch",
+        "retrieved_paths": [
+          "typescript/worker.ts"
+        ],
+        "relevant_paths": [
+          "typescript/worker.ts"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.890097,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "go-renew",
+        "retrieved_paths": [
+          "go/lease.go"
+        ],
+        "relevant_paths": [
+          "go/lease.go"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.893116,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "go-retry",
+        "retrieved_paths": [
+          "go/retry.go"
+        ],
+        "relevant_paths": [
+          "go/retry.go"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.881039,
+        "rounds": 1,
+        "stop_reason": "no_new_evidence",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "java-promote",
+        "retrieved_paths": [
+          "java/example/ApprovalGate.java"
+        ],
+        "relevant_paths": [
+          "java/example/ApprovalGate.java"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.888285,
+        "rounds": 1,
+        "stop_reason": "evidence_sufficient",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      },
+      {
+        "id": "java-checkpoint",
+        "retrieved_paths": [
+          "java/example/CheckpointRecord.java"
+        ],
+        "relevant_paths": [
+          "java/example/CheckpointRecord.java"
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "ndcg_at_k": 1.0,
+        "hit": true,
+        "context_reduction_ratio": 0.795894,
+        "rounds": 1,
+        "stop_reason": "evidence_sufficient",
+        "baseline_recall_at_k": 1.0,
+        "baseline_reciprocal_rank": 1.0
+      }
+    ]
+  },
+  "recall_delta": 0.0,
+  "mrr_delta": 0.0,
+  "structured_wins": 0,
+  "ties": 8,
+  "without_symbols_wins": 0
+}

@@ -9,6 +9,7 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .models import RepoFile
 from .repository import (
     ContextIndex,
     ProgressiveRetriever,
@@ -88,6 +89,20 @@ class RetrievalEvaluation(BaseModel):
     details: List[CaseMetrics]
 
 
+class StructureComparison(BaseModel):
+    dataset_sha256: str
+    repository_sha256: str
+    cases: int
+    k: int
+    structured: RetrievalEvaluation
+    without_symbols: RetrievalEvaluation
+    recall_delta: float
+    mrr_delta: float
+    structured_wins: int
+    ties: int
+    without_symbols_wins: int
+
+
 def load_cases(
     path: Path, *, repository_root: Optional[Path] = None
 ) -> List[RetrievalCase]:
@@ -130,9 +145,11 @@ def retrieval_cases_sha256(cases: List[RetrievalCase]) -> str:
 class RetrievalEvaluator:
     """Evaluate file-level repository retrieval against a fixed labelled task set."""
 
-    def __init__(self, repository: Repository) -> None:
+    def __init__(
+        self, repository: Repository, *, repo_map: Optional[List[RepoFile]] = None
+    ) -> None:
         self.repository = repository
-        self.repo_map = RepoMapBuilder().build(repository)
+        self.repo_map = repo_map if repo_map is not None else RepoMapBuilder().build(repository)
         self.cache = RetrievalCache()
 
     def evaluate(
@@ -283,3 +300,55 @@ class RetrievalEvaluator:
                 )
             )
         return result
+
+
+def compare_structure_index(
+    repository: Repository,
+    cases: List[RetrievalCase],
+    *,
+    k: int = 5,
+    split: Optional[str] = None,
+) -> StructureComparison:
+    """Ablate symbols/imports while retaining paths, full text, and retrieval settings."""
+    repo_map = RepoMapBuilder().build(repository)
+    repository_digest = sha256()
+    for item in sorted(repo_map, key=lambda entry: entry.path):
+        repository_digest.update(item.path.encode("utf-8") + b"\0")
+        repository_digest.update(repository.resolve(item.path).read_bytes())
+        repository_digest.update(b"\0")
+    structured = RetrievalEvaluator(repository, repo_map=repo_map).evaluate(
+        cases, k=k, split=split
+    )
+    without_symbols_map = [
+        item.model_copy(update={"symbols": [], "imports": []}) for item in repo_map
+    ]
+    without_symbols = RetrievalEvaluator(
+        repository, repo_map=without_symbols_map
+    ).evaluate(cases, k=k, split=split)
+    wins = ties = losses = 0
+    for with_detail, without_detail in zip(
+        structured.details, without_symbols.details
+    ):
+        if with_detail.id != without_detail.id:
+            raise ValueError("comparison cases are not aligned")
+        if with_detail.reciprocal_rank > without_detail.reciprocal_rank:
+            wins += 1
+        elif with_detail.reciprocal_rank < without_detail.reciprocal_rank:
+            losses += 1
+        else:
+            ties += 1
+    return StructureComparison(
+        dataset_sha256=structured.dataset_sha256,
+        repository_sha256=repository_digest.hexdigest(),
+        cases=structured.cases,
+        k=k,
+        structured=structured,
+        without_symbols=without_symbols,
+        recall_delta=round(
+            structured.recall_at_k - without_symbols.recall_at_k, 6
+        ),
+        mrr_delta=round(structured.mrr - without_symbols.mrr, 6),
+        structured_wins=wins,
+        ties=ties,
+        without_symbols_wins=losses,
+    )
