@@ -265,6 +265,10 @@ class ContextIndex:
     """Rewrite -> Forge -> Focus -> Deepen -> RRF selection with a context budget."""
 
     TOKEN_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}|[\u4e00-\u9fff]{2,}")
+    STRUCTURE_STOPWORDS = frozenset(
+        {"and", "are", "for", "from", "into", "the", "them", "this", "when", "with"}
+    )
+    IDENTIFIER_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9]*")
 
     def __init__(
         self,
@@ -331,8 +335,28 @@ class ContextIndex:
             texts[item.path] = text
             repository_chars += len(text)
 
+        structure_terms = terms - self.STRUCTURE_STOPWORDS
+        structure_tokens = {
+            item.path: self._structure_tokens(item) for item in self.repo_map
+        }
+        structure_document_frequency = {
+            term: sum(
+                term in path_tokens | symbol_tokens | import_tokens
+                for path_tokens, symbol_tokens, import_tokens in structure_tokens.values()
+            )
+            for term in structure_terms
+        }
+        structure_term_weights = {
+            term: math.log1p(
+                (len(self.repo_map) - frequency + 0.5) / (frequency + 0.5)
+            )
+            for term, frequency in structure_document_frequency.items()
+        }
         structure_scores = {
-            item.path: self._file_score(item, terms) for item in self.repo_map
+            item.path: self._file_score(
+                structure_tokens[item.path], structure_term_weights
+            )
+            for item in self.repo_map
         }
         structure_rank = [
             path
@@ -493,14 +517,51 @@ class ContextIndex:
                 fused[path] -= 0.012
             if path.startswith("benchmarks/") or path.endswith("package-lock.json"):
                 fused[path] -= 0.025
+        if lexical_rank and not query_wants_test_files:
+            lexical_first = lexical_rank[0]
+            if (
+                lexical_first in fused
+                and not self._is_test_path(lexical_first)
+                and not lexical_first.startswith(("examples/", "_examples/"))
+                and Path(lexical_first).suffix.lower()
+                in {".py", ".js", ".jsx", ".ts", ".tsx", ".go", ".java"}
+            ):
+                # Keep a strong production-code text hit competitive with broad
+                # symbol matches, while leaving explicit test searches alone.
+                fused[lexical_first] += 0.01
         if not fused:
             for rank, path in enumerate(forge_candidates, start=1):
                 fused[path] = 1.0 / (60 + rank)
                 sources[path] = ["forge"]
 
+        ranked_paths = [
+            path for path, _ in sorted(fused.items(), key=lambda pair: (-pair[1], pair[0]))
+        ]
+        related_import_rank: List[str] = []
+        if ranked_paths and not self._is_test_path(ranked_paths[0]):
+            primary = next(
+                (item for item in self.repo_map if item.path == ranked_paths[0]), None
+            )
+            if primary is not None:
+                related_import_rank = [
+                    path
+                    for path in ranked_paths[1:10]
+                    if any(
+                        self._import_matches_path(specifier, path)
+                        for specifier in primary.imports
+                    )
+                    and not self._is_test_path(path)
+                    and self._identifier_tokens(Path(path).stem) & structure_terms
+                ][:1]
+                ranked_paths = (
+                    ranked_paths[:1]
+                    + related_import_rank
+                    + [path for path in ranked_paths[1:] if path not in related_import_rank]
+                )
         selected: List[SearchHit] = []
         context_chars = 0
-        for path, rrf_score in sorted(fused.items(), key=lambda pair: (-pair[1], pair[0])):
+        for path in ranked_paths:
+            rrf_score = fused[path]
             if len(selected) >= limit or context_chars >= max_context_chars:
                 break
             hit = representatives.get(path) or self._representative(path, texts.get(path, ""))
@@ -564,6 +625,11 @@ class ContextIndex:
                     duration_ms=deepen_ms,
                 ),
                 RetrievalStageTrace(
+                    stage="related_import",
+                    candidate_count=len(related_import_rank),
+                    selected_paths=related_import_rank[:20],
+                ),
+                RetrievalStageTrace(
                     stage="lsp",
                     candidate_count=len(lsp_rank),
                     selected_paths=lsp_rank[:20],
@@ -609,13 +675,46 @@ class ContextIndex:
         return terms
 
     @staticmethod
-    def _file_score(item: RepoFile, terms: Set[str]) -> float:
-        path = item.path.lower()
-        symbols = " ".join(symbol.name.lower() for symbol in item.symbols)
-        imports = " ".join(item.imports).lower()
+    def _identifier_tokens(value: str) -> Set[str]:
+        split_camel = QueryRewriter.CAMEL_BOUNDARY.sub(" ", value)
+        parts = ContextIndex.IDENTIFIER_PATTERN.findall(split_camel)
+        tokens = {part.lower() for part in parts} | {
+            part.lower() for part in ContextIndex.IDENTIFIER_PATTERN.findall(value)
+        }
+        for name in re.findall(r"[\u4e00-\u9fff]{2,}", value):
+            tokens.add(name)
+            tokens.update(name[index : index + 2] for index in range(len(name) - 1))
+        return tokens
+
+    @staticmethod
+    def _structure_tokens(item: RepoFile) -> Tuple[Set[str], Set[str], Set[str]]:
+        return (
+            ContextIndex._identifier_tokens(item.path),
+            set().union(
+                *(ContextIndex._identifier_tokens(symbol.name) for symbol in item.symbols)
+            ),
+            set().union(
+                *(ContextIndex._identifier_tokens(specifier) for specifier in item.imports)
+            ),
+        )
+
+    @staticmethod
+    def _file_score(
+        tokens: Tuple[Set[str], Set[str], Set[str]], term_weights: Dict[str, float]
+    ) -> float:
+        path_tokens, symbol_tokens, import_tokens = tokens
         return sum(
-            3.0 if term in path else 2.0 if term in symbols else 0.5 if term in imports else 0.0
-            for term in terms
+            weight
+            * (
+                3.0
+                if term in path_tokens
+                else 2.0
+                if term in symbol_tokens
+                else 0.5
+                if term in import_tokens
+                else 0.0
+            )
+            for term, weight in term_weights.items()
         )
 
     @staticmethod
@@ -652,6 +751,18 @@ class ContextIndex:
         if specifier.endswith((".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts")):
             return Path(specifier).stem
         return specifier.rsplit(".", 1)[-1]
+
+    @classmethod
+    def _import_matches_path(cls, specifier: str, path: str) -> bool:
+        if Path(path).stem.lower() != cls._import_module_name(specifier).lower():
+            return False
+        if "." in specifier and "/" not in specifier and not specifier.startswith("."):
+            module_path = specifier.replace(".", "/").lower()
+            path_without_suffix = str(Path(path).with_suffix("")).lower()
+            return path_without_suffix == module_path or path_without_suffix.endswith(
+                "/" + module_path
+            )
+        return True
 
     @staticmethod
     def _cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:

@@ -195,7 +195,7 @@ class RetrievalEvaluator:
                     for path in case.relevant_paths
                 }
                 for stage in index.last_trace.stages
-                if stage.stage in {"forge", "focus", "deepen", "select"}
+                if stage.stage in {"forge", "focus", "deepen", "related_import", "select"}
             }
             dcg = sum(
                 1 / math.log2(rank + 1)

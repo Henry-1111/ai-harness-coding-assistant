@@ -41,3 +41,14 @@ ai-harness eval-real-repos benchmarks/real_repo_retrieval_cases.json \
 | 留出 8 题 | 87.5% / 0.667 | 87.5% / 0.813 | 75.0% / 0.438 | 75.0% / 0.625 |
 
 详细结果：[原题修改后](real_repo_retrieval_after.json)、[留出集修改前](real_repo_retrieval_holdout_before.json)、[留出集修改后](real_repo_retrieval_holdout_after.json)。结构索引的原题表现有所改善，但纯文本对照也受益，**不能把全部增益归功于结构解析**。留出集 Recall 没有提升，只改善了相关文件的排序。p-queue 的稳定优先级任务仍从第 1 降为第 2；JUnit 4 的超时任务仍未命中。两处仍需进一步归因，不能宣称问题已经全部解决。
+
+## 超时实现的二次修正
+
+继续排查发现，结构 Forge 会把 `test`、`method`，甚至路径 `Theories` 中的 `the` 子串按普通词给高分。改为按完整标识符分词，并按仓库内文档频率降低常见词权重，避免它们盖过 `timeout` 这类更有辨识度的词。随后只对排名第一的非测试实现文件做**一跳静态导入扩展**：候选必须已经在融合前 Top 10、模块名匹配查询词，且 Java/Python 的完整包路径一致；每次最多插入一个直接依赖。这使 `Timeout.java` 与其导入的 `FailOnTimeout.java` 分别排到第 1、第 2，而不是提升所有同名文件。
+
+| 任务集 | 上次结构 Recall@3 / MRR | 本次结构 Recall@3 / MRR | 本次去符号/导入 Recall@3 / MRR |
+| --- | ---: | ---: | ---: |
+| 原 12 题 | 91.7% / 0.819 | **100% / 0.875** | 91.7% / 0.819 |
+| 既有 8 题验证集 | 87.5% / 0.813 | **100% / 0.938** | 87.5% / 0.604 |
+
+逐 Case 和阶段名次见[原题二次修正报告](real_repo_retrieval_rerank.json)与[验证集二次修正报告](real_repo_retrieval_holdout_rerank.json)。两个任务集都很小，而且验证集在上一轮已经被查看，本轮不能再称为严格盲测；这些 100% 只证明本次固定样例全部进入 Top 3。原题中的 Express 模板渲染仍从第 1 降为第 2，p-queue 稳定优先级仍排第 2，因此排序仍有改进空间。应在新的、未查看的真实 issue 任务上验证，而不是继续围绕这 20 题调参。

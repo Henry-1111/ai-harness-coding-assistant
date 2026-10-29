@@ -216,6 +216,7 @@ class RetrievalStageTrace(BaseModel):
         "focus",
         "semantic",
         "deepen",
+        "related_import",
         "lsp",
         "judge",
         "refine",

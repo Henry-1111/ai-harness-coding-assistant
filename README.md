@@ -537,6 +537,8 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 [`benchmarks/REAL_REPO_RETRIEVAL.md`](benchmarks/REAL_REPO_RETRIEVAL.md)。这些小样本只用于定位检索缺口，
 不代表跨仓库通用 Recall 或 Agent 端到端成功率。报告另列失败归因、一次排序先验修正和预先冻结的
 8 题留出集结果；留出集 Recall@3 未上升，MRR 有所改善。
+后续二次修正解决了 JUnit 4 超时任务的双文件召回，并在既有 12 + 8 题中达到 Top 3 全命中；
+这些样本已用于诊断和验证，不能作为全新盲测或跨仓库泛化率引用。
 
 ## 路由与 Plan DAG 评测
 

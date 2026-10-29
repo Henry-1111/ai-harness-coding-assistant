@@ -1,0 +1,1807 @@
+{
+  "dataset_id": "ai-harness-real-repo-retrieval-v1",
+  "manifest_sha256": "e8d4fe1f9ed1db64944293cd1778c6277c4da00cd126958e92ff78afd26e207f",
+  "k": 3,
+  "cases": 12,
+  "structured_recall_at_k": 1.0,
+  "without_symbols_recall_at_k": 0.916667,
+  "structured_mrr": 0.875,
+  "without_symbols_mrr": 0.819445,
+  "structured_wins": 2,
+  "ties": 8,
+  "without_symbols_wins": 2,
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "language": "javascript",
+      "comparison": {
+        "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+        "repository_sha256": "3e19d8f502ee8e1363fd6bd98e5fb0a625d1a5fcc380a9cde51a866935745841",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.833333,
+          "ndcg_at_k": 0.876977,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.998599,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.833333,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-content-negotiation",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "lib/utils.js"
+              ]
+            },
+            {
+              "id": "express-view-rendering",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/view.js",
+                "lib/application.js",
+                "examples/view-constructor/index.js"
+              ]
+            },
+            {
+              "id": "express-file-transfer",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.833333,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.833333,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "express-content-negotiation",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "lib/utils.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998654,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/request.js": 1
+                },
+                "focus@1": {
+                  "lib/request.js": 2
+                },
+                "deepen@1": {
+                  "lib/request.js": null
+                },
+                "related_import@1": {
+                  "lib/request.js": null
+                },
+                "select@1": {
+                  "lib/request.js": 1
+                },
+                "forge@2": {
+                  "lib/request.js": 2
+                },
+                "focus@2": {
+                  "lib/request.js": 1
+                },
+                "deepen@2": {
+                  "lib/request.js": null
+                },
+                "related_import@2": {
+                  "lib/request.js": null
+                },
+                "select@2": {
+                  "lib/request.js": 1
+                },
+                "forge@3": {
+                  "lib/request.js": 3
+                },
+                "focus@3": {
+                  "lib/request.js": 5
+                },
+                "deepen@3": {
+                  "lib/request.js": null
+                },
+                "related_import@3": {
+                  "lib/request.js": null
+                },
+                "select@3": {
+                  "lib/request.js": 3
+                }
+              }
+            },
+            {
+              "id": "express-view-rendering",
+              "retrieved_paths": [
+                "lib/view.js",
+                "lib/application.js",
+                "examples/view-constructor/index.js"
+              ],
+              "relevant_paths": [
+                "lib/application.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.998629,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/application.js": 4
+                },
+                "focus@1": {
+                  "lib/application.js": 10
+                },
+                "deepen@1": {
+                  "lib/application.js": null
+                },
+                "related_import@1": {
+                  "lib/application.js": null
+                },
+                "select@1": {
+                  "lib/application.js": 2
+                }
+              }
+            },
+            {
+              "id": "express-file-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998513,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 2
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "related_import@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                },
+                "forge@2": {
+                  "lib/response.js": 1
+                },
+                "focus@2": {
+                  "lib/response.js": 1
+                },
+                "deepen@2": {
+                  "lib/response.js": null
+                },
+                "related_import@2": {
+                  "lib/response.js": null
+                },
+                "select@2": {
+                  "lib/response.js": 1
+                },
+                "forge@3": {
+                  "lib/response.js": 2
+                },
+                "focus@3": {
+                  "lib/response.js": 2
+                },
+                "deepen@3": {
+                  "lib/response.js": null
+                },
+                "related_import@3": {
+                  "lib/response.js": null
+                },
+                "select@3": {
+                  "lib/response.js": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "161d4a93e19c31af60831627eefa48f90b1a71fb6a274d94f968c6da7a39757b",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.833333,
+          "ndcg_at_k": 0.876977,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.998386,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.833333,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "express-content-negotiation",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/res.format.js"
+              ]
+            },
+            {
+              "id": "express-view-rendering",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/view.js",
+                "lib/application.js",
+                "examples/view-constructor/index.js"
+              ]
+            },
+            {
+              "id": "express-file-transfer",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.833333,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.833333,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "express-content-negotiation",
+              "retrieved_paths": [
+                "lib/request.js",
+                "lib/response.js",
+                "test/res.format.js"
+              ],
+              "relevant_paths": [
+                "lib/request.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998218,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/request.js": 4
+                },
+                "focus@1": {
+                  "lib/request.js": 2
+                },
+                "deepen@1": {
+                  "lib/request.js": null
+                },
+                "related_import@1": {
+                  "lib/request.js": null
+                },
+                "select@1": {
+                  "lib/request.js": 1
+                }
+              }
+            },
+            {
+              "id": "express-view-rendering",
+              "retrieved_paths": [
+                "lib/view.js",
+                "lib/application.js",
+                "examples/view-constructor/index.js"
+              ],
+              "relevant_paths": [
+                "lib/application.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.998629,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/application.js": 3
+                },
+                "focus@1": {
+                  "lib/application.js": 10
+                },
+                "deepen@1": {
+                  "lib/application.js": null
+                },
+                "related_import@1": {
+                  "lib/application.js": null
+                },
+                "select@1": {
+                  "lib/application.js": 2
+                }
+              }
+            },
+            {
+              "id": "express-file-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "test/res.sendFile.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.99831,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 2
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "related_import@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 3,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "7f272ab5ff2254c0dc2537b7977e88ede1cd55e8",
+      "language": "typescript",
+      "comparison": {
+        "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+        "repository_sha256": "742b26f9b53566b1709ec41f5ab247894a062a49e90bf8d49206dbb8034d8393",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.666667,
+          "ndcg_at_k": 0.753953,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.994915,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.666667,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-stable-priority",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "source/options.ts"
+              ]
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/lower-bound.ts",
+                "source/options.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.666667,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 1.0,
+              "mrr": 0.75,
+              "hit_rate": 1.0
+            },
+            "symbol": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.5,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-stable-priority",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/priority-queue.ts",
+                "source/options.ts"
+              ],
+              "relevant_paths": [
+                "source/priority-queue.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.994982,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/priority-queue.ts": 4
+                },
+                "focus@1": {
+                  "source/priority-queue.ts": 1
+                },
+                "deepen@1": {
+                  "source/priority-queue.ts": null
+                },
+                "related_import@1": {
+                  "source/priority-queue.ts": 1
+                },
+                "select@1": {
+                  "source/priority-queue.ts": 2
+                }
+              }
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "retrieved_paths": [
+                "source/index.ts",
+                "test/strict.ts",
+                "test/rate-limit.ts"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.995151,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": 1
+                },
+                "focus@1": {
+                  "source/index.ts": 5
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "related_import@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 1
+                }
+              }
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/lower-bound.ts",
+                "source/options.ts"
+              ],
+              "relevant_paths": [
+                "source/lower-bound.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.5,
+              "ndcg_at_k": 0.63093,
+              "hit": true,
+              "context_reduction_ratio": 0.994612,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.5,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/lower-bound.ts": null
+                },
+                "focus@1": {
+                  "source/lower-bound.ts": 1
+                },
+                "deepen@1": {
+                  "source/lower-bound.ts": null
+                },
+                "related_import@1": {
+                  "source/lower-bound.ts": null
+                },
+                "select@1": {
+                  "source/lower-bound.ts": 2
+                },
+                "forge@2": {
+                  "source/lower-bound.ts": 3
+                },
+                "focus@2": {
+                  "source/lower-bound.ts": 2
+                },
+                "deepen@2": {
+                  "source/lower-bound.ts": null
+                },
+                "related_import@2": {
+                  "source/lower-bound.ts": 1
+                },
+                "select@2": {
+                  "source/lower-bound.ts": 2
+                },
+                "forge@3": {
+                  "source/lower-bound.ts": 3
+                },
+                "focus@3": {
+                  "source/lower-bound.ts": 2
+                },
+                "deepen@3": {
+                  "source/lower-bound.ts": null
+                },
+                "related_import@3": {
+                  "source/lower-bound.ts": 1
+                },
+                "select@3": {
+                  "source/lower-bound.ts": 2
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "9547510dae4cc64becab5296dbbcc48570c5a9ed9cdaae411a7a15200157f350",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 0.666667,
+          "precision_at_k": 0.222222,
+          "mrr": 0.666667,
+          "ndcg_at_k": 0.666667,
+          "hit_rate": 0.666667,
+          "mean_context_reduction_ratio": 0.994868,
+          "baseline_recall_at_k": 0.666667,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.666667,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "pqueue-stable-priority",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/queue.ts",
+                "test/priority-queue.ts"
+              ]
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [
+                "source/index.ts"
+              ],
+              "retrieved_paths": [
+                "test/rate-limit.ts",
+                "test/strict.ts",
+                "source/options.ts"
+              ]
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/lower-bound.ts",
+                "source/priority-queue.ts",
+                "source/index.ts"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 3,
+              "recall_at_k": 0.666667,
+              "mrr": 0.666667,
+              "hit_rate": 0.666667
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 2,
+              "recall_at_k": 0.5,
+              "mrr": 0.5,
+              "hit_rate": 0.5
+            },
+            "symbol": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "pqueue-stable-priority",
+              "retrieved_paths": [
+                "source/priority-queue.ts",
+                "source/queue.ts",
+                "test/priority-queue.ts"
+              ],
+              "relevant_paths": [
+                "source/priority-queue.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.995958,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/priority-queue.ts": 1
+                },
+                "focus@1": {
+                  "source/priority-queue.ts": 1
+                },
+                "deepen@1": {
+                  "source/priority-queue.ts": null
+                },
+                "related_import@1": {
+                  "source/priority-queue.ts": null
+                },
+                "select@1": {
+                  "source/priority-queue.ts": 1
+                }
+              }
+            },
+            {
+              "id": "pqueue-rate-cap",
+              "retrieved_paths": [
+                "test/rate-limit.ts",
+                "test/strict.ts",
+                "source/options.ts"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.993799,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": null
+                },
+                "focus@1": {
+                  "source/index.ts": 5
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "related_import@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 4
+                }
+              }
+            },
+            {
+              "id": "pqueue-binary-insertion",
+              "retrieved_paths": [
+                "source/lower-bound.ts",
+                "source/priority-queue.ts",
+                "source/index.ts"
+              ],
+              "relevant_paths": [
+                "source/lower-bound.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.994848,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/lower-bound.ts": 7
+                },
+                "focus@1": {
+                  "source/lower-bound.ts": 1
+                },
+                "deepen@1": {
+                  "source/lower-bound.ts": null
+                },
+                "related_import@1": {
+                  "source/lower-bound.ts": null
+                },
+                "select@1": {
+                  "source/lower-bound.ts": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.333333,
+        "mrr_delta": 0.0,
+        "structured_wins": 1,
+        "ties": 0,
+        "without_symbols_wins": 2
+      }
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf",
+      "language": "go",
+      "comparison": {
+        "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+        "repository_sha256": "f0a37e53ba6d108f98d291d426a4589518c3586cad5292956aba543229bd8e4d",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.996938,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "chi-url-param",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "context.go",
+                "middleware/url_format.go",
+                "mux_test.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "chi-route-tree",
+              "retrieved_paths": [
+                "tree.go",
+                "mux.go",
+                "chi.go"
+              ],
+              "relevant_paths": [
+                "tree.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996264,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "tree.go": 1
+                },
+                "focus@1": {
+                  "tree.go": 1
+                },
+                "deepen@1": {
+                  "tree.go": null
+                },
+                "related_import@1": {
+                  "tree.go": null
+                },
+                "select@1": {
+                  "tree.go": 1
+                }
+              }
+            },
+            {
+              "id": "chi-url-param",
+              "retrieved_paths": [
+                "context.go",
+                "middleware/url_format.go",
+                "mux_test.go"
+              ],
+              "relevant_paths": [
+                "context.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.997684,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "context.go": 5
+                },
+                "focus@1": {
+                  "context.go": 1
+                },
+                "deepen@1": {
+                  "context.go": null
+                },
+                "related_import@1": {
+                  "context.go": null
+                },
+                "select@1": {
+                  "context.go": 1
+                },
+                "forge@2": {
+                  "context.go": 2
+                },
+                "focus@2": {
+                  "context.go": 1
+                },
+                "deepen@2": {
+                  "context.go": null
+                },
+                "related_import@2": {
+                  "context.go": null
+                },
+                "select@2": {
+                  "context.go": 1
+                },
+                "forge@3": {
+                  "context.go": 2
+                },
+                "focus@3": {
+                  "context.go": 1
+                },
+                "deepen@3": {
+                  "context.go": null
+                },
+                "related_import@3": {
+                  "context.go": null
+                },
+                "select@3": {
+                  "context.go": 1
+                }
+              }
+            },
+            {
+              "id": "chi-throttle-backlog",
+              "retrieved_paths": [
+                "middleware/throttle.go",
+                "middleware/timeout.go",
+                "_examples/limits/main.go"
+              ],
+              "relevant_paths": [
+                "middleware/throttle.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996865,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/throttle.go": 4
+                },
+                "focus@1": {
+                  "middleware/throttle.go": 1
+                },
+                "deepen@1": {
+                  "middleware/throttle.go": null
+                },
+                "related_import@1": {
+                  "middleware/throttle.go": null
+                },
+                "select@1": {
+                  "middleware/throttle.go": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "29a0a0cc4d5e24a195d2ab673ecf7099c7ab8f4b2790d84690fdadf2dfada099",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.777778,
+          "ndcg_at_k": 0.833333,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.996766,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.777778,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "chi-url-param",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "context.go",
+                "middleware/url_format.go",
+                "middleware/request_id.go"
+              ]
+            },
+            {
+              "id": "chi-throttle-backlog",
+              "reasons": [
+                "first_relevant_not_ranked_first"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "middleware/timeout.go",
+                "_examples/limits/main.go",
+                "middleware/throttle.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.777778,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 0.777778,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "chi-route-tree",
+              "retrieved_paths": [
+                "tree.go",
+                "_examples/custom-handler/main.go",
+                "middleware/url_format.go"
+              ],
+              "relevant_paths": [
+                "tree.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996682,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "tree.go": 7
+                },
+                "focus@1": {
+                  "tree.go": 1
+                },
+                "deepen@1": {
+                  "tree.go": null
+                },
+                "related_import@1": {
+                  "tree.go": null
+                },
+                "select@1": {
+                  "tree.go": 1
+                }
+              }
+            },
+            {
+              "id": "chi-url-param",
+              "retrieved_paths": [
+                "context.go",
+                "middleware/url_format.go",
+                "middleware/request_id.go"
+              ],
+              "relevant_paths": [
+                "context.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.996752,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "context.go": 1
+                },
+                "focus@1": {
+                  "context.go": 1
+                },
+                "deepen@1": {
+                  "context.go": null
+                },
+                "related_import@1": {
+                  "context.go": null
+                },
+                "select@1": {
+                  "context.go": 1
+                }
+              }
+            },
+            {
+              "id": "chi-throttle-backlog",
+              "retrieved_paths": [
+                "middleware/timeout.go",
+                "_examples/limits/main.go",
+                "middleware/throttle.go"
+              ],
+              "relevant_paths": [
+                "middleware/throttle.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.333333,
+              "ndcg_at_k": 0.5,
+              "hit": true,
+              "context_reduction_ratio": 0.996865,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.333333,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/throttle.go": null
+                },
+                "focus@1": {
+                  "middleware/throttle.go": 1
+                },
+                "deepen@1": {
+                  "middleware/throttle.go": null
+                },
+                "related_import@1": {
+                  "middleware/throttle.go": null
+                },
+                "select@1": {
+                  "middleware/throttle.go": 3
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.222222,
+        "structured_wins": 1,
+        "ties": 2,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "890f3c972647de378f25e7271d8fbbd9d3456b79",
+      "language": "java",
+      "comparison": {
+        "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+        "repository_sha256": "152bf0517c1a52bc155adad7d9edf59a0a4354baa07c5898e114dcff1df528ad",
+        "cases": 3,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.444444,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.999107,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-temporary-files",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java",
+                "src/main/java/org/junit/runners/Parameterized.java",
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ]
+            },
+            {
+              "id": "junit-test-timeout",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/runners/BlockJUnit4ClassRunner.java"
+              ]
+            },
+            {
+              "id": "junit-child-scheduling",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java",
+                "src/main/java/org/junit/runners/model/RunnerScheduler.java",
+                "src/main/java/org/junit/runners/model/RunnerBuilder.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "junit-temporary-files",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java",
+                "src/main/java/org/junit/runners/Parameterized.java",
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.99881,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 4
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                },
+                "forge@2": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                },
+                "focus@2": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                },
+                "deepen@2": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "related_import@2": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "select@2": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                },
+                "forge@3": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 3
+                },
+                "focus@3": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 2
+                },
+                "deepen@3": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "related_import@3": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "select@3": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 4
+                }
+              }
+            },
+            {
+              "id": "junit-test-timeout",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/runners/BlockJUnit4ClassRunner.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.666667,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999261,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 14,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 12
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 1,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 1,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 2
+                },
+                "forge@2": {
+                  "src/main/java/org/junit/rules/Timeout.java": 3,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "focus@2": {
+                  "src/main/java/org/junit/rules/Timeout.java": 7,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@2": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@2": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@2": {
+                  "src/main/java/org/junit/rules/Timeout.java": 3,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "forge@3": {
+                  "src/main/java/org/junit/rules/Timeout.java": 3,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "focus@3": {
+                  "src/main/java/org/junit/rules/Timeout.java": 7,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@3": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@3": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@3": {
+                  "src/main/java/org/junit/rules/Timeout.java": 4,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                }
+              }
+            },
+            {
+              "id": "junit-child-scheduling",
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java",
+                "src/main/java/org/junit/runners/model/RunnerScheduler.java",
+                "src/main/java/org/junit/runners/model/RunnerBuilder.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999251,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 2
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "forge@2": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "focus@2": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "deepen@2": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "related_import@2": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "select@2": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "forge@3": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 2
+                },
+                "focus@3": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "deepen@3": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "related_import@3": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "select@3": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "550a625332c7c6d836b90674678f98645cd30960053fd324d06b13c355567cb0",
+          "split": null,
+          "cases": 3,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.444444,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.999148,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 3,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "junit-temporary-files",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java",
+                "src/main/java/org/junit/Before.java",
+                "src/main/java/org/junit/After.java"
+              ]
+            },
+            {
+              "id": "junit-test-timeout",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/internal/runners/TestMethod.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "behavior": {
+              "cases": 3,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "junit-temporary-files",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java",
+                "src/main/java/org/junit/Before.java",
+                "src/main/java/org/junit/After.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/TemporaryFolder.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999213,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 3
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 4
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/TemporaryFolder.java": 1
+                }
+              }
+            },
+            {
+              "id": "junit-test-timeout",
+              "retrieved_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/internal/runners/TestMethod.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.666667,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999045,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 6,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 5
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 1,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": null,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/rules/Timeout.java": 1,
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 2
+                }
+              }
+            },
+            {
+              "id": "junit-child-scheduling",
+              "retrieved_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java",
+                "src/main/java/org/junit/runners/model/RunnerScheduler.java",
+                "src/main/java/org/junit/runner/OrderWith.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/runners/ParentRunner.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999186,
+              "rounds": 1,
+              "stop_reason": "evidence_sufficient",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 8
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/runners/ParentRunner.java": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 3,
+        "without_symbols_wins": 0
+      }
+    }
+  ]
+}

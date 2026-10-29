@@ -41,6 +41,60 @@ def test_test_path_prior_distinguishes_implementation_from_test_intent():
     assert ContextIndex._query_wants_test_files("Update unit tests for timeout")
 
 
+def test_structure_tokens_do_not_match_substrings_in_unrelated_names():
+    assert "timeout" in ContextIndex._identifier_tokens("FailOnTimeout.java")
+    assert "the" not in ContextIndex._identifier_tokens("Theories.java")
+    assert "配额" in ContextIndex._identifier_tokens("配额扣减.ts")
+    assert ContextIndex._import_matches_path(
+        "com.example.internal.FailOnTimeout",
+        "src/main/java/com/example/internal/FailOnTimeout.java",
+    )
+    assert not ContextIndex._import_matches_path(
+        "com.example.internal.FailOnTimeout",
+        "src/main/java/other/FailOnTimeout.java",
+    )
+
+
+def test_retrieval_expands_query_relevant_direct_import_without_wrong_package(
+    tmp_path: Path,
+):
+    source = tmp_path / "src" / "main" / "java" / "example"
+    internal = source / "internal"
+    unrelated = tmp_path / "src" / "main" / "java" / "other"
+    internal.mkdir(parents=True)
+    unrelated.mkdir(parents=True)
+    (source / "TimeoutRule.java").write_text(
+        "package example;\nimport example.internal.FailOnTimeout;\n"
+        "class TimeoutRule { void applyTimeout() { new FailOnTimeout(); } }\n",
+        encoding="utf-8",
+    )
+    (internal / "FailOnTimeout.java").write_text(
+        "package example.internal;\nclass FailOnTimeout {}\n", encoding="utf-8"
+    )
+    (unrelated / "FailOnTimeout.java").write_text(
+        "package other;\nclass FailOnTimeout {}\n", encoding="utf-8"
+    )
+    tests = tmp_path / "src" / "test" / "java" / "example"
+    tests.mkdir(parents=True)
+    for index in range(12):
+        (tests / f"TimeoutTest{index}.java").write_text(
+            f"class TimeoutTest{index} {{ void configuredTimeoutExpiresTestMethod() {{}} }}\n",
+            encoding="utf-8",
+        )
+    repository = Repository(tmp_path)
+    index = ContextIndex(repository, RepoMapBuilder().build(repository))
+
+    hits = index.search("apply a timeout rule and fail when it expires", limit=3)
+
+    assert hits[0].path == "src/main/java/example/TimeoutRule.java"
+    assert hits[1].path == "src/main/java/example/internal/FailOnTimeout.java"
+    assert next(
+        stage.selected_paths
+        for stage in index.last_trace.stages
+        if stage.stage == "related_import"
+    ) == ["src/main/java/example/internal/FailOnTimeout.java"]
+
+
 def test_repo_map_extracts_python_symbols_and_imports(tmp_path: Path):
     (tmp_path / "service.py").write_text(
         "import json\n"
