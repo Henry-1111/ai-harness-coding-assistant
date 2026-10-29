@@ -36,6 +36,20 @@ def test_real_repo_manifest_keeps_four_languages_and_twelve_cases():
         {case.id for spec in holdout.repositories for case in spec.cases}
     )
 
+    issues = load_real_repo_manifest(
+        root / "benchmarks" / "real_issue_retrieval_cases.json"
+    )
+    assert len(issues.repositories) == 4
+    assert sum(len(spec.cases) for spec in issues.repositories) == 4
+    assert {spec.language for spec in issues.repositories} == {
+        "javascript", "typescript", "go", "java"
+    }
+    assert all(spec.source_url and spec.fix_url for spec in issues.repositories)
+    assert {case.id for spec in issues.repositories for case in spec.cases}.isdisjoint(
+        {case.id for spec in manifest.repositories for case in spec.cases}
+        | {case.id for spec in holdout.repositories for case in spec.cases}
+    )
+
 
 def test_real_repo_runner_checks_content_and_scores_without_network(tmp_path: Path):
     repository_root = tmp_path / "repository"

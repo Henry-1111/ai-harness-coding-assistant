@@ -1,0 +1,952 @@
+{
+  "dataset_id": "ai-harness-real-issue-retrieval-2026-10-v1",
+  "manifest_sha256": "81f685c5535187474d3d4204df4436a076d7cdac3792b604c4a47b45c6da5e89",
+  "k": 3,
+  "cases": 4,
+  "structured_recall_at_k": 1.0,
+  "without_symbols_recall_at_k": 0.75,
+  "structured_mrr": 0.833333,
+  "without_symbols_mrr": 0.75,
+  "structured_wins": 1,
+  "ties": 3,
+  "without_symbols_wins": 0,
+  "repositories": [
+    {
+      "id": "express",
+      "github": "https://github.com/expressjs/express",
+      "commit": "023767fe9872e029271df1418f73401bff20ff40",
+      "language": "javascript",
+      "source_url": "https://github.com/expressjs/express/pull/7459",
+      "fix_url": "https://github.com/expressjs/express/pull/7459",
+      "comparison": {
+        "dataset_sha256": "b0f41e80ea3aa7f74c950ed1d7ad63504dc76a9b9ff4f736271cdc9e04eb7757",
+        "repository_sha256": "5793140f6962e67b6eadb028788e618995366ba1693994e2ee3f7636056560f9",
+        "cases": 1,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "b0f41e80ea3aa7f74c950ed1d7ad63504dc76a9b9ff4f736271cdc9e04eb7757",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.998059,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-express-etag-transfer",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "lib/utils.js",
+                "test/express.json.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-express-etag-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "lib/utils.js",
+                "test/express.json.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998059,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 3
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "related_import@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                },
+                "forge@2": {
+                  "lib/response.js": 1
+                },
+                "focus@2": {
+                  "lib/response.js": 3
+                },
+                "deepen@2": {
+                  "lib/response.js": null
+                },
+                "related_import@2": {
+                  "lib/response.js": null
+                },
+                "select@2": {
+                  "lib/response.js": 2
+                },
+                "forge@3": {
+                  "lib/response.js": 2
+                },
+                "focus@3": {
+                  "lib/response.js": 2
+                },
+                "deepen@3": {
+                  "lib/response.js": null
+                },
+                "related_import@3": {
+                  "lib/response.js": null
+                },
+                "select@3": {
+                  "lib/response.js": 2
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "b0f41e80ea3aa7f74c950ed1d7ad63504dc76a9b9ff4f736271cdc9e04eb7757",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.998123,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-express-etag-transfer",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "lib/response.js",
+                "examples/content-negotiation/index.js",
+                "test/app.response.js"
+              ]
+            }
+          ],
+          "by_language": {
+            "javascript": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-express-etag-transfer",
+              "retrieved_paths": [
+                "lib/response.js",
+                "examples/content-negotiation/index.js",
+                "test/app.response.js"
+              ],
+              "relevant_paths": [
+                "lib/response.js"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.998123,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "lib/response.js": 1
+                },
+                "focus@1": {
+                  "lib/response.js": 1
+                },
+                "deepen@1": {
+                  "lib/response.js": null
+                },
+                "related_import@1": {
+                  "lib/response.js": null
+                },
+                "select@1": {
+                  "lib/response.js": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 1,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "pqueue",
+      "github": "https://github.com/sindresorhus/p-queue",
+      "commit": "70dd11f35ae1853f002e017f3ed06a2497715d99",
+      "language": "typescript",
+      "source_url": "https://github.com/sindresorhus/p-queue/issues/219",
+      "fix_url": "https://github.com/sindresorhus/p-queue/pull/220",
+      "comparison": {
+        "dataset_sha256": "b3ea6563747d5ebdadeba377cf1a6b27e32c00fd59e3e7d2cbca6f4e204796fd",
+        "repository_sha256": "66b880674c9407a990345f3bb23f707404a2b458751d398d441d0b742c414631",
+        "cases": 1,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "b3ea6563747d5ebdadeba377cf1a6b27e32c00fd59e3e7d2cbca6f4e204796fd",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.982027,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-pqueue-aborted-cap",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/options.ts",
+                "readme.md"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-pqueue-aborted-cap",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/options.ts",
+                "readme.md"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.982027,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": 1
+                },
+                "focus@1": {
+                  "source/index.ts": 2
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "related_import@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 1
+                },
+                "forge@2": {
+                  "source/index.ts": 1
+                },
+                "focus@2": {
+                  "source/index.ts": 1
+                },
+                "deepen@2": {
+                  "source/index.ts": null
+                },
+                "related_import@2": {
+                  "source/index.ts": null
+                },
+                "select@2": {
+                  "source/index.ts": 1
+                },
+                "forge@3": {
+                  "source/index.ts": 1
+                },
+                "focus@3": {
+                  "source/index.ts": 1
+                },
+                "deepen@3": {
+                  "source/index.ts": null
+                },
+                "related_import@3": {
+                  "source/index.ts": null
+                },
+                "select@3": {
+                  "source/index.ts": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "b3ea6563747d5ebdadeba377cf1a6b27e32c00fd59e3e7d2cbca6f4e204796fd",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.9827,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-pqueue-aborted-cap",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/options.ts",
+                "readme.md"
+              ]
+            }
+          ],
+          "by_language": {
+            "typescript": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-pqueue-aborted-cap",
+              "retrieved_paths": [
+                "source/index.ts",
+                "source/options.ts",
+                "readme.md"
+              ],
+              "relevant_paths": [
+                "source/index.ts"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.9827,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "source/index.ts": 6
+                },
+                "focus@1": {
+                  "source/index.ts": 2
+                },
+                "deepen@1": {
+                  "source/index.ts": null
+                },
+                "related_import@1": {
+                  "source/index.ts": null
+                },
+                "select@1": {
+                  "source/index.ts": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 1,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "chi",
+      "github": "https://github.com/go-chi/chi",
+      "commit": "60755706125129a9f9dfb99ac22f7ba016a1b60c",
+      "language": "go",
+      "source_url": "https://github.com/go-chi/chi/pull/1220",
+      "fix_url": "https://github.com/go-chi/chi/pull/1220",
+      "comparison": {
+        "dataset_sha256": "1f8b4d96ead5e1748e2a4faf92f9f273f737c42535fb1d2b02abe7d7d4b861ee",
+        "repository_sha256": "877390b7cfed41197715b942164821587be13a104e0797793dbe4df5dbb1f0f1",
+        "cases": 1,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "1f8b4d96ead5e1748e2a4faf92f9f273f737c42535fb1d2b02abe7d7d4b861ee",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 0.333333,
+          "ndcg_at_k": 0.5,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.996527,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.333333,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-chi-route-context",
+              "reasons": [
+                "first_relevant_not_ranked_first",
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "mux.go",
+                "context.go",
+                "middleware/supress_notfound.go"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.333333,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 0.333333,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-chi-route-context",
+              "retrieved_paths": [
+                "mux.go",
+                "context.go",
+                "middleware/supress_notfound.go"
+              ],
+              "relevant_paths": [
+                "middleware/supress_notfound.go"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 0.333333,
+              "ndcg_at_k": 0.5,
+              "hit": true,
+              "context_reduction_ratio": 0.996527,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 0.333333,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/supress_notfound.go": 5
+                },
+                "focus@1": {
+                  "middleware/supress_notfound.go": 2
+                },
+                "deepen@1": {
+                  "middleware/supress_notfound.go": null
+                },
+                "related_import@1": {
+                  "middleware/supress_notfound.go": null
+                },
+                "select@1": {
+                  "middleware/supress_notfound.go": 3
+                },
+                "forge@2": {
+                  "middleware/supress_notfound.go": 7
+                },
+                "focus@2": {
+                  "middleware/supress_notfound.go": 3
+                },
+                "deepen@2": {
+                  "middleware/supress_notfound.go": null
+                },
+                "related_import@2": {
+                  "middleware/supress_notfound.go": null
+                },
+                "select@2": {
+                  "middleware/supress_notfound.go": 3
+                },
+                "forge@3": {
+                  "middleware/supress_notfound.go": 5
+                },
+                "focus@3": {
+                  "middleware/supress_notfound.go": 1
+                },
+                "deepen@3": {
+                  "middleware/supress_notfound.go": null
+                },
+                "related_import@3": {
+                  "middleware/supress_notfound.go": null
+                },
+                "select@3": {
+                  "middleware/supress_notfound.go": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "1f8b4d96ead5e1748e2a4faf92f9f273f737c42535fb1d2b02abe7d7d4b861ee",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 0.0,
+          "precision_at_k": 0.0,
+          "mrr": 0.0,
+          "ndcg_at_k": 0.0,
+          "hit_rate": 0.0,
+          "mean_context_reduction_ratio": 0.99641,
+          "baseline_recall_at_k": 0.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 0.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-chi-route-context",
+              "reasons": [
+                "missed_relevant_files",
+                "first_relevant_not_ranked_first",
+                "no_new_evidence"
+              ],
+              "missing_paths": [
+                "middleware/supress_notfound.go"
+              ],
+              "retrieved_paths": [
+                "_examples/rest/routes.json",
+                "context.go",
+                "_examples/rest/routes.md"
+              ]
+            }
+          ],
+          "by_language": {
+            "go": {
+              "cases": 1,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 0.0,
+              "mrr": 0.0,
+              "hit_rate": 0.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-chi-route-context",
+              "retrieved_paths": [
+                "_examples/rest/routes.json",
+                "context.go",
+                "_examples/rest/routes.md"
+              ],
+              "relevant_paths": [
+                "middleware/supress_notfound.go"
+              ],
+              "recall_at_k": 0.0,
+              "precision_at_k": 0.0,
+              "reciprocal_rank": 0.0,
+              "ndcg_at_k": 0.0,
+              "hit": false,
+              "context_reduction_ratio": 0.99641,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 0.0,
+              "baseline_reciprocal_rank": 0.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "middleware/supress_notfound.go": null
+                },
+                "focus@1": {
+                  "middleware/supress_notfound.go": 2
+                },
+                "deepen@1": {
+                  "middleware/supress_notfound.go": null
+                },
+                "related_import@1": {
+                  "middleware/supress_notfound.go": null
+                },
+                "select@1": {
+                  "middleware/supress_notfound.go": 7
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 1.0,
+        "mrr_delta": 0.333333,
+        "structured_wins": 1,
+        "ties": 0,
+        "without_symbols_wins": 0
+      }
+    },
+    {
+      "id": "junit4",
+      "github": "https://github.com/junit-team/junit4",
+      "commit": "ed6813d3bbe2da4d67892f73e641fa80ab4d126e",
+      "language": "java",
+      "source_url": "https://github.com/junit-team/junit4/pull/1517",
+      "fix_url": "https://github.com/junit-team/junit4/pull/1517",
+      "comparison": {
+        "dataset_sha256": "394b2fc888f8c1b292bc8b84e6155cecabe27f73ac966b91bd9cff8692ce9e35",
+        "repository_sha256": "31f184de1c849c5ace2db944d32bdc2d4b9471f376c7de4cbc8348aaa5a64b0d",
+        "cases": 1,
+        "k": 3,
+        "structured": {
+          "dataset_sha256": "394b2fc888f8c1b292bc8b84e6155cecabe27f73ac966b91bd9cff8692ce9e35",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.999153,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-junit-timeout-group",
+              "reasons": [
+                "max_rounds"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/runners/model/TestTimedOutException.java",
+                "src/main/java/org/junit/rules/Timeout.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-junit-timeout-group",
+              "retrieved_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/runners/model/TestTimedOutException.java",
+                "src/main/java/org/junit/rules/Timeout.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.999153,
+              "rounds": 3,
+              "stop_reason": "max_rounds",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "forge@2": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "focus@2": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@2": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@2": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@2": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "forge@3": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "focus@3": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@3": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@3": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@3": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                }
+              }
+            }
+          ]
+        },
+        "without_symbols": {
+          "dataset_sha256": "394b2fc888f8c1b292bc8b84e6155cecabe27f73ac966b91bd9cff8692ce9e35",
+          "split": null,
+          "cases": 1,
+          "k": 3,
+          "recall_at_k": 1.0,
+          "precision_at_k": 0.333333,
+          "mrr": 1.0,
+          "ndcg_at_k": 1.0,
+          "hit_rate": 1.0,
+          "mean_context_reduction_ratio": 0.99889,
+          "baseline_recall_at_k": 1.0,
+          "recall_delta": 0.0,
+          "baseline_mrr": 1.0,
+          "mrr_delta": 0.0,
+          "pairwise": {
+            "metric": "reciprocal_rank",
+            "progressive_wins": 0,
+            "ties": 1,
+            "baseline_wins": 0
+          },
+          "bad_cases": [
+            {
+              "id": "issue-junit-timeout-group",
+              "reasons": [
+                "no_new_evidence"
+              ],
+              "missing_paths": [],
+              "retrieved_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/rules/TestRule.java"
+              ]
+            }
+          ],
+          "by_language": {
+            "java": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "by_task_type": {
+            "bug": {
+              "cases": 1,
+              "recall_at_k": 1.0,
+              "mrr": 1.0,
+              "hit_rate": 1.0
+            }
+          },
+          "details": [
+            {
+              "id": "issue-junit-timeout-group",
+              "retrieved_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java",
+                "src/main/java/org/junit/rules/Timeout.java",
+                "src/main/java/org/junit/rules/TestRule.java"
+              ],
+              "relevant_paths": [
+                "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java"
+              ],
+              "recall_at_k": 1.0,
+              "precision_at_k": 0.333333,
+              "reciprocal_rank": 1.0,
+              "ndcg_at_k": 1.0,
+              "hit": true,
+              "context_reduction_ratio": 0.99889,
+              "rounds": 1,
+              "stop_reason": "no_new_evidence",
+              "baseline_recall_at_k": 1.0,
+              "baseline_reciprocal_rank": 1.0,
+              "stage_relevant_ranks": {
+                "forge@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 12
+                },
+                "focus@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                },
+                "deepen@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "related_import@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": null
+                },
+                "select@1": {
+                  "src/main/java/org/junit/internal/runners/statements/FailOnTimeout.java": 1
+                }
+              }
+            }
+          ]
+        },
+        "recall_delta": 0.0,
+        "mrr_delta": 0.0,
+        "structured_wins": 0,
+        "ties": 1,
+        "without_symbols_wins": 0
+      }
+    }
+  ]
+}

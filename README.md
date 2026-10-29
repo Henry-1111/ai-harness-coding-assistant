@@ -540,6 +540,9 @@ ai-harness eval-retrieval . benchmarks/retrieval_cases.json \
 后续二次修正解决了 JUnit 4 超时任务的双文件召回，并在既有 12 + 8 题中达到 Top 3 全命中；
 这些样本已用于诊断和验证，不能作为全新盲测或跨仓库泛化率引用。
 
+另以四个此前未用于调参的公开 issue／PR，在对应修复前提交上检验文件定位；来源、逐题结果和限制见
+[`benchmarks/REAL_ISSUE_RETRIEVAL.md`](benchmarks/REAL_ISSUE_RETRIEVAL.md)。这不是模型修复任务成功率。
+
 ## 路由与 Plan DAG 评测
 
 项目提供 30 个冻结任务，人工标注 Task Type、复杂度、风险等级和预期 Route，并对每个生成 Plan 验证：
